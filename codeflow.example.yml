@@ -1,0 +1,20 @@
+# codeflow configuration: every option, with its default where it has one.
+# Copy this to codeflow.yml, or run `codeflow init --owner <org>`.
+
+# What to measure. Mix owners and single repos freely; a repo selected twice counts once.
+sources:
+  # Every repo an organization or user owns.
+  - owner: your-org
+    include: ["*"]                    # repo-name patterns, case-insensitive (default: all)
+    exclude: ["sandbox-*", "*-docs"]  # applied after include (default: none)
+    archived: false                   # also measure archived repos
+    forks: false                      # also measure forks
+  # A single repo. Measured even if it is archived or a fork: naming it is the opt-in.
+  - repo: usebruno/bruno
+
+# Measure pull requests active on or after this date (YYYY-MM-DD). Required.
+since: 2025-10-01
+
+github:
+  api_url: https://api.github.com     # GitHub Enterprise Server: https://HOST/api/v3
+  token_env: GITHUB_TOKEN             # falls back to GH_TOKEN, then `gh auth token`

@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+
+# Local codeflow state: synced data, reports, and your own config (it names your org).
+.codeflow/
+/codeflow.yml
+*.db
+*.db-*
+codeflow-report*.html
+
+# Secrets
+.env
+.env.*
+
+# Private reference material from an earlier internal tool. Never commit it.
+CodeFlow_reference/
+
+.DS_Store
