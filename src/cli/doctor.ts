@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import type { Org } from "../config/workspace.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import {
   discoverRepos,
@@ -18,9 +19,9 @@ import { PR_PAGE_SIZE } from "../providers/github/queries.ts";
 import { Store } from "../store/store.ts";
 import { branchWarnings } from "./branches.ts";
 import { bold, dim, durationSeconds, num, plural, status, table } from "./format.ts";
-import { connect, type Print } from "./session.ts";
+import { connect, type OrgOptions, orgHeading, orgsFor, type Print } from "./session.ts";
 
-export type DoctorOptions = { config: string; all?: boolean };
+export type DoctorOptions = OrgOptions & { all?: boolean };
 
 /** Repos listed per source before `--all` is needed. */
 const REPO_ROWS = 25;
@@ -40,7 +41,18 @@ const SKIPPED: Record<SkipReason, (n: number) => string> = {
  */
 export async function doctor(options: DoctorOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
-  const session = await connect(options.config, print, { explainScopes: true });
+  const { workspace, orgs } = await orgsFor(options);
+  let code = 0;
+  for (const [i, org] of orgs.entries()) {
+    if (i > 0) print();
+    orgHeading(workspace, org, print);
+    code = Math.max(code, await doctorOrg(org, options, print));
+  }
+  return code;
+}
+
+async function doctorOrg(org: Org, options: DoctorOptions, print: Print): Promise<number> {
+  const session = await connect(org, print, { explainScopes: true });
   if (!session) return 1;
   const { config, client } = session;
   const hourlyLimit = session.budget.limit;

@@ -42,13 +42,15 @@ since: 2025-10-01
       ],
       since: "2025-10-01",
       github: { api_url: "https://api.github.com", token_env: "GITHUB_TOKEN" },
-      data_dir: ".codeflow",
       branches: {},
       promotions: [...DEFAULT_PROMOTION_BRANCHES],
       bots: { accounts: [], reviewers: [], include_prs: false, ignore_bodies: [] },
       paths: [],
+      people: {},
       teams: {},
+      groups: {},
       products: {},
+      rules: [],
     });
   });
 
@@ -72,7 +74,9 @@ products:
       { login: "devon", from: "2026-06-01", to: null, secondary: false },
       { login: "mika", from: null, to: null, secondary: true },
     ]);
-    expect(config.products).toEqual({ Checkout: { repos: ["acme/cart-*"], teams: ["Payments"] } });
+    expect(config.products).toEqual({
+      Checkout: { repos: ["acme/cart-*"], teams: ["Payments"], people: [] },
+    });
   });
 
   it("refuses a person in two teams at once, an unknown team, and the catch-all names", () => {
@@ -84,11 +88,54 @@ products:
       'no team is called "Nobody"',
     );
     expect(errorOf(`${base}teams:\n  No team: { people: [x] }\n`)).toContain(
-      "the report's name for PRs outside any of the teams",
+      "the report's name for PRs outside any team or group",
     );
     expect(errorOf(`${base}products:\n  Empty: {}\n`)).toContain(
       "give the product `repos`, `teams`",
     );
+  });
+
+  it("reads people with their logins, and groups of any kind", () => {
+    const config = parseConfig(`
+sources:
+  - owner: acme
+since: 2025-10-01
+people:
+  ana: { name: Ana Ruiz, github: [ana-r, ana-old] }
+  deploy: { github: [deploy-svc], bot: true }
+  mika: {}
+groups:
+  Mobile: { kind: area, people: [mika], repos: ["acme/ios-*"] }
+  Q4 launch: { teams: [] , people: [ana] }
+`);
+    expect(config.people).toEqual({
+      ana: { name: "Ana Ruiz", github: ["ana-r", "ana-old"] },
+      deploy: { github: ["deploy-svc"], bot: true },
+      mika: {},
+    });
+    expect(config.groups.Mobile).toEqual({
+      kind: "area",
+      repos: ["acme/ios-*"],
+      teams: [],
+      people: ["mika"],
+    });
+    expect(config.groups["Q4 launch"]?.kind).toBe("group");
+  });
+
+  it("refuses a group named like a catch-all, two groups of one name, and a shared login", () => {
+    const base = "sources:\n  - owner: a\nsince: 2025-10-01\n";
+    expect(errorOf(`${base}groups:\n  No area: { kind: area, people: [x] }\n`)).toContain(
+      "the report's name for PRs in no area",
+    );
+    expect(
+      errorOf(`${base}groups:\n  Core: { people: [x] }\nproducts:\n  Core: { people: [y] }\n`),
+    ).toContain('another group is called "Core"');
+    expect(errorOf(`${base}groups:\n  G: { kind: Big Area, people: [x] }\n`)).toContain(
+      "one lowercase word",
+    );
+    expect(
+      errorOf(`${base}people:\n  a: { github: [shared] }\n  b: { github: [shared] }\n`),
+    ).toContain("shared is listed under both a and b");
   });
 
   it("reads measurement settings", () => {
@@ -174,7 +221,7 @@ github:
   });
 
   it("rejects unknown keys rather than ignoring them", () => {
-    expect(errorOf("sources:\n  - owner: a\nsince: 2025-10-01\ngroups: {}\n")).toMatch(/groups/);
+    expect(errorOf("sources:\n  - owner: a\nsince: 2025-10-01\nteamz: {}\n")).toMatch(/teamz/);
   });
 
   it("rejects impossible dates", () => {

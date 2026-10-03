@@ -6,11 +6,12 @@ const template =
   '<html><body><script id="codeflow-data" type="application/json">null</script></body></html>';
 
 const data = (title: string): ReportData => ({
+  org: null,
   builtAt: "2026-10-03T00:00:00Z",
   asOf: "2026-10-02T23:00:00Z",
   coveredFrom: "2025-10-01",
   repos: ["acme/api"],
-  groups: { teams: [], products: [] },
+  groups: { people: [], teams: [], groups: [] },
   facts: [{ title } as ReportData["facts"][number]],
 });
 

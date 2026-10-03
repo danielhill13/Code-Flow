@@ -1,9 +1,11 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parseConfig } from "../config/load.ts";
-import { defaultSince, init, renderConfig } from "./init.ts";
+import { loadWorkspace } from "../config/workspace.ts";
+import { defaultSince, init, orgNameFrom, renderConfig } from "./init.ts";
 
 describe("renderConfig", () => {
   it("writes a config that loads back to the same sources", () => {
@@ -28,19 +30,45 @@ describe("defaultSince", () => {
 });
 
 describe("init", () => {
-  it("refuses to replace an existing config without --force", async () => {
-    vi.spyOn(console, "log").mockImplementation(() => {});
-    const config = join(await mkdtemp(join(tmpdir(), "codeflow-")), "codeflow.yml");
-    await writeFile(config, "keep me");
+  const quiet = () => vi.spyOn(console, "log").mockImplementation(() => {});
 
-    await expect(init({ config, owner: ["acme"] })).rejects.toThrow(/already exists/);
-    expect(await readFile(config, "utf8")).toBe("keep me");
+  it("creates a workspace, then adds orgs to it, keeping its comments", async () => {
+    quiet();
+    const root = await mkdtemp(join(tmpdir(), "codeflow-"));
+    const config = join(root, "codeflow.yml");
+    await init({ config, owner: ["Acme-Corp"] });
+    await writeFile(config, `# ours\n${await readFile(config, "utf8")}`);
+    await init({ config, org: "beta", repo: ["beta-inc/api"], since: "2026-01-01" });
 
-    await init({ config, owner: ["acme"], force: true });
-    expect(await readFile(config, "utf8")).toContain("- owner: acme");
+    expect(await readFile(config, "utf8")).toContain("# ours");
+    const workspace = await loadWorkspace(config);
+    expect(workspace.orgs.map((o) => [o.name, o.config.since])).toEqual([
+      ["acme-corp", defaultSince()],
+      ["beta", "2026-01-01"],
+    ]);
+    expect(existsSync(join(root, "orgs/beta/groups.yml"))).toBe(true);
+    expect(existsSync(join(root, "orgs/beta/people.yml"))).toBe(true);
+    expect(existsSync(join(root, "orgs/beta/rules.yml"))).toBe(true);
   });
 
-  it("needs something to measure", async () => {
+  it("refuses to replace an org without --force, and a single-file config", async () => {
+    quiet();
+    const root = await mkdtemp(join(tmpdir(), "codeflow-"));
+    const config = join(root, "codeflow.yml");
+    await init({ config, owner: ["acme"] });
+    await expect(init({ config, owner: ["acme"] })).rejects.toThrow(/already has an org/);
+    await init({ config, owner: ["acme"], since: "2026-02-01", force: true });
+    expect((await loadWorkspace(config)).orgs[0]?.config.since).toBe("2026-02-01");
+
+    await writeFile(config, "sources:\n  - owner: x\nsince: 2025-10-01\n");
+    await expect(init({ config, owner: ["acme"] })).rejects.toThrow(/codeflow migrate/);
+  });
+
+  it("needs something to measure, and a name that works as a folder", async () => {
     await expect(init({ config: "unused.yml" })).rejects.toThrow(/--owner/);
+    await expect(init({ config: "unused.yml", owner: ["x"], org: "Bad Name" })).rejects.toThrow(
+      /can't name an org/,
+    );
+    expect(orgNameFrom("Acme Corp")).toBe("acme-corp");
   });
 });

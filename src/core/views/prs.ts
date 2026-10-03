@@ -106,7 +106,7 @@ export function prTest(
   ctx: ViewContext,
   q: Omit<PrQuery, "sort" | "limit">,
 ): (pr: PrFact) => boolean {
-  const scoped = selects(q.selection);
+  const scoped = selects(q.selection, ctx.choices);
   const kept = byContributors(q.contributors);
   const tests = q.filters.map((filter) => filterTest(ctx, q.set, filter));
   return (pr) =>

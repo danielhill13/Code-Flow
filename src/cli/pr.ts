@@ -1,26 +1,29 @@
 import { existsSync } from "node:fs";
-import { loadConfig } from "../config/load.ts";
 import type { Exclusion, PrFact } from "../core/facts.ts";
 import { duration } from "../core/format.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
 import { bold, dim, num, plural, status } from "./format.ts";
-import { databasePath, type Print } from "./session.ts";
+import { type OrgOptions, orgsFor, type Print } from "./session.ts";
 
-export type PrOptions = { config: string };
+export type PrOptions = OrgOptions;
 
 const EXCLUSIONS: Record<Exclusion, (pr: PrFact) => string> = {
   bot: () => "a bot opened it",
   base: (pr) => `it targets ${pr.baseBranch}, which isn't a measured branch`,
   promotion: (pr) => `it promotes ${pr.headBranch}, a long-lived branch, rather than adding work`,
+  rule: (pr) => `rule ${pr.excludedBy} says not to count it`,
 };
 
 /** How codeflow reads one PR: every derived value next to the timestamps it came from. */
 export async function showPr(target: string, options: PrOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
-  const config = await loadConfig(options.config);
-  const dbPath = databasePath(options.config, config);
+  const {
+    orgs: [org],
+  } = await orgsFor(options, true);
+  if (!org) throw new CodeflowError("No org to read.");
+  const { config, dbPath } = org;
   if (!existsSync(dbPath)) throw new CodeflowError("Nothing synced yet. Run: codeflow sync");
 
   const match = /^(?:([\w.-]+\/[\w.-]+))?#?(\d+)$/.exec(target.trim());
@@ -70,6 +73,7 @@ function printPr(pr: PrFact, print: Print): void {
       ? status("ok", "Counted", "yes")
       : status("warn", "Counted", `no: ${pr.exclusion ? EXCLUSIONS[pr.exclusion](pr) : "unknown"}`),
   );
+  if (pr.rules.length > 0) print(status("info", "Rules", pr.rules.join(", ")));
 
   const moments: [string, string | null, string?][] = [
     ["first commit", pr.firstCommitAt],

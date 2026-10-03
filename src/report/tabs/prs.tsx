@@ -1,6 +1,6 @@
 import type { PrFact } from "../../core/facts.ts";
 import { duration, num, waitingOnText } from "../../core/format.ts";
-import { isInternal } from "../../core/selection.ts";
+import { isCatchAll, isInternal } from "../../core/selection.ts";
 import { ageDays } from "../../core/views/flow.ts";
 import {
   COLUMNS,
@@ -188,7 +188,12 @@ function Cell(props: { column: PrColumn | "waiting"; pr: PrFact; sorted: boolean
         <span class="cell-title">
           <span style={{ fontWeight: 500 }}>{pr.title}</span>
           <span class="sub">
-            {[pr.repo, pr.team ?? "", ...pr.products, isInternal(pr) ? "" : "outside contributor"]
+            {[
+              pr.repo,
+              pr.team ?? "",
+              ...pr.groups.filter((g) => !isCatchAll(g)),
+              isInternal(pr) ? "" : "outside contributor",
+            ]
               .filter(Boolean)
               .join(" · ")}
           </span>

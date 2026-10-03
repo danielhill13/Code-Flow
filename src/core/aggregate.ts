@@ -114,7 +114,7 @@ export function excluded(
   facts: readonly PrFact[],
   span: Pick<Span, "start" | "end">,
 ): Record<Exclusion, number> {
-  const counts: Record<Exclusion, number> = { bot: 0, base: 0, promotion: 0 };
+  const counts: Record<Exclusion, number> = { bot: 0, base: 0, promotion: 0, rule: 0 };
   for (const pr of facts) {
     if (!pr.counted && pr.exclusion && pr.state === "merged" && inPeriod(span, pr.mergedAt)) {
       counts[pr.exclusion] += 1;

@@ -11,6 +11,8 @@ import { type SpeedModel, speed } from "./views/speed.ts";
 
 /** What `codeflow build` puts into a report: enough to compute every view in it. */
 export type ReportData = {
+  /** The org the data belongs to; null for a single-file config's one org. */
+  org: string | null;
   builtAt: string;
   /** When the data was last known complete. */
   asOf: string;

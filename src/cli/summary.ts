@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import picomatch from "picomatch";
-import { loadConfig } from "../config/load.ts";
 import { CONCENTRATION_SHARE, type Measurement, measure } from "../core/aggregate.ts";
 import { formatValue, PHASE_LABELS, statLabel, valueNote } from "../core/format.ts";
 import { METRICS, metricOf } from "../core/metrics.ts";
@@ -11,10 +10,9 @@ import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
 import { branchWarnings } from "./branches.ts";
 import { bold, dim, num, plural, status, table } from "./format.ts";
-import { databasePath, type Print } from "./session.ts";
+import { type OrgOptions, orgsFor, type Print } from "./session.ts";
 
-export type SummaryOptions = {
-  config: string;
+export type SummaryOptions = OrgOptions & {
   period?: string;
   repo?: string;
   percentile?: string;
@@ -25,8 +23,11 @@ export type SummaryOptions = {
 /** Metrics for one period, from local data only (no network). */
 export async function summary(options: SummaryOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
-  const config = await loadConfig(options.config);
-  const dbPath = databasePath(options.config, config);
+  const {
+    orgs: [org],
+  } = await orgsFor(options, true);
+  if (!org) throw new CodeflowError("No org to read.");
+  const { config, dbPath } = org;
   if (!existsSync(dbPath)) throw new CodeflowError("Nothing synced yet. Run: codeflow sync");
 
   const store = Store.open(dbPath);
@@ -134,6 +135,7 @@ function printSummary(result: Measurement, repos: string[], complete: boolean, p
     result.excluded.promotion &&
       `${plural(result.excluded.promotion, "promotion")} between long-lived branches`,
     result.excluded.bot && `${plural(result.excluded.bot, "PR")} by bots`,
+    result.excluded.rule && `${plural(result.excluded.rule, "PR")} left out by the org's rules`,
   ].filter(Boolean);
   if (excluded.length > 0)
     print(dim(`Not counted, though merged in the period: ${excluded.join(", ")}`));

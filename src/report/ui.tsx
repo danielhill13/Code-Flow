@@ -4,7 +4,7 @@ import type { ComponentChildren } from "preact";
 import type { MetricValue } from "../core/aggregate.ts";
 import { change, changeText } from "../core/compare.ts";
 import { formatValue, prs } from "../core/format.ts";
-import type { Dimension } from "../core/selection.ts";
+import type { Breakdown } from "../core/selection.ts";
 import type { Point, Tile as TileModel } from "../core/views/context.ts";
 
 export function Segmented<T extends string | number>(props: {
@@ -148,22 +148,50 @@ export function shortDate(iso: string, year?: number): string {
 }
 
 /** The breakdowns a selection offers, and switching between them. */
-export type BreakdownChoice = { offered: Dimension[]; onChange: (by: Dimension) => void };
-
-const BY_LABEL: Record<Dimension, string> = {
-  team: "Team",
-  product: "Product",
-  repo: "Repo",
-  person: "Person",
+export type BreakdownChoice = {
+  offered: Breakdown[];
+  /** The breakdown in use: chosen, or the selection's default. */
+  current: Breakdown | null;
+  onChange: (by: Breakdown) => void;
 };
 
-export function BreakdownControl(props: { choice: BreakdownChoice; value: Dimension }) {
+/**
+ * Where a breakdown would have one row (every PR here is in one product, say): nothing to
+ * tabulate, but the switch stays, to pick another.
+ */
+export function SingleBreakdown(props: { choice: BreakdownChoice; name: string }) {
+  const { current } = props.choice;
+  if (current === null || props.choice.offered.length < 2) return null;
+  return (
+    <section class="card" style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
+      <span class="muted" style={{ fontSize: "13px" }}>
+        Every PR in {props.name} is in one {breakdownLabel(current).toLowerCase()}, so there is
+        nothing to break down by it.
+      </span>
+      <span style={{ marginLeft: "auto" }}>
+        <BreakdownControl choice={props.choice} value={current} />
+      </span>
+    </section>
+  );
+}
+
+/** "Team", "Repo", or a kind of group: "Product", "Area". */
+export function breakdownLabel(by: Breakdown): string {
+  if (by === "team") return "Team";
+  if (by === "repo") return "Repo";
+  return capital(by.slice("group:".length));
+}
+
+/** "Teams", "Repos", "Products". */
+export const breakdownPlural = (by: Breakdown) => `${breakdownLabel(by)}s`;
+
+export function BreakdownControl(props: { choice: BreakdownChoice; value: Breakdown }) {
   if (props.choice.offered.length < 2) return null;
   return (
     <Segmented
       label="Break down by"
       small
-      options={props.choice.offered.map((d) => ({ value: d, label: BY_LABEL[d] }))}
+      options={props.choice.offered.map((by) => ({ value: by, label: breakdownLabel(by) }))}
       value={props.value}
       onChange={props.choice.onChange}
     />

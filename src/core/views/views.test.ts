@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { at, bob, carol, deriveRules, prFact } from "../../testing/factories.ts";
 import type { PrFact } from "../facts.ts";
-import { attribute, type Groups, NO_PRODUCT, NO_TEAM } from "../groups.ts";
+import { attribute, type Groups, NO_TEAM, noGroup } from "../groups.ts";
 import { METRICS, metricOf } from "../metrics.ts";
 import type { PrModel, Review } from "../model.ts";
 import { choices, EVERYTHING, type Selection } from "../selection.ts";
@@ -18,12 +18,14 @@ const asOf = new Date("2026-10-03T00:00:00Z");
 const repos = ["acme/api", "acme/web", "acme/scripts"];
 // Products own repos; the one team is alice, who opens every PR but the outsider's.
 const groups: Groups = {
+  people: [],
   teams: [{ name: "Core", members: [{ login: "alice", from: null, to: null, secondary: false }] }],
-  products: [
-    { name: "Platform", repos: ["acme/api"], teams: [] },
-    { name: "Web", repos: ["acme/web"], teams: [] },
+  groups: [
+    { name: "Platform", kind: "product", repos: ["acme/api"], teams: [], people: [] },
+    { name: "Web", kind: "product", repos: ["acme/web"], teams: [], people: [] },
   ],
 };
+const NO_PRODUCT = noGroup("product");
 const rules = deriveRules({ attribute: (pr) => attribute(groups, pr) });
 const fact = (overrides: Partial<PrModel>) => prFact(overrides, rules);
 
@@ -109,13 +111,13 @@ const query = (
   overrides: Partial<ViewQuery> = {},
 ): ViewQuery => ({
   selection,
-  by: "product",
+  by: "group:product",
   contributors: "all",
   window: "30d",
   percentile: 0.5,
   ...overrides,
 });
-const platform: Selection = { ...EVERYTHING, product: ["Platform"] };
+const platform: Selection = { ...EVERYTHING, group: ["Platform"] };
 
 describe("overview", () => {
   const model = overview(ctx, query());
@@ -185,11 +187,11 @@ describe("overview", () => {
     const overlapping: ViewContext = {
       ...ctx,
       facts: facts.map((pr) =>
-        pr.repo === "acme/api" ? { ...pr, products: ["Platform", "Web"] } : pr,
+        pr.repo === "acme/api" ? { ...pr, groups: ["Platform", "Web"] } : pr,
       ),
     };
     const notes = overview(overlapping, query()).notes;
-    expect(notes).toContainEqual({ kind: "overlap", dimension: "product", prs: 12 });
+    expect(notes).toContainEqual({ kind: "overlap", by: "group:product", prs: 12 });
     expect(overview(ctx, query()).notes.map((n) => n.kind)).not.toContain("overlap");
   });
 

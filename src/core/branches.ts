@@ -26,7 +26,7 @@ export function unmeasuredBranches(facts: readonly PrFact[], asOf: Date): Branch
   const repos = new Map<string, { merged: number; counted: number; into: Map<string, number> }>();
   for (const pr of facts) {
     if (pr.state !== "merged" || pr.mergedAt === null || pr.mergedAt < since) continue;
-    if (pr.exclusion === "bot") continue;
+    if (pr.authorIsBot) continue;
     let repo = repos.get(pr.repo);
     if (!repo) {
       repo = { merged: 0, counted: 0, into: new Map() };

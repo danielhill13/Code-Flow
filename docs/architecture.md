@@ -4,6 +4,12 @@ codeflow measures how pull requests move from first commit, through review, to m
 is the design. [roadmap.md](roadmap.md) tracks what is built, and [decisions.md](decisions.md)
 records why.
 
+## Workspace and orgs
+
+A workspace (`codeflow.yml`) lists orgs. Each org is a tenant with its own config folder
+(`orgs/<name>/`), database (`.codeflow/<name>/codeflow.db`) and report file, and the pipeline
+below runs per org. No command, file or report mixes two orgs (D29).
+
 ## Pipeline
 
 ```
@@ -94,20 +100,19 @@ does, since such a period holds only the PRs that happened to be updated later.
 ## Code layout
 
 ```
-src/config/             codeflow.yml schema and loader
+src/config/             config schema, the workspace loader (orgs and their files), bundles for
+                        export and import, and their JSON Schema
 src/store/              the SQLite database: schema migrations, raw PRs, facts, sync state, runs
 src/providers/github/   auth, GraphQL client, queries, repo discovery, sync walks, normalize
 src/core/               provider-neutral PR model, derive, path buckets, metric registry, aggregation,
-                        teams and products (groups), selections, rolling windows, branch checks
+                        people and groups, the rule engine, selections, rolling windows
 src/core/views/         one pure model builder per report tab, and the PR list's filters
 src/pipeline/           steps that tie config, store and core together (derive, report data)
 src/cli/                init · doctor · sync · status · summary · pr · build · serve
-src/report/             the report UI
-src/server/             the hosted track's HTTP API
+src/report/             the report UI; admin/ holds the Setup tab, shown only when served
+src/server/             `codeflow serve`: the HTTP API, per org, and its org registry
 scripts/                developer tools, such as making anonymized test fixtures
 ```
-
-So far everything but `server` exists.
 
 A provider's job ends at the neutral PR model. Adding Azure DevOps or GitLab later means a new
 `src/providers/<name>`, with no change to any metric.
@@ -130,8 +135,10 @@ interface DataSource {
 ```
 
 Each model comes from a pure function in `src/core/views` of the facts, the scope tree and the
-query (decision D18). The static report runs those functions in the page; the server will run
-them per request and send the result as JSON.
+query (decision D18). The static report runs those functions in the page (`EmbeddedSource`);
+`codeflow serve` runs them per request and sends the result as JSON (`HttpSource` in the page).
+Served, the report also gets an `AdminApi` for the Setup tab, which reads each part of an org's
+config with a version and writes it back whole (D33).
 
 |                  | Static                               | Hosted                                     |
 | ---------------- | ------------------------------------ | ------------------------------------------ |
@@ -180,8 +187,8 @@ different depths:
 | Compare | Did the change work? | two calendar periods (or custom dates): every metric, its PR counts, the middle half of its PRs, where the time went |
 | Pull requests | Which PRs are behind this number? | a filtered, sortable list, and a side panel showing how codeflow read one PR |
 
-- **Selection** is any mix of teams, products, repos and people (D26), shown as crumbs in the
-  header and built with a picker. Tables break it down by team, product or repo.
+- **Selection** is any mix of teams, groups, repos and people (D26, D30), shown as crumbs in
+  the header and built with a picker. Tables break it down by team, each kind of group, or repo.
 - **Window** is 30, 60 or 90 days, or year to date, ending when the data does (D19). Compare uses
   calendar periods instead.
 - **Statistic** is the median or P75, everywhere. Predictability adds P85; Compare adds P25 and
@@ -201,20 +208,42 @@ different depths:
 contributors filter, opens PR lists and side panels, and fails on `undefined`, `NaN`,
 `Infinity` or `[object Object]`.
 
-## Teams and products
+## People, teams and groups
 
-Two kinds of group, both from config (`core/groups.ts`):
+Three kinds of definition, all from an org's config (`core/groups.ts`):
 
+- A **person** has one or more logins (D30). Everything that counts people counts persons, so
+  a renamed or second account is the same person.
 - A **team** is people. A PR belongs to its author's team on the day it opened; membership can
   have dates, and a person is in one team at a time, so team rows add up to the total and a move
   keeps its history. A `secondary` membership lists someone with a second team without counting
   their PRs there.
-- A **product** is repos and teams. Products may overlap; the report says how many PRs count for
-  more than one, and totals count each PR once.
+- A **group** has a kind (product, area…) and holds repos, teams and people. Groups may overlap;
+  the report says how many PRs count for more than one, and totals count each PR once.
 
-Derive stamps each fact with its `team`, `alsoTeams` and `products` (D27). Where groups come
-from is open: GitHub teams, CODEOWNERS (paths within a monorepo) or an HR export can feed the
-same definitions later.
+Derive stamps each fact with its `person`, `team`, `alsoTeams`, `groups` and `internal` (D27).
+Where definitions come from is open: GitHub teams, CODEOWNERS (paths within a monorepo) or an HR
+export can feed the same definitions later.
+
+## Rules
+
+Each org's rules (`core/rules.ts`, D31) decide what counts, how its repos are read and how its
+people are treated, scoped to the org, repos, teams, groups or people. Derive asks one engine
+three questions: per repo (measured and promotion branches, product-code paths), per person
+(bot, bot reviews count) and per PR (count, internal, comments to ignore). The older config keys
+compile into rules ahead of `rules.yml`'s. The compiled rules are part of each repo's derive
+fingerprint, so editing a rule re-derives.
+
+## Serving
+
+`codeflow serve` (`src/server/`) uses Node's own `http` module. Each org lives at `/orgs/<org>/`
+and its API at `/api/orgs/<org>/`: `meta`, `views/<tab>`, `prs/<id>`, `config/<part>` (people,
+groups, rules; read and write), `rules/preview`, `export` and `import`. The registry loads each
+org on its own, from its files and database, and loads it again when either changes, whether
+through the app, a hand edit or a sync running beside it. Writes go through the bundle code
+(`planImport`, `applyImport`), so the app, the CLI and hand edits share one validation. It binds
+to 127.0.0.1, checks the Host header against DNS rebinding and requires an `x-codeflow` header
+on writes, which a form on another site can't send (D33).
 
 ## Measurement rules
 

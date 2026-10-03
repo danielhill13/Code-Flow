@@ -1,19 +1,29 @@
 import { existsSync, statSync } from "node:fs";
 import { relative } from "node:path";
-import { loadConfig } from "../config/load.ts";
+import type { Org } from "../config/workspace.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
 import { branchWarnings } from "./branches.ts";
 import { durationSeconds, type Mark, num, plural, status, table } from "./format.ts";
-import { databasePath, type Print } from "./session.ts";
+import { type OrgOptions, orgHeading, orgsFor, type Print } from "./session.ts";
 
-export type StatusOptions = { config: string };
+export type StatusOptions = OrgOptions;
 
-/** What is stored locally and how the last sync went. Local only: no network. */
+/** What is stored locally and how the last sync went, per org. Local only: no network. */
 export async function showStatus(options: StatusOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
-  const config = await loadConfig(options.config);
-  const dbPath = databasePath(options.config, config);
+  const { workspace, orgs } = await orgsFor(options);
+  let code = 0;
+  for (const [i, org] of orgs.entries()) {
+    if (i > 0) print();
+    orgHeading(workspace, org, print);
+    code = Math.max(code, orgStatus(org, print));
+  }
+  return code;
+}
+
+function orgStatus(org: Org, print: Print): number {
+  const { config, dbPath } = org;
   if (!existsSync(dbPath)) {
     print(status("warn", "Data", "nothing synced yet. Run: codeflow sync"));
     return 1;

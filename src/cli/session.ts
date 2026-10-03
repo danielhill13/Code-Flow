@@ -1,6 +1,6 @@
-import { dirname, resolve } from "node:path";
-import { loadConfig } from "../config/load.ts";
+import { relative } from "node:path";
 import type { Config } from "../config/schema.ts";
+import { loadWorkspace, type Org, pickOrgs, type Workspace } from "../config/workspace.ts";
 import { hostFromApiUrl, resolveToken, type TokenKind } from "../providers/github/auth.ts";
 import { GitHubClient, type GraphqlBudget, httpStatus } from "../providers/github/client.ts";
 import { VIEWER } from "../providers/github/queries.ts";
@@ -9,7 +9,29 @@ import { dim, num, plural, status } from "./format.ts";
 
 export type Print = (line?: string) => void;
 
+/** Options every command takes: the workspace (or single config) file, and which org. */
+export type OrgOptions = { config: string; org?: string };
+
+/**
+ * The orgs a command works on, from the workspace file. Commands about one org at a time pass
+ * `one`: a workspace of several orgs then needs --org.
+ */
+export async function orgsFor(
+  options: OrgOptions,
+  one = false,
+): Promise<{ workspace: Workspace; orgs: Org[] }> {
+  const workspace = await loadWorkspace(options.config);
+  return { workspace, orgs: pickOrgs(workspace, options.org, one) };
+}
+
+/** "Org acme", printed above each org's output when a command covers several. */
+export function orgHeading(workspace: Workspace, org: Org, print: Print): void {
+  if (workspace.single || workspace.orgs.length === 1) return;
+  print(status("info", "Org", org.name));
+}
+
 export type Session = {
+  org: Org;
   config: Config;
   /** The SQLite database, inside the config's data_dir. */
   dbPath: string;
@@ -27,26 +49,22 @@ const TOKEN_KINDS: Record<TokenKind, string> = {
   unknown: "token",
 };
 
-/** data_dir is relative to the config file, so commands work from any directory. */
-export function databasePath(configPath: string, config: Config): string {
-  return resolve(dirname(resolve(configPath)), config.data_dir, "codeflow.db");
-}
-
 /**
- * Loads the config and checks the token with GitHub, printing a line for each. Returns null,
- * after saying why, if GitHub rejects the token.
+ * Checks an org's token with GitHub, printing a line for each step. Returns null, after saying
+ * why, if GitHub rejects the token.
  */
 export async function connect(
-  configPath: string,
+  org: Org,
   print: Print,
   options: { explainScopes?: boolean } = {},
 ): Promise<Session | null> {
-  const config = await loadConfig(configPath);
+  const { config } = org;
   print(
     status(
       "ok",
       "Config",
-      `${configPath}: ${plural(config.sources.length, "source")}, since ${config.since}`,
+      `${relative(process.cwd(), org.files.org) || org.files.org}: ` +
+        `${plural(config.sources.length, "source")}, since ${config.since}`,
     ),
   );
 
@@ -103,7 +121,7 @@ export async function connect(
       `${num(budget.remaining)} of ${num(budget.limit)} GraphQL points left, resets ${clock(budget.resetAt)}`,
     ),
   );
-  return { config, dbPath: databasePath(configPath, config), client, login, budget };
+  return { org, config, dbPath: org.dbPath, client, login, budget };
 }
 
 type ViewerData = {

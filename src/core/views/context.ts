@@ -13,14 +13,13 @@ import type { Population } from "../metrics.ts";
 import { metricOf } from "../metrics.ts";
 import type { Span } from "../periods.ts";
 import {
+  type Breakdown,
+  breakdownValues,
   byContributors,
   type Choices,
   type Contributors,
-  type Dimension,
   type Selection,
   selects,
-  sortValues,
-  valuesOf,
 } from "../selection.ts";
 import {
   type Bucket,
@@ -46,8 +45,8 @@ export type ViewContext = {
 /** What a tab is asked for: which PRs, broken down how, over which window, with which statistic. */
 export type ViewQuery = {
   selection: Selection;
-  /** What the tab's breakdown rows are: teams, products or repos; null for none. */
-  by: Dimension | null;
+  /** What the tab's breakdown rows are: teams, groups of one kind, or repos; null for none. */
+  by: Breakdown | null;
   contributors: Contributors;
   window: WindowKey;
   /** 0.5 for the median, 0.75 for P75. */
@@ -113,15 +112,17 @@ export class Slice {
 
   constructor(ctx: ViewContext, selection: Selection, contributors: Contributors) {
     this.ctx = ctx;
-    const selected = selects(selection);
+    const selected = selects(selection, ctx.choices);
     const kept = byContributors(contributors);
     this.facts = ctx.facts.filter((pr) => selected(pr) && kept(pr));
   }
 
   /** The values a breakdown lists: those the slice's counted PRs have, A–Z, catch-alls last. */
-  values(dimension: Dimension): string[] {
-    return sortValues(
-      this.facts.filter((pr) => pr.counted).flatMap((pr) => valuesOf(pr, dimension)),
+  values(by: Breakdown): string[] {
+    return breakdownValues(
+      this.ctx.choices,
+      by,
+      this.facts.filter((pr) => pr.counted),
     );
   }
 

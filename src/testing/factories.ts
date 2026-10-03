@@ -84,9 +84,14 @@ export function deriveRules(overrides: Partial<DeriveRules> = {}): DeriveRules {
     classify: pathClassifier(),
     isBot: (actor) => actor.bot,
     isBotReviewer: () => false,
-    isIgnoredBody: () => false,
-    includeBotPrs: false,
-    attribute: () => ({ team: null, alsoTeams: [], products: [] }),
+    prRules: () => ({ count: null, countRule: null, internal: null, ignore: [], applied: [] }),
+    attribute: (pr) => ({
+      person: pr.author,
+      team: null,
+      alsoTeams: [],
+      groups: [],
+    }),
+    personOf: (login) => login,
     ...overrides,
   };
 }

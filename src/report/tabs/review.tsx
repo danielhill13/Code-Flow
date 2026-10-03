@@ -1,11 +1,17 @@
 import { change, changeArrow } from "../../core/compare.ts";
 import { duration, formatValue, num, percent, prs, statLabel } from "../../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../../core/metrics.ts";
+import { isEverything } from "../../core/selection.ts";
 import type { ReviewModel } from "../../core/views/review.ts";
 import { listHref, metricList, selectionHref, setList } from "../links.ts";
-import { dimensionLabel } from "../selector.tsx";
 import type { ReportState } from "../state.ts";
-import { type BreakdownChoice, BreakdownControl, MetricTile } from "../ui.tsx";
+import {
+  type BreakdownChoice,
+  BreakdownControl,
+  breakdownLabel,
+  MetricTile,
+  SingleBreakdown,
+} from "../ui.tsx";
 
 const LABELS: Record<string, string> = {
   pickup: "Pickup",
@@ -21,6 +27,7 @@ export function Review(props: {
   model: ReviewModel;
   state: ReportState;
   breakdown: BreakdownChoice;
+  name: string;
 }) {
   const { model, state } = props;
   const span = model.window.current;
@@ -62,7 +69,12 @@ export function Review(props: {
       {model.teams.length > 0 ? (
         <TeamLoad model={model} state={state} breakdown={props.breakdown} />
       ) : (
-        <ReviewerLoad model={model} state={state} />
+        <>
+          {isEverything(state.selection) && (
+            <SingleBreakdown choice={props.breakdown} name={props.name} />
+          )}
+          <ReviewerLoad model={model} state={state} />
+        </>
       )}
 
       <section style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -99,23 +111,23 @@ export function Review(props: {
 function TeamLoad(props: { model: ReviewModel; state: ReportState; breakdown: BreakdownChoice }) {
   const { model, state } = props;
   const cols = "minmax(200px,1.6fr) repeat(4,minmax(110px,1fr))";
-  const dimension = model.teams[0]?.dimension ?? "team";
-  const label = dimensionLabel(dimension);
+  const by = model.teams[0]?.by ?? "team";
+  const label = breakdownLabel(by);
   return (
     <section class="card flush">
       <div class="card-head">
-        <h2>Review load by {label.one.toLowerCase()}</h2>
+        <h2>Review load by {label.toLowerCase()}</h2>
         <span class="note">
-          How concentrated review is. Open a {label.one.toLowerCase()} to see who carries it.
+          How concentrated review is. Open a {label.toLowerCase()} to see who carries it.
         </span>
         <span class="end">
-          <BreakdownControl choice={props.breakdown} value={dimension} />
+          <BreakdownControl choice={props.breakdown} value={by} />
         </span>
       </div>
       <div class="table">
         <div class="table-inner" style={{ "--min": "720px" }}>
           <div class="row head" style={{ "--cols": cols }}>
-            <span>{label.one}</span>
+            <span>{label}</span>
             <span>Active reviewers</span>
             <span>Top 2 share</span>
             <span>Pickup</span>

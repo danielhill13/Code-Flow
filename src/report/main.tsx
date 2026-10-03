@@ -1,5 +1,7 @@
 import { render } from "preact";
+import { HttpSource } from "../core/http-source.ts";
 import { EmbeddedSource, type ReportData } from "../core/source.ts";
+import { ServerAdmin, serverOrgs } from "./admin/api.ts";
 import { App } from "./app.tsx";
 
 /** The data `codeflow build` embedded, or, on the development server, the data it serves. */
@@ -11,8 +13,29 @@ async function load(): Promise<ReportData> {
   return (await response.json()) as ReportData;
 }
 
+/** The org this page is for, when `codeflow serve` serves it at /orgs/<org>/. */
+const served = /^\/orgs\/([^/]+)\/?$/.exec(location.pathname)?.[1];
+
 const root = document.getElementById("app");
-if (root) {
+if (root && served) {
+  const org = decodeURIComponent(served);
+  serverOrgs().then(
+    (orgs) => {
+      root.textContent = "";
+      render(
+        <App
+          source={new HttpSource(`/api/orgs/${encodeURIComponent(org)}`)}
+          admin={new ServerAdmin(org)}
+          orgs={orgs}
+        />,
+        root,
+      );
+    },
+    (error: unknown) => {
+      root.textContent = `codeflow serve didn't answer: ${error instanceof Error ? error.message : String(error)}`;
+    },
+  );
+} else if (root) {
   load().then(
     (data) => {
       root.textContent = "";

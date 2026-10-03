@@ -16,7 +16,12 @@ const TEMPLATE = new URL("../../dist/report/index.html", import.meta.url);
 const DATA_SLOT = '<script id="codeflow-data" type="application/json">null</script>';
 
 /** Everything a report needs, from the store's current facts. */
-export function reportData(store: Store, config: Config, now = new Date()): ReportData {
+export function reportData(
+  store: Store,
+  config: Config,
+  org: string | null = null,
+  now = new Date(),
+): ReportData {
   const asOf = store.dataThrough();
   if (!asOf) {
     throw new CodeflowError(
@@ -25,6 +30,7 @@ export function reportData(store: Store, config: Config, now = new Date()): Repo
   }
   const repos = store.repos().map((repo) => repo.fullName);
   return {
+    org,
     builtAt: now.toISOString(),
     asOf,
     coveredFrom: coveredFrom(store, repos),

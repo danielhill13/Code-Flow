@@ -161,3 +161,61 @@ and print the `branches:` line that would measure it. That catches git-flow repo
 features merge into `develop` and only promotions reach `main`, which would otherwise count
 almost nothing. PRs into release, feature and stacked branches stay uncounted, which is what
 keeps a change from counting again at each promotion.
+
+**D29 · 2026-10-03 · A workspace holds orgs; each org is a folder, a database and a report.**
+An org is a tenant: its own sources (GitHub organizations and repos now; Azure DevOps and Jira
+later), people, groups, rules and token. `codeflow.yml` lists the orgs, and each org's config
+lives in `orgs/<name>/` (`org.yml`, `groups.yml`, and in time `people.yml` and `rules.yml`).
+Its data is `.codeflow/<name>/codeflow.db` and its report `codeflow-report-<name>.html`.
+Isolation is physical, not a filter: nothing of one org is ever in another org's database or
+report file, so a report can be handed to one client without exposing another (a test checks
+this). Config stays in files, which people can edit, review and commit; the planned web app
+edits the same files. A single-file config from before workspaces still loads as one org, and
+`codeflow migrate` turns it into a workspace, keeping its comments and moving its data.
+
+**D30 · 2026-10-03 · People have identities; groups have kinds. Supersedes the naming in D25.**
+`people.yml` maps a person to every GitHub login they use (and, later, their Azure DevOps and
+Jira identities), with an optional display name and what config says about them: `bot`
+(a service account) and `internal`. Each fact carries the author's `person`; reviews, review
+load, "waiting on" and selections count people, not logins, so a renamed or second account is
+the same person, and can't review its owner's PRs. Products generalize to groups of any `kind`
+(product, area, program…), holding repos, teams and people; `products:` stays as shorthand for
+kind `product`. Each kind is its own breakdown with its own catch-all ("No area"), and in a
+selection groups of different kinds narrow (product Checkout and area Mobile) while groups of
+one kind widen. Teams keep D25's rules: people, with dates, one primary team per day.
+
+**D31 · 2026-10-03 · Each org has a rule engine; rules are data.** A rule in `rules.yml` has a
+scope (the org, repos, teams, groups, people), optional conditions on the PR (labels, title,
+branches, author association, fork, draft, bot author) and effects of one kind: what counts
+(`count`, `internal`, `ignore_comments`), repo rules (`measured_branches`,
+`promotion_branches`, `paths`) or people rules (`bot`, `bot_reviews_count`). Each effect is
+resolved on its own, the more specific scope winning (org, group, team, repo, person) and then
+the later rule; branch exclusions come first and no rule overrides them, so a change is never
+counted twice. Rules aren't code: they validate with the same schema everywhere, can be shared
+between orgs and are part of the derive fingerprint. The older config keys compile into rules
+(ids starting `config:`), so existing configs behave as before. Every fact records the rules
+that applied to it and, when one left it out, which. `codeflow rules test` derives in memory to
+show what a draft would change; the web app's rule editor will use the same comparison.
+
+**D32 · 2026-10-03 · People, groups and rules travel as versioned bundles.** `codeflow export`
+writes any of an org's people, groups (teams included), rules and settings as one YAML or JSON
+document headed `codeflow: 1`, in the same form as the org's files; CSV covers teams, the form
+HR spreadsheets and directories export. `codeflow import` validates the whole resulting config
+before writing anything, lists what it adds, changes and removes (merge adds and updates;
+replace also removes), and with `--dry-run` writes nothing. It edits the YAML files entry by
+entry, so comments on untouched entries survive, and writes each file by rename so a crash
+can't leave half of one. The bundle's JSON Schema is generated from the config schema and a test
+keeps the published copy current. Settings stay behind by default, since sources and dates are
+each org's own, and bundles never hold tokens.
+
+**D33 · 2026-10-03 · `codeflow serve` edits the files, not a second store.** The report also
+runs as a local web app: `codeflow serve` answers the same `DataSource` calls over HTTP, from
+the same view builders (D5, D18), and adds a Setup tab to edit an org's people, teams, groups and
+rules. Saves write the org's YAML files, entry by entry, through the same checked path as
+`codeflow import`, so a hand edit and an app edit are the same thing and comments on untouched
+entries survive. Each save carries the version of the file it was based on and is refused if the
+file changed meanwhile, rather than overwriting it unseen. Every API path names its org and each
+org loads alone, from its own files and database, so nothing crosses between orgs; the org
+picker loads the other org's page afresh. The server binds to 127.0.0.1, refuses requests
+addressed to any other host (DNS rebinding) and writes without its `x-codeflow` header (another
+site's form). Sign-in arrives with the hosted track; until then, serve is for one machine.

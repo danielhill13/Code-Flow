@@ -2,7 +2,7 @@
 import { CONCENTRATION_SHARE, excluded, type MetricValue, type Phase } from "../aggregate.ts";
 import { REVERT_WINDOW_DAYS } from "../metrics.ts";
 import type { Span } from "../periods.ts";
-import { type Dimension, isInternal, narrow, type Selection } from "../selection.ts";
+import { type Breakdown, isInternal, kindOf, narrow, type Selection } from "../selection.ts";
 import { shiftBack } from "../windows.ts";
 import {
   type Pair,
@@ -25,7 +25,7 @@ export type PhaseSplit = {
 /** A row of the teams (or repos) table. */
 export type ScopeRow = {
   selection: Selection;
-  dimension: Dimension;
+  by: Breakdown;
   name: string;
   merged: Pair;
   cycle: Pair;
@@ -39,12 +39,12 @@ export type ScopeRow = {
 
 /** A fact a reader should know before trusting the numbers. Never a judgment. */
 export type Note =
-  | { kind: "excluded"; base: number; promotion: number; bot: number }
+  | { kind: "excluded"; base: number; promotion: number; bot: number; rule: number }
   | { kind: "concentration"; phase: Phase; pr: { id: string; number: number }; share: number }
   | { kind: "outside"; external: number; open: number }
   | { kind: "tooFew"; rows: { name: string; merged: number }[] }
   /** PRs merged in the window that count in more than one row: products may overlap. */
-  | { kind: "overlap"; dimension: Dimension; prs: number }
+  | { kind: "overlap"; by: Breakdown; prs: number }
   | { kind: "revertLag"; span: Span }
   | { kind: "truncated"; prs: { id: string; number: number }[] };
 
@@ -77,7 +77,7 @@ export function overview(ctx: ViewContext, q: ViewQuery): OverviewModel {
 
   const notes: Note[] = [];
   const out = excluded(slice.facts, window.current);
-  if (out.base + out.promotion + out.bot > 0) notes.push({ kind: "excluded", ...out });
+  if (out.base + out.promotion + out.bot + out.rule > 0) notes.push({ kind: "excluded", ...out });
   for (const share of shares ?? []) {
     if (share.largestShare >= CONCENTRATION_SHARE) {
       const pr = merged.find((m) => m.number === share.largestPr);
@@ -103,9 +103,12 @@ export function overview(ctx: ViewContext, q: ViewQuery): OverviewModel {
       rows: few.map((r) => ({ name: r.name, merged: r.merged.value.value ?? 0 })),
     });
   }
-  if (rows.length > 0 && by === "product") {
-    const shared = merged.filter((pr) => pr.products.length > 1).length;
-    if (shared > 0) notes.push({ kind: "overlap", dimension: by, prs: shared });
+  if (rows.length > 0 && by?.startsWith("group:")) {
+    const kind = by.slice("group:".length);
+    const ofKind = (pr: (typeof merged)[number]) =>
+      pr.groups.filter((g) => kindOf(ctx.choices, g) === kind).length;
+    const shared = merged.filter((pr) => ofKind(pr) > 1).length;
+    if (shared > 0) notes.push({ kind: "overlap", by, prs: shared });
   }
   notes.push({ kind: "revertLag", span: shiftBack(window.current, REVERT_WINDOW_DAYS) });
   const truncated = merged.filter((pr) => pr.truncated.length > 0);
@@ -130,16 +133,16 @@ export function overview(ctx: ViewContext, q: ViewQuery): OverviewModel {
 function row(
   ctx: ViewContext,
   q: ViewQuery,
-  dimension: Dimension,
+  by: Breakdown,
   value: string,
   window: WindowView,
 ): ScopeRow {
-  const selection = narrow(q.selection, dimension, value);
+  const selection = narrow(ctx.choices, q.selection, by, value);
   const slice = new Slice(ctx, selection, q.contributors);
   const p = q.percentile;
   return {
     selection,
-    dimension,
+    by,
     name: value,
     merged: slice.pair("merged", window, p),
     cycle: slice.pair("cycle", window, p),

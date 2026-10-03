@@ -12,8 +12,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { databasePath } from "../src/cli/session.ts";
-import { loadConfig } from "../src/config/load.ts";
+import { loadWorkspace } from "../src/config/workspace.ts";
 import { Store } from "../src/store/store.ts";
 
 const [repo, ...numbers] = process.argv.slice(2);
@@ -22,10 +21,19 @@ if (!repo || numbers.length === 0) {
   process.exit(1);
 }
 
-const config = await loadConfig("codeflow.yml");
-const store = Store.open(databasePath("codeflow.yml", config));
-const repoId = store.repos().find((r) => r.fullName === repo)?.id;
-if (!repoId) throw new Error(`${repo} is not synced`);
+// The org that synced the repo: each org has its own database.
+let store: Store | undefined;
+let repoId: string | undefined;
+for (const org of (await loadWorkspace("codeflow.yml")).orgs) {
+  const candidate = Store.open(org.dbPath);
+  repoId = candidate.repos().find((r) => r.fullName === repo)?.id;
+  if (repoId) {
+    store = candidate;
+    break;
+  }
+  candidate.close();
+}
+if (!store || !repoId) throw new Error(`${repo} is not synced by any org`);
 const wanted = new Set(numbers.map(Number));
 const prs = [...store.latestPrs(repoId)]
   .filter((pr) => wanted.has(pr.number))

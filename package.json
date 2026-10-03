@@ -21,6 +21,7 @@
     "fix": "biome check --write .",
     "test": "vitest run",
     "build": "npm run build:cli && npm run build:report",
+    "schema": "node scripts/schema.ts",
     "check": "npm run typecheck && npm run lint && npm test",
     "build:cli": "tsc -p tsconfig.build.json",
     "build:report": "vite build --config vite.report.config.ts",

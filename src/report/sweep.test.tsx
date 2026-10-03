@@ -13,14 +13,16 @@ import {
   type Groups,
   type Member,
   NO_GROUPS,
-  NO_PRODUCT,
   NO_TEAM,
+  noGroup,
+  personOf,
 } from "../core/groups.ts";
 import type { PrModel, Review } from "../core/model.ts";
 import { parsePeriod } from "../core/periods.ts";
 import { EVERYTHING, type Selection } from "../core/selection.ts";
 import { EmbeddedSource, type ReportData } from "../core/source.ts";
 import { at, bob, carol, deriveRules, prFact as fact } from "../testing/factories.ts";
+import type { AdminApi, ConfigPart, PartValue } from "./admin/api.ts";
 import { App } from "./app.tsx";
 import { DEFAULT_STATE, type ReportState, TABS, writeState } from "./state.ts";
 
@@ -29,6 +31,10 @@ const people = ["ana", "devon", "mika", "visitor"];
 const repos = ["acme/api", "acme/web", "acme/scripts"];
 
 const groups: Groups = {
+  people: [
+    { key: "ana", name: "Ana Ruiz", github: ["ana", "ana-old"], internal: null, bot: null },
+    { key: "visitor", name: null, github: ["visitor"], internal: false, bot: null },
+  ],
   teams: [
     {
       name: "Platform",
@@ -43,9 +49,10 @@ const groups: Groups = {
       ],
     },
   ],
-  products: [
-    { name: "Core", repos: ["acme/api"], teams: [] },
-    { name: "Site", repos: ["acme/web"], teams: ["Web"] },
+  groups: [
+    { name: "Core", kind: "product", repos: ["acme/api"], teams: [], people: [] },
+    { name: "Site", kind: "product", repos: ["acme/web"], teams: ["Web"], people: [] },
+    { name: "Mobile", kind: "area", repos: [], teams: [], people: ["mika", "visitor"] },
   ],
 };
 
@@ -54,7 +61,10 @@ function member(login: string, extra: Partial<Member> = {}): Member {
 }
 
 function facts(withGroups: Groups): PrFact[] {
-  const rules = deriveRules({ attribute: (pr) => attribute(withGroups, pr) });
+  const rules = deriveRules({
+    attribute: (pr) => attribute(withGroups, pr),
+    personOf: (login) => personOf(withGroups, login),
+  });
   const prFact = (overrides: Partial<PrModel>) => fact(overrides, rules);
   const out: PrFact[] = [];
   for (let i = 0; i < 90; i++) {
@@ -117,6 +127,7 @@ function facts(withGroups: Groups): PrFact[] {
 }
 
 const withTeams: ReportData = {
+  org: "acme",
   builtAt: asOf,
   asOf,
   coveredFrom: "2026-01-01",
@@ -169,15 +180,17 @@ describe.each([
           some({ team: ["Platform"] }),
           some({ team: ["Web"], repo: ["acme/web"] }),
           some({ team: [NO_TEAM] }),
-          some({ product: ["Core"] }),
-          some({ product: [NO_PRODUCT] }),
+          some({ group: ["Core"] }),
+          some({ group: [noGroup("product")] }),
+          some({ group: ["Site", "Mobile"] }),
+          some({ group: ["Core", "Site"], team: ["Web"] }),
           some({ person: ["visitor"] }),
           some({ team: ["Platform", "Web"], person: ["ana", "mika"] }),
         ]
       : [EVERYTHING, some({ repo: ["acme/scripts"] }), some({ person: ["ana"] })];
 
   it("shows no broken values in any tab, scope, window, statistic or filter", async () => {
-    for (const tab of TABS.map((t) => t.key)) {
+    for (const tab of TABS.map((t) => t.key).filter((t) => t !== "setup")) {
       for (const selection of selections) {
         for (const window of ["30d", "60d", "90d", "ytd"] as const) {
           for (const percentile of [0.5, 0.75]) {
@@ -191,17 +204,18 @@ describe.each([
         }
       }
     }
-  });
+  }, 30_000); // Hundreds of views: slower than one test is allowed by default.
 
   it("breaks down by each dimension the selection offers, with a row per value", async () => {
     if (data.groups.teams.length === 0) return;
     for (const tab of ["overview", "review"] as const) {
-      for (const by of ["team", "product", "repo"] as const) {
+      for (const by of ["team", "group:product", "group:area", "repo"] as const) {
         const text = await show({ tab, by });
         expect(text, `${tab} by ${by}`).not.toMatch(BAD);
         const rows = {
           team: ["Platform", "Web", NO_TEAM],
-          product: ["Core", "Site", NO_PRODUCT],
+          "group:product": ["Core", "Site", noGroup("product")],
+          "group:area": ["Mobile", noGroup("area")],
           repo: repos,
         };
         for (const name of rows[by]) expect(text, `${tab} by ${by}`).toContain(name);
@@ -234,5 +248,222 @@ describe.each([
       if (!value) throw new Error(key);
       expect(text).toContain(formatValue(value));
     }
+  });
+});
+
+/** The setup of an org, held in memory as `codeflow serve` holds it in files. */
+class FakeAdmin implements AdminApi {
+  readonly org = "acme";
+  readonly saved: { part: ConfigPart; value: PartValue }[] = [];
+  readonly parts: Record<ConfigPart, { value: PartValue; version: number }> = {
+    people: {
+      value: {
+        people: { ana: { name: "Ana Ruiz", github: ["ana", "ana-old"] }, svc: { bot: true } },
+      },
+      version: 1,
+    },
+    groups: {
+      value: {
+        teams: {
+          Platform: { people: ["ana", { login: "devon", to: "2026-08-15" }] },
+          Web: {
+            people: [
+              "mika",
+              { login: "devon", from: "2026-08-16" },
+              { login: "ana", secondary: true },
+            ],
+          },
+        },
+        groups: { Mobile: { kind: "area", people: ["mika", "visitor"] } },
+        products: { Core: { repos: ["acme/api"] }, Site: { repos: ["acme/web"], teams: ["Web"] } },
+      },
+      version: 1,
+    },
+    rules: {
+      value: {
+        rules: [
+          {
+            id: "no-chores",
+            description: "Housekeeping",
+            when: { labels: ["chore"] },
+            then: { count: false },
+          },
+          {
+            id: "legacy",
+            scope: { repos: ["acme/scripts"] },
+            then: { paths: [{ match: ["e2e/**"], bucket: "test" }] },
+          },
+          { id: "deploys", enabled: false, scope: { people: ["svc"] }, then: { bot: true } },
+        ],
+      },
+      version: 1,
+    },
+  };
+
+  async open(part: ConfigPart) {
+    const { value, version } = this.parts[part];
+    return { value: structuredClone(value), version: String(version) };
+  }
+
+  async save(part: ConfigPart, value: PartValue, version: string) {
+    if (String(this.parts[part].version) !== version) throw new Error("changed meanwhile");
+    this.parts[part] = { value, version: this.parts[part].version + 1 };
+    this.saved.push({ part, value });
+    return { version: String(this.parts[part].version), changes: [] };
+  }
+
+  async preview() {
+    const examples = [{ id: "x", repo: "acme/api", number: 7, title: "chore: bump" }];
+    const none = { count: 0, examples: [] };
+    return {
+      synced: true as const,
+      leftOut: { count: 1, examples },
+      broughtIn: none,
+      internal: none,
+      external: none,
+      applied: { "no-chores": 1 },
+    };
+  }
+
+  exportUrl(parts: string[], format: string) {
+    return `/export?only=${parts.join(",")}&format=${format}`;
+  }
+
+  async importText() {
+    return { changes: ["teams: added Data"], applied: false };
+  }
+}
+
+/** Waits until the page's text passes the test, and returns it. */
+async function until(test: (text: string) => boolean): Promise<string> {
+  const deadline = Date.now() + 3000;
+  while (Date.now() < deadline) {
+    const text = document.body.textContent ?? "";
+    if (test(text)) return text;
+    await tick();
+  }
+  throw new Error(`The page never showed what was expected: ${document.body.textContent}`);
+}
+
+function press(label: string): void {
+  const button = [...document.querySelectorAll("button")].find((b) => b.textContent === label);
+  if (!button) throw new Error(`No button "${label}"`);
+  button.click();
+}
+
+function type(field: Element | null | undefined, value: string, event = "input"): void {
+  if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) {
+    throw new Error("No such field");
+  }
+  field.value = value;
+  field.dispatchEvent(new Event(event, { bubbles: true }));
+}
+
+describe("the report, served", () => {
+  const root = document.createElement("div");
+  const admin = new FakeAdmin();
+  beforeAll(async () => {
+    document.body.append(root);
+    render(
+      <App source={new EmbeddedSource(withTeams)} admin={admin} orgs={["acme", "beta"]} />,
+      root,
+    );
+    for (let i = 0; i < 4; i++) await tick();
+  });
+  afterAll(() => {
+    render(null, root);
+    root.remove();
+  });
+
+  it("offers the other orgs, and a Setup tab", async () => {
+    await show({ tab: "overview" });
+    const picker = document.querySelector<HTMLSelectElement>(".org-picker");
+    expect([...(picker?.options ?? [])].map((o) => o.value)).toEqual(["acme", "beta"]);
+    expect(picker?.value).toBe("acme");
+    expect(document.querySelector("nav.tabs")?.textContent).toContain("Setup");
+  });
+
+  it("shows every section of the setup without broken values", async () => {
+    await show({ tab: "setup" });
+    const sections = {
+      People: ["Ana Ruiz", "ana-old"],
+      Teams: ["Platform", "devon (… – 2026-08-15)", "ana (secondary)"],
+      Groups: ["Mobile", "area", "Core", "product", "acme/api"],
+      Rules: [
+        "no-chores",
+        "Housekeeping",
+        "What counts",
+        "Repo rules",
+        "People rules",
+        "test: e2e/**",
+      ],
+      "Import & export": ["Download", "Preview"],
+    };
+    for (const [section, expected] of Object.entries(sections)) {
+      press(section);
+      const text = await until((t) => expected.every((e) => t.includes(e)));
+      expect(text, section).not.toMatch(BAD);
+      expect(text, section).not.toContain("Loading");
+    }
+  });
+
+  it("adds a team, writing it into the setup, and previews a rule as it's written", async () => {
+    await show({ tab: "setup" });
+    press("Teams");
+    await until((t) => t.includes("Platform"));
+    press("Add");
+    await until((t) => t.includes("Add a team"));
+    const form = document.querySelector("form");
+    type(form?.querySelector("input"), "Data");
+    type(form?.querySelector(".member-row input"), "zoe");
+    await tick();
+    press("Save");
+    await until((t) => !t.includes("Add a team") && t.includes("Data"));
+    expect(admin.parts.groups.value.teams).toMatchObject({ Data: { people: ["zoe"] } });
+    expect(admin.parts.groups.value.products).toMatchObject({ Core: { repos: ["acme/api"] } });
+
+    press("Rules");
+    await until((t) => t.includes("no-chores"));
+    press("Add");
+    await until((t) => t.includes("Add a rule"));
+    type(document.querySelector("form input"), "only-chores");
+    const text = await until((t) => t.includes("With this rule saved"));
+    expect(text).toContain("1 PRs would stop counting");
+    expect(text).toContain("chore: bump");
+    expect(text).not.toMatch(BAD);
+    press("Cancel");
+  });
+});
+
+describe("the report, served for an org not yet synced", () => {
+  const root = document.createElement("div");
+  const unsynced = new EmbeddedSource(withTeams);
+  unsynced.meta = () => Promise.reject(new Error("Nothing synced yet for this org."));
+  beforeAll(async () => {
+    document.body.append(root);
+    render(<App source={unsynced} admin={new FakeAdmin()} orgs={["acme"]} />, root);
+  });
+  afterAll(() => {
+    render(null, root);
+    root.remove();
+  });
+
+  it("offers only its setup", async () => {
+    const text = await until((t) => t.includes("Nothing synced yet") && t.includes("Platform"));
+    expect(text).not.toMatch(BAD);
+    expect(document.querySelector("nav.tabs")?.textContent).toBe("Setup");
+  });
+});
+
+describe("the static report", () => {
+  it("has no Setup tab, and reads a link to it as the overview", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    history.replaceState(null, "", "#tab=setup");
+    render(<App source={new EmbeddedSource(withTeams)} />, root);
+    await until((t) => t.includes("Are we getting faster or slower?"));
+    expect(document.querySelector("nav.tabs")?.textContent).not.toContain("Setup");
+    render(null, root);
+    root.remove();
   });
 });

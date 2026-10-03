@@ -3,6 +3,7 @@ import { alice, at, bob, carol, deriveRules, prModel, rabbit } from "../testing/
 import { derivePr } from "./derive.ts";
 import type { PrFact } from "./facts.ts";
 import type { PrModel, Review } from "./model.ts";
+import type { PrOutcome } from "./rules.ts";
 
 const review = (
   author: Review["author"],
@@ -18,6 +19,16 @@ const review = (
 
 const derive = (overrides: Partial<PrModel> = {}, rules = deriveRules()) =>
   derivePr(prModel(overrides), rules);
+
+/** What rules say about a PR, with an id for each thing they say. */
+const ruled = (outcome: Partial<PrOutcome>): PrOutcome => ({
+  count: null,
+  countRule: null,
+  internal: null,
+  ignore: [],
+  applied: [outcome.countRule ?? "a-rule"],
+  ...outcome,
+});
 
 /** The phases must always add up to the cycle time: null phases count as zero. */
 function expectPhasesToAddUp(fact: PrFact) {
@@ -149,7 +160,15 @@ describe("derivePr: who counts as a reviewer", () => {
           { author: bob, at: at("03-05 11:00"), body: "Shipped" },
         ],
       },
-      deriveRules({ isIgnoredBody: (body) => /configured for manual reviews/.test(body) }),
+      deriveRules({
+        prRules: () => ({
+          count: null,
+          countRule: null,
+          internal: null,
+          ignore: [/configured for manual reviews/i],
+          applied: ["quiet-bots"],
+        }),
+      }),
     );
     expect(fact).toMatchObject({ reviewed: false, reviews: 0, comments: 1, pickupHours: null });
   });
@@ -254,9 +273,29 @@ describe("derivePr: what counts", () => {
       exclusion: "bot",
     });
     expect(
-      derive({ author: { login: "dependabot", bot: true } }, deriveRules({ includeBotPrs: true }))
-        .counted,
+      derive(
+        { author: { login: "dependabot", bot: true } },
+        deriveRules({ prRules: () => ruled({ count: true, countRule: "count-bots" }) }),
+      ).counted,
     ).toBe(true);
+  });
+
+  it("leaves out a PR a rule says not to count, naming the rule, but never counts one twice", () => {
+    const skip = deriveRules({ prRules: () => ruled({ count: false, countRule: "no-chores" }) });
+    expect(derive({}, skip)).toMatchObject({
+      counted: false,
+      exclusion: "rule",
+      excludedBy: "no-chores",
+      rules: ["no-chores"],
+    });
+    // Branches decide first: `count: true` can't bring back a PR into an unmeasured branch.
+    const keep = deriveRules({ prRules: () => ruled({ count: true, countRule: "all" }) });
+    expect(derive({ baseBranch: "feature/x" }, keep)).toMatchObject({ exclusion: "base" });
+  });
+
+  it("takes internal from a rule", () => {
+    const rules = deriveRules({ prRules: () => ruled({ internal: false }) });
+    expect(derive({}, rules).internal).toBe(false);
   });
 
   it("leaves out PRs into other branches, such as stacked feature branches", () => {

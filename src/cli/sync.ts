@@ -1,4 +1,5 @@
 import { relative } from "node:path";
+import type { Org } from "../config/workspace.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { discoverRepos, type SourceResult, sourceName } from "../providers/github/discover.ts";
@@ -6,9 +7,9 @@ import { fetchFrom, type RepoOutcome, syncRepos, type WalkName } from "../provid
 import { Store } from "../store/store.ts";
 import { dim, durationSeconds, marked, num, plural, status } from "./format.ts";
 import { Progress } from "./progress.ts";
-import { connect, type Print } from "./session.ts";
+import { connect, type OrgOptions, orgHeading, orgsFor, type Print } from "./session.ts";
 
-export type SyncOptions = { config: string };
+export type SyncOptions = OrgOptions;
 
 const WALKS: Record<WalkName, string> = {
   updates: "updates",
@@ -27,7 +28,21 @@ export async function sync(options: SyncOptions): Promise<number> {
     progress.clear();
     console.log(line);
   };
-  const session = await connect(options.config, print);
+  const { workspace, orgs } = await orgsFor(options);
+  let code = 0;
+  for (const [i, org] of orgs.entries()) {
+    if (i > 0) print();
+    orgHeading(workspace, org, print);
+    const result = await syncOrg(org, progress, print);
+    code = Math.max(code, result);
+    if (result === 130) break; // stopped by the reader: don't start the next org
+  }
+  return code;
+}
+
+/** Syncs one org into its own database. */
+async function syncOrg(org: Org, progress: Progress, print: Print): Promise<number> {
+  const session = await connect(org, print);
   if (!session) return 1;
   const { config, client, dbPath } = session;
 

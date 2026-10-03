@@ -2,8 +2,8 @@
 // styles inline, so a report opens from disk with no server. `codeflow build` fills in the data.
 //
 //   npm run build:report   build the page
-//   npm run report:dev     live-reloading page with data from .codeflow/report-data.json
-import { createReadStream, existsSync } from "node:fs";
+//   npm run report:dev     live-reloading page on the data build --data-only wrote
+import { createReadStream, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
@@ -40,9 +40,24 @@ function inlineAssets(): Plugin {
   };
 }
 
-/** Serves the data `codeflow build --data-only` wrote, for the development server. */
+/**
+ * Serves the data `codeflow build --data-only` wrote, for the development server: the org named
+ * by CODEFLOW_ORG, or a single-file config's data, or else the first org's.
+ */
 function devData(): Plugin {
-  const file = here(".codeflow/report-data.json");
+  const org = process.env.CODEFLOW_ORG;
+  const orgs = existsSync(here(".codeflow"))
+    ? readdirSync(here(".codeflow"), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => here(`.codeflow/${entry.name}/report-data.json`))
+        .filter((path) => existsSync(path))
+        .sort()
+    : [];
+  const file = org
+    ? here(`.codeflow/${org}/report-data.json`)
+    : existsSync(here(".codeflow/report-data.json"))
+      ? here(".codeflow/report-data.json")
+      : (orgs[0] ?? here(".codeflow/report-data.json"));
   return {
     name: "codeflow:dev-data",
     apply: "serve",

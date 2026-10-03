@@ -5,16 +5,17 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 3;
+export const DERIVE_VERSION = 5;
 
 /**
  * Why a PR is not counted in flow metrics:
  * - `bot`: a bot opened it (config can include bot PRs);
  * - `base`: it targets a branch that is not measured, such as a feature branch (stacked work);
  * - `promotion`: its head is a long-lived branch of the same repo, so it moves work that was
- *   already counted when it first landed (a promotion or back-merge).
+ *   already counted when it first landed (a promotion or back-merge);
+ * - `rule`: one of the org's rules says not to count it (`excludedBy` names the rule).
  */
-export type Exclusion = "bot" | "base" | "promotion";
+export type Exclusion = "bot" | "base" | "promotion" | "rule";
 
 /** A review that counts as review: by someone other than the author, while the PR was open. */
 export type ReviewEntry = {
@@ -63,16 +64,25 @@ export type PrFact = {
   headBranch: string;
   labels: string[];
 
-  // Where the PR belongs (core/groups.ts): config's teams and products, as of the day it opened.
+  // Who opened it and where it belongs (core/groups.ts), as of the day it opened.
+  /** The author as a person: their key in config, or their login when config doesn't list them. */
+  person: string;
   /** The author's primary team that day; null when they were in none. */
   team: string | null;
   /** Teams the author was a secondary member of that day: the PR doesn't count there. */
   alsoTeams: string[];
-  products: string[];
+  /** Its groups of every kind, or a kind's catch-all ("No product") where it has none. */
+  groups: string[];
+  /** Internal or external as an org rule says; null to go by GitHub. */
+  internal: boolean | null;
 
   /** Counted in flow metrics. When false, `exclusion` says why. */
   counted: boolean;
   exclusion: Exclusion | null;
+  /** The rule that left it out, when `exclusion` is "rule". */
+  excludedBy: string | null;
+  /** The ids of every org rule that applied to the PR (core/rules.ts). */
+  rules: string[];
 
   // The timeline. Reviews and comments after a PR merged or closed do not count toward it.
   createdAt: string;

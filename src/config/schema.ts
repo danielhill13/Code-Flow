@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { DEFAULT_PROMOTION_BRANCHES } from "../core/derive.ts";
-import { type Member, NO_PRODUCT, NO_TEAM, teamOverlaps } from "../core/groups.ts";
+import { groupProblems, type Member, NO_TEAM, noGroup } from "../core/groups.ts";
 import { BUCKETS } from "../core/paths.ts";
+import { type Rule, ruleProblems } from "../core/rules.ts";
 
 /** GitHub repo names are letters, digits, `.`, `_` and `-`; logins are a subset of that. */
 export const REPO_PATTERN = /^[\w.-]+\/[\w.-]+$/;
@@ -116,86 +117,259 @@ const MemberSchema = z.union([
 ]);
 
 const TeamSchema = z.strictObject({
-  /** Everyone in the team. A PR belongs to its author's team on the day it opened. */
+  /** Everyone in the team, by person key or login. A PR counts for its author's team that day. */
   people: z.array(MemberSchema).min(1, "list the team's people"),
 });
 
-const ProductSchema = z
+/** A person: their GitHub logins (default: the key), and what config says about them. */
+const PersonSchema = z
   .strictObject({
-    /** Repos (owner/name globs) whose PRs belong to the product. */
-    repos: z.array(Pattern).default([]),
-    /** Teams whose PRs belong to the product, in any repo. */
-    teams: z.array(z.string().min(1)).default([]),
+    name: z.string().min(1).optional(),
+    /** Every login they use, current first. Renamed and second accounts belong here. */
+    github: z.array(z.string().min(1)).min(1).optional(),
+    /** Count them as internal (true) or external (false) whatever GitHub says. */
+    internal: z.boolean().optional(),
+    /** Treat them as a bot: a service account, say. */
+    bot: z.boolean().optional(),
   })
-  .refine((product) => product.repos.length + product.teams.length > 0, {
-    message: "give the product `repos`, `teams` or both",
+  .prefault({});
+
+const KIND = /^[a-z][a-z0-9_-]*$/;
+
+const GroupSchema = z
+  .strictObject({
+    /** What sort of group: product, area, program… One lowercase word. */
+    kind: z
+      .string()
+      .regex(KIND, "a kind is one lowercase word, like product or area")
+      .default("group"),
+    /** Repos (owner/name globs) whose PRs belong to the group. */
+    repos: z.array(Pattern).default([]),
+    /** Teams whose PRs belong to the group, in any repo. */
+    teams: z.array(z.string().min(1)).default([]),
+    /** People whose PRs belong to the group, in any repo. */
+    people: z.array(z.string().min(1)).default([]),
+  })
+  .refine((group) => group.repos.length + group.teams.length + group.people.length > 0, {
+    message: "give the group `repos`, `teams`, `people`, or a mix",
   });
 
-const RESERVED = [NO_TEAM, NO_PRODUCT].map((name) => name.toLowerCase());
+/** `products:` is shorthand for groups of kind product. */
+const ProductSchema = z
+  .strictObject({
+    repos: z.array(Pattern).default([]),
+    teams: z.array(z.string().min(1)).default([]),
+    people: z.array(z.string().min(1)).default([]),
+  })
+  .refine((product) => product.repos.length + product.teams.length + product.people.length > 0, {
+    message: "give the product `repos`, `teams`, `people`, or a mix",
+  });
 
-/** Checks that span teams and products: reserved names, known teams, one team per person per day. */
+/** Lowercase, no `:`: ids with a `:` belong to the rules config keys stand for. */
+const RuleId = /^[a-z0-9][a-z0-9_.-]*$/;
+
+/** One rule in rules.yml. Validated whole with the rest of the config (checkGroups). */
+const RuleSchema = z.strictObject({
+  id: z.string().regex(RuleId, "an id is lowercase letters, digits, - _ and ."),
+  description: z.string().min(1).optional(),
+  enabled: z.boolean().default(true),
+  scope: z
+    .strictObject({
+      repos: z.array(Pattern).optional(),
+      teams: z.array(z.string().min(1)).optional(),
+      groups: z.array(z.string().min(1)).optional(),
+      people: z.array(z.string().min(1)).optional(),
+    })
+    .default({}),
+  when: z
+    .strictObject({
+      labels: z.array(z.string().min(1)).optional(),
+      title: Regex.optional(),
+      base: z.array(Pattern).optional(),
+      head: z.array(Pattern).optional(),
+      author_association: z.array(z.string().min(1)).optional(),
+      from_fork: z.boolean().optional(),
+      draft: z.boolean().optional(),
+      author_bot: z.boolean().optional(),
+    })
+    .default({}),
+  // biome-ignore lint/suspicious/noThenProperty: rules.yml pairs `when:` with `then:`; code reads it as `effects`
+  then: z.strictObject({
+    count: z.boolean().optional(),
+    internal: z.boolean().optional(),
+    ignore_comments: z.array(Regex).optional(),
+    measured_branches: z.array(Pattern).min(1).optional(),
+    promotion_branches: z.array(Pattern).optional(),
+    paths: z
+      .array(
+        z.strictObject({
+          match: z
+            .union([Pattern, z.array(Pattern).min(1)])
+            .transform((m) => (Array.isArray(m) ? m : [m])),
+          bucket: z.enum(BUCKETS),
+        }),
+      )
+      .optional(),
+    bot: z.boolean().optional(),
+    bot_reviews_count: z.boolean().optional(),
+  }),
+});
+
+export type RuleInput = z.output<typeof RuleSchema>;
+
+/** A rules.yml on its own, as `rules test` and import read one. */
+export const RulesFileSchema = z.strictObject({ rules: z.array(RuleSchema).default([]) });
+
+type GroupInput = { kind: string; teams: string[] };
+
+/**
+ * Checks that span people, teams and groups: reserved and repeated names, teams that exist, a
+ * login on one person only, one team per person per day.
+ */
 function checkGroups(
   config: {
+    people: Record<string, { github?: string[] | undefined }>;
     teams: Record<string, { people: Member[] }>;
+    groups: Record<string, GroupInput>;
     products: Record<string, { teams: string[] }>;
+    rules: RuleInput[];
   },
   ctx: z.RefinementCtx,
 ): void {
-  for (const [kind, names] of [
-    ["teams", Object.keys(config.teams)],
-    ["products", Object.keys(config.products)],
-  ] as const) {
-    for (const name of names) {
-      if (RESERVED.includes(name.toLowerCase())) {
-        ctx.addIssue({
-          code: "custom",
-          path: [kind, name],
-          message: `"${name}" is the report's name for PRs outside any of the ${kind}: choose another`,
-        });
-      }
+  const groups: [string, string, GroupInput][] = [
+    ...Object.entries(config.groups).map(([n, g]): [string, string, GroupInput] => [
+      "groups",
+      n,
+      g,
+    ]),
+    ...Object.entries(config.products).map(([n, g]): [string, string, GroupInput] => [
+      "products",
+      n,
+      { kind: "product", teams: g.teams },
+    ]),
+  ];
+  const reserved = new Set(
+    [NO_TEAM, ...groups.map(([, , g]) => noGroup(g.kind))].map((n) => n.toLowerCase()),
+  );
+  const issue = (path: (string | number)[], message: string) =>
+    ctx.addIssue({ code: "custom", path, message });
+  for (const name of Object.keys(config.teams)) {
+    if (reserved.has(name.toLowerCase())) {
+      issue(["teams", name], `"${name}" is the report's name for PRs outside any team or group`);
     }
   }
-  for (const [name, product] of Object.entries(config.products)) {
-    for (const team of product.teams) {
-      if (!(team in config.teams)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["products", name, "teams"],
-          message: `no team is called "${team}"`,
-        });
-      }
+  const seen = new Set<string>();
+  for (const [key, name, group] of groups) {
+    if (reserved.has(name.toLowerCase())) {
+      issue(
+        [key, name],
+        `"${name}" is the report's name for PRs in no ${group.kind}: choose another`,
+      );
+    }
+    if (seen.has(name.toLowerCase())) issue([key, name], `another group is called "${name}"`);
+    seen.add(name.toLowerCase());
+    for (const team of group.teams) {
+      if (!(team in config.teams)) issue([key, name, "teams"], `no team is called "${team}"`);
     }
   }
-  const teams = Object.entries(config.teams).map(([name, team]) => ({
-    name,
-    members: team.people,
-  }));
-  for (const problem of teamOverlaps(teams)) {
-    ctx.addIssue({ code: "custom", path: ["teams"], message: problem });
+  const problems = groupProblems({
+    people: Object.entries(config.people).map(([key, p]) => ({
+      key,
+      name: null,
+      github: p.github ?? [key],
+      internal: null,
+      bot: null,
+    })),
+    teams: Object.entries(config.teams).map(([name, team]) => ({ name, members: team.people })),
+  });
+  for (const problem of problems) issue(["teams"], problem);
+  const known = {
+    teams: Object.keys(config.teams),
+    groups: [...Object.keys(config.groups), ...Object.keys(config.products)],
+  };
+  for (const problem of ruleProblems(
+    config.rules.map((rule) => asRule(rule, "rules.yml")),
+    known,
+  )) {
+    issue(["rules"], problem);
   }
 }
 
+/** A rule as config wrote it, in the engine's shape. */
+export function asRule(input: RuleInput, source: string): Rule {
+  return {
+    id: input.id,
+    description: input.description ?? null,
+    enabled: input.enabled,
+    scope: input.scope,
+    when: input.when,
+    effects: input.then,
+    source,
+  };
+}
+
+/** What org.yml holds: what to measure, and the older rule keys. */
+const settingsShape = {
+  sources: z.array(SourceSchema).min(1, "add at least one source"),
+  since: z.iso.date("must be a date like 2025-10-01"),
+  // prefault, not default: the empty object still runs through the schema, so the field
+  // defaults above apply when the whole block is left out.
+  github: GitHubSchema.prefault({}),
+  /**
+   * Where synced data lives, relative to the config file (or the org's folder). Default:
+   * .codeflow next to a single-file config, .codeflow/<org> in a workspace.
+   */
+  data_dir: z.string().min(1).optional(),
+  /** Measured branches per repo (owner/name glob → branches). Default: the default branch. */
+  branches: z.record(Pattern, z.array(Pattern).min(1)).default({}),
+  /** Same-repo head branches that make a PR a promotion or back-merge. Replaces the defaults. */
+  promotions: z.array(Pattern).default([...DEFAULT_PROMOTION_BRANCHES]),
+  bots: BotsSchema.prefault({}),
+  /** Path rules checked before the built-in ones. */
+  paths: z.array(PathRuleSchema).default([]),
+};
+
+/** What people.yml, groups.yml and rules.yml hold. */
+const definitionsShape = {
+  /** People by key, with their logins (decision D30). */
+  people: z.record(z.string().min(1), PersonSchema).default({}),
+  /** Teams by name: who works together. A person is in one team at a time (decision D25). */
+  teams: z.record(z.string().min(1), TeamSchema).default({}),
+  /** Groups by name, of any kind: repos, teams and people. Groups may overlap. */
+  groups: z.record(z.string().min(1), GroupSchema).default({}),
+  /** Shorthand for groups of kind product. */
+  products: z.record(z.string().min(1), ProductSchema).default({}),
+  /** The org's own rules (decision D31): what counts, repo rules, people rules. */
+  rules: z.array(RuleSchema).default([]),
+};
+
 export const ConfigSchema = z
-  .strictObject({
-    sources: z.array(SourceSchema).min(1, "add at least one source"),
-    since: z.iso.date("must be a date like 2025-10-01"),
-    // prefault, not default: the empty object still runs through the schema, so the field
-    // defaults above apply when the whole block is left out.
-    github: GitHubSchema.prefault({}),
-    /** Where synced data lives, relative to the config file. */
-    data_dir: z.string().min(1).default(".codeflow"),
-    /** Measured branches per repo (owner/name glob → branches). Default: the default branch. */
-    branches: z.record(Pattern, z.array(Pattern).min(1)).default({}),
-    /** Same-repo head branches that make a PR a promotion or back-merge. Replaces the defaults. */
-    promotions: z.array(Pattern).default([...DEFAULT_PROMOTION_BRANCHES]),
-    bots: BotsSchema.prefault({}),
-    /** Path rules checked before the built-in ones. */
-    paths: z.array(PathRuleSchema).default([]),
-    /** Teams by name: who works together. A person is in one team at a time (decision D25). */
-    teams: z.record(z.string().min(1), TeamSchema).default({}),
-    /** Products by name: repos and teams. Products may overlap. */
-    products: z.record(z.string().min(1), ProductSchema).default({}),
-  })
+  .strictObject({ ...settingsShape, ...definitionsShape })
   .superRefine(checkGroups);
+
+/** The bundle format's version: `codeflow: 1` at the top of every bundle (decision D32). */
+export const BUNDLE_VERSION = 1;
+
+/**
+ * A bundle of an org's config, as `codeflow export` writes and `codeflow import` reads. Each
+ * part is optional; values take the same form as in the org's files. Checked here for shape;
+ * whether it fits with the rest of an org is checked when it is imported.
+ */
+export const BundleSchema = z.strictObject({
+  codeflow: z.literal(BUNDLE_VERSION, {
+    message: `this isn't a codeflow bundle of a version this codeflow reads (it reads ${BUNDLE_VERSION})`,
+  }),
+  /** The org it was exported from, for the record. */
+  org: z.string().optional(),
+  /** When it was exported, ISO 8601. */
+  exported: z.string().optional(),
+  /** What org.yml holds. Rarely moved between orgs: sources and dates are each org's own. */
+  settings: z.strictObject(settingsShape).partial().optional(),
+  people: definitionsShape.people.optional(),
+  teams: definitionsShape.teams.optional(),
+  groups: definitionsShape.groups.optional(),
+  products: definitionsShape.products.optional(),
+  rules: definitionsShape.rules.optional(),
+});
 
 export type Config = z.output<typeof ConfigSchema>;

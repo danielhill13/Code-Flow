@@ -2,6 +2,7 @@ import type { Exclusion, OpenState, PrFact, ReviewEntry, WaitingOn } from "./fac
 import type { Attribution } from "./groups.ts";
 import type { Actor, Comment, PrModel, Review } from "./model.ts";
 import { BUCKETS, type Bucket } from "./paths.ts";
+import type { PrContext, PrOutcome } from "./rules.ts";
 
 /** The configurable judgments derive needs, already resolved for the repo at hand. */
 export type DeriveRules = {
@@ -14,12 +15,12 @@ export type DeriveRules = {
   isBot: (actor: Actor) => boolean;
   /** A bot whose reviews count as review anyway. */
   isBotReviewer: (actor: Actor) => boolean;
-  /** Boilerplate a bot or template posts: such comments and review bodies are ignored. */
-  isIgnoredBody: (body: string) => boolean;
-  /** Count bot-authored PRs in flow metrics. */
-  includeBotPrs: boolean;
-  /** The team and products a PR belongs to (core/groups.ts, attribute). */
+  /** What the org's rules say about this PR (core/rules.ts): what counts, comments to ignore. */
+  prRules: (pr: PrContext) => PrOutcome;
+  /** Who opened a PR and the team and groups it belongs to (core/groups.ts, attribute). */
   attribute: (pr: { repo: string; author: string; createdAt: string }) => Attribution;
+  /** The person a login belongs to (core/groups.ts, personOf): reviews count by person. */
+  personOf: (login: string) => string;
 };
 
 /**
@@ -49,7 +50,27 @@ const HOUR_MS = 3_600_000;
 export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
   const author = pr.author ?? GHOST;
   const authorIsBot = rules.isBot(author);
-  const sameAsAuthor = (actor: Actor) => actor.login.toLowerCase() === author.login.toLowerCase();
+  const where = rules.attribute({ repo: pr.repo, author: author.login, createdAt: pr.createdAt });
+  const ruled = rules.prRules({
+    repo: pr.repo,
+    person: where.person,
+    team: where.team,
+    groups: where.groups,
+    labels: pr.labels,
+    title: pr.title,
+    base: pr.baseBranch,
+    head: pr.headBranch,
+    authorAssociation: pr.authorAssociation,
+    fromFork: pr.fromFork,
+    draft: pr.draft,
+    authorBot: authorIsBot,
+  });
+  // Boilerplate a bot or template posts: such comments and review bodies don't count.
+  const ignored = (body: string) =>
+    body !== "" && ruled.ignore.some((pattern) => pattern.test(body));
+  // People can have several accounts: a review from the author's other account is still theirs.
+  const me = rules.personOf(author.login).toLowerCase();
+  const sameAsAuthor = (actor: Actor) => rules.personOf(actor.login).toLowerCase() === me;
 
   // Review is what happened while the PR was open: later reviews and comments don't count.
   const end = pr.mergedAt ?? pr.closedAt;
@@ -63,17 +84,16 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
         review.state !== "pending" &&
         inTime(review.at) &&
         byOthers(review.author) &&
-        !rules.isIgnoredBody(review.body),
+        !ignored(review.body),
     )
     .sort((a, b) => a.at.localeCompare(b.at));
   const approvals = reviews.filter((review) => review.state === "approved");
   const comments = pr.comments.filter(
-    (comment: Comment) =>
-      inTime(comment.at) && byOthers(comment.author) && !rules.isIgnoredBody(comment.body),
+    (comment: Comment) => inTime(comment.at) && byOthers(comment.author) && !ignored(comment.body),
   );
 
   const log: ReviewEntry[] = reviews.map((review) => ({
-    by: review.author.login,
+    by: rules.personOf(review.author.login),
     at: review.at,
     state: review.state as ReviewEntry["state"],
   }));
@@ -82,7 +102,13 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     event.type === "review_requested" &&
     event.reviewer !== null &&
     (event.reviewer.team || byOthers(event.reviewer))
-      ? [{ name: event.reviewer.login, team: event.reviewer.team, at: event.at }]
+      ? [
+          {
+            name: event.reviewer.team ? event.reviewer.login : rules.personOf(event.reviewer.login),
+            team: event.reviewer.team,
+            at: event.at,
+          },
+        ]
       : [],
   );
 
@@ -110,8 +136,10 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     baseBranch: pr.baseBranch,
     headBranch: pr.headBranch,
     labels: pr.labels,
-    ...rules.attribute({ repo: pr.repo, author: author.login, createdAt: pr.createdAt }),
-    ...inclusion(pr, authorIsBot, rules),
+    ...belongs(where),
+    internal: ruled.internal,
+    ...inclusion(pr, authorIsBot, rules, ruled),
+    rules: ruled.applied,
     createdAt: pr.createdAt,
     startAt,
     firstCommitAt,
@@ -134,7 +162,7 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
         ? Math.max(0, hours(readyAt, firstApprovalAt))
         : null,
     ...size(pr, rules),
-    reviewers: [...new Set(reviews.map((review) => review.author.login))].sort(),
+    reviewers: [...new Set(reviews.map((review) => rules.personOf(review.author.login)))].sort(),
     reviews: reviews.length,
     approvals: approvals.length,
     changesRequested: reviews.filter((review) => review.state === "changes_requested").length,
@@ -154,15 +182,22 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
   };
 }
 
+/** The parts of an attribution a fact keeps. */
+function belongs(a: Attribution): Pick<PrFact, "person" | "team" | "alsoTeams" | "groups"> {
+  return { person: a.person, team: a.team, alsoTeams: a.alsoTeams, groups: a.groups };
+}
+
 function inclusion(
   pr: PrModel,
   authorIsBot: boolean,
   rules: DeriveRules,
-): { counted: boolean; exclusion: Exclusion | null } {
+  ruled: PrOutcome,
+): Pick<PrFact, "counted" | "exclusion" | "excludedBy"> {
+  // Branches decide first, and no rule overrides them: measured_branches and promotion_branches
+  // change them, so one change is never counted twice. Then bots, unless a rule counts the PR,
+  // then a rule's `count: false`.
   let exclusion: Exclusion | null = null;
-  if (authorIsBot && !rules.includeBotPrs) {
-    exclusion = "bot";
-  } else if (!rules.isMeasuredBranch(pr.repo, pr.baseBranch)) {
+  if (!rules.isMeasuredBranch(pr.repo, pr.baseBranch)) {
     exclusion = "base";
   } else if (
     // A fork's own `main` is just where a contributor worked: only the repo's own long-lived
@@ -171,8 +206,16 @@ function inclusion(
     (rules.isPromotionBranch(pr.headBranch) || rules.isMeasuredBranch(pr.repo, pr.headBranch))
   ) {
     exclusion = "promotion";
+  } else if (ruled.count === false) {
+    exclusion = "rule";
+  } else if (authorIsBot && ruled.count !== true) {
+    exclusion = "bot";
   }
-  return { counted: exclusion === null, exclusion };
+  return {
+    counted: exclusion === null,
+    exclusion,
+    excludedBy: exclusion === "rule" ? ruled.countRule : null,
+  };
 }
 
 /**

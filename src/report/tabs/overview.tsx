@@ -4,14 +4,16 @@ import { formatValue, num, PHASE_LABELS, percent, prs, statLabel } from "../../c
 import { REVERT_WINDOW_DAYS } from "../../core/metrics.ts";
 import type { Note, OverviewModel, PhaseSplit } from "../../core/views/overview.ts";
 import { listHref, metricList, prHref, selectionHref, setList, tabHref } from "../links.ts";
-import { dimensionLabel } from "../selector.tsx";
 import type { ReportState } from "../state.ts";
 import {
   type BreakdownChoice,
   BreakdownControl,
+  breakdownLabel,
+  breakdownPlural,
   Card,
   capital,
   MetricTile,
+  SingleBreakdown,
   Spark,
   seriesPoints,
 } from "../ui.tsx";
@@ -27,6 +29,8 @@ export function Overview(props: {
   model: OverviewModel;
   state: ReportState;
   breakdown: BreakdownChoice;
+  /** What the selection is called, for saying it has nothing to break down. */
+  name: string;
 }) {
   const { model, state } = props;
   const unit = model.window.grain === "month" ? "monthly" : "weekly";
@@ -64,8 +68,10 @@ export function Overview(props: {
         )}
       </Card>
 
-      {model.rows.length > 0 && (
+      {model.rows.length > 0 ? (
         <ScopeTable model={model} state={state} unit={unit} breakdown={props.breakdown} />
+      ) : (
+        <SingleBreakdown choice={props.breakdown} name={props.name} />
       )}
 
       <Notes model={model} state={state} />
@@ -121,16 +127,16 @@ function ScopeTable({
   breakdown: BreakdownChoice;
 }) {
   const cols = "minmax(200px,1.6fr) repeat(6,minmax(84px,1fr)) 120px";
-  const dimension = model.rows[0]?.dimension ?? "team";
+  const by = model.rows[0]?.by ?? "team";
   return (
     <section class="card flush">
       <div class="card-head">
-        <h2>{dimensionLabel(dimension).plural}</h2>
+        <h2>{breakdownPlural(by)}</h2>
         <span class="note">
           A–Z, not ranked · arrows compare with the previous window · click a row to open it
         </span>
         <span class="end">
-          <BreakdownControl choice={breakdown} value={dimension} />
+          <BreakdownControl choice={breakdown} value={by} />
         </span>
       </div>
       <div class="table">
@@ -212,6 +218,7 @@ function NoteLine({ note, state }: { note: Note; state: ReportState }) {
         note.base > 0 && `${prs(note.base)} merged into branches that aren't measured`,
         note.promotion > 0 && `${prs(note.promotion)} promoting work between long-lived branches`,
         note.bot > 0 && `${prs(note.bot)} by bots`,
+        note.rule > 0 && `${prs(note.rule)} left out by the org's rules`,
       ].filter(Boolean);
       return <>Not counted: {parts.join(", ")}.</>;
     }
@@ -242,8 +249,8 @@ function NoteLine({ note, state }: { note: Note; state: ReportState }) {
       return (
         <>
           {prs(note.prs)} merged in this window count for more than one{" "}
-          {dimensionLabel(note.dimension).one.toLowerCase()}, so the rows add up to more than the
-          total. The total counts each PR once.
+          {breakdownLabel(note.by).toLowerCase()}, so the rows add up to more than the total. The
+          total counts each PR once.
         </>
       );
     case "revertLag":

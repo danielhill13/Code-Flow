@@ -59,6 +59,24 @@ On usebruno/bruno every tab builds in a few milliseconds. The sweep in `npm run 
 all six tabs at every scope, window, statistic and filter, with and without teams, and Compare's
 months match `summary`.
 
+A workspace holds several orgs, each with its own config folder, database and report (D29).
+Every command takes `--org`; `migrate` upgrades a single-file config.
+
+People have identities (several logins each) and groups have kinds, so products, areas and
+programs are all groups, each its own breakdown (D30).
+
+Each org has a rule engine (D31): what counts, repo rules and people rules, scoped to the org,
+repos, teams, groups or people. `codeflow rules` lists them and `rules test` previews a draft.
+
+People, groups and rules export and import as versioned bundles (YAML, JSON, CSV for teams),
+checked as a whole and previewed with `--dry-run` (D32).
+
+`codeflow serve` runs the report as a local web app (D33): an org picker, and a Setup tab to edit
+people, teams, groups and rules, with a live preview of what a rule would change, and import and
+export. It writes the same files, and its answers match the static report's (a conformance
+test compares them). Phase 4 still needs sign-in, a scheduler and a Docker image before serve
+can be hosted.
+
 **Still to do in phase 3:**
 
 - `codeflow run`: sync, then build.

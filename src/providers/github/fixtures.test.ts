@@ -17,7 +17,7 @@ const models = payloads.map((payload) =>
   normalizePr(payload, { id: "R_bruno", fullName: "usebruno/bruno" }),
 );
 const facts = new Map(
-  models.map((model) => [model.id, derivePr(model, rulesFor(config, ["main"]))]),
+  models.map((model) => [model.id, derivePr(model, rulesFor(config, "usebruno/bruno", ["main"]))]),
 );
 linkReverts(models.map(revertClues), facts);
 const fact = (number: number) => [...facts.values()].find((f) => f.number === number);

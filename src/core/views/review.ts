@@ -4,7 +4,7 @@
 import type { MetricValue } from "../aggregate.ts";
 import type { PrFact } from "../facts.ts";
 import { inPeriod, type Span } from "../periods.ts";
-import { type Dimension, isEverything, narrow, type Selection } from "../selection.ts";
+import { type Breakdown, isEverything, narrow, type Selection } from "../selection.ts";
 import { percentileStat, type Stat } from "../stats.ts";
 import {
   type Pair,
@@ -39,7 +39,7 @@ export type ReviewLoad = {
 
 export type ReviewTeamRow = ReviewLoad & {
   selection: Selection;
-  dimension: Dimension;
+  by: Breakdown;
   name: string;
   pickup: Pair;
   reviewsPerPr: Pair;
@@ -120,11 +120,11 @@ export function review(ctx: ViewContext, q: ViewQuery): ReviewModel {
     load: load(counts),
     teams: breakdown
       ? values.map((value) => {
-          const selection = narrow(q.selection, by, value);
+          const selection = narrow(ctx.choices, q.selection, by, value);
           const child = new Slice(ctx, selection, q.contributors);
           return {
             selection,
-            dimension: by,
+            by,
             name: value,
             ...load(reviewCounts(child.facts, window.current)),
             pickup: child.pair("pickup", window, p),

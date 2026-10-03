@@ -6,7 +6,7 @@ import { PHASES } from "../core/aggregate.ts";
 import type { PrFact } from "../core/facts.ts";
 import { duration, names, num, PHASE_LABELS, waitingOnText } from "../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../core/metrics.ts";
-import { isInternal } from "../core/selection.ts";
+import { isCatchAll, isInternal } from "../core/selection.ts";
 import { OPEN_STATE_LABELS } from "../core/views/prs.ts";
 import { capital } from "./ui.tsx";
 
@@ -18,6 +18,7 @@ const PHASE_HOURS = {
 } as const;
 
 const EXCLUSIONS = {
+  rule: "Not counted: an org rule leaves it out.",
   bot: "Not counted: a bot opened it.",
   base: "Not counted: it merged into a branch that isn't measured.",
   promotion: "Not counted: it promotes work between long-lived branches.",
@@ -26,7 +27,10 @@ const EXCLUSIONS = {
 export function Drawer(props: { pr: PrFact; asOf: Date; onClose: () => void }) {
   const { pr, asOf, onClose } = props;
   const internal = isInternal(pr);
-  const teams = [pr.team, ...pr.products].filter((name): name is string => name !== null);
+  // Its team and groups, leaving out catch-alls such as "No product".
+  const teams = [pr.team, ...pr.groups.filter((g) => !isCatchAll(g))].filter(
+    (name): name is string => name !== null,
+  );
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -130,7 +134,14 @@ export function Drawer(props: { pr: PrFact; asOf: Date; onClose: () => void }) {
           </div>
           {!pr.counted && pr.exclusion && (
             <div class="muted" style={{ fontSize: "12px" }}>
-              {EXCLUSIONS[pr.exclusion]}
+              {pr.exclusion === "rule" && pr.excludedBy
+                ? `Not counted: rule ${pr.excludedBy} leaves it out.`
+                : EXCLUSIONS[pr.exclusion]}
+            </div>
+          )}
+          {pr.rules.length > 0 && (
+            <div class="muted" style={{ fontSize: "12px" }}>
+              Rules that apply: {pr.rules.join(", ")}
             </div>
           )}
         </header>

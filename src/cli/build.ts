@@ -1,47 +1,61 @@
 import { existsSync, statSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { loadConfig } from "../config/load.ts";
 import type { ReportData } from "../core/source.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { readTemplate, renderReport, reportData } from "../pipeline/report.ts";
 import { Store } from "../store/store.ts";
 import { plural, status } from "./format.ts";
-import { databasePath } from "./session.ts";
+import { type OrgOptions, orgsFor } from "./session.ts";
 
-export type BuildOptions = { config: string; out?: string; dataOnly?: boolean };
+export type BuildOptions = OrgOptions & { out?: string; dataOnly?: boolean };
 
-/** Writes the report: one HTML file with every PR's facts inside, viewable offline. */
+/**
+ * Writes the report: one HTML file per org with that org's PRs inside, viewable offline. A file
+ * never holds, or names, another org.
+ */
 export async function build(options: BuildOptions): Promise<number> {
-  const config = await loadConfig(options.config);
-  const dbPath = databasePath(options.config, config);
-  if (!existsSync(dbPath)) throw new CodeflowError("Nothing synced yet. Run: codeflow sync");
-
-  let data: ReportData;
-  const store = Store.open(dbPath);
-  try {
-    deriveFacts(store, config);
-    data = reportData(store, config);
-  } finally {
-    store.close();
+  const { workspace, orgs } = await orgsFor(options);
+  if (options.out && orgs.length > 1) {
+    throw new CodeflowError("--out names one file: say which org with --org.");
   }
-
-  // --data-only feeds the development server (npm run report:dev) instead of writing a page.
-  const out =
-    options.out ??
-    (options.dataOnly ? join(dirname(dbPath), "report-data.json") : "codeflow-report.html");
-  await writeFile(
-    out,
-    options.dataOnly ? JSON.stringify(data) : renderReport(readTemplate(), data),
-  );
-  const megabytes = (statSync(out).size / 1024 / 1024).toFixed(1);
-  console.log(
-    status(
-      "ok",
-      "Report",
-      `${out} (${megabytes} MB): ${plural(data.facts.length, "PR")} from ${data.repos.join(", ")}`,
-    ),
-  );
-  return 0;
+  let built = 0;
+  for (const org of orgs) {
+    if (!existsSync(org.dbPath)) {
+      if (orgs.length === 1) throw new CodeflowError("Nothing synced yet. Run: codeflow sync");
+      console.log(status("warn", "Report", `${org.name}: nothing synced yet, so no report`));
+      continue;
+    }
+    let data: ReportData;
+    const store = Store.open(org.dbPath);
+    try {
+      deriveFacts(store, org.config);
+      data = reportData(store, org.config, workspace.single ? null : org.name);
+    } finally {
+      store.close();
+    }
+    // --data-only feeds the development server (npm run report:dev) instead of writing a page.
+    const out =
+      options.out ??
+      (options.dataOnly
+        ? join(dirname(org.dbPath), "report-data.json")
+        : workspace.single
+          ? "codeflow-report.html"
+          : `codeflow-report-${org.name}.html`);
+    await writeFile(
+      out,
+      options.dataOnly ? JSON.stringify(data) : renderReport(readTemplate(), data),
+    );
+    const megabytes = (statSync(out).size / 1024 / 1024).toFixed(1);
+    console.log(
+      status(
+        "ok",
+        "Report",
+        `${out} (${megabytes} MB): ${plural(data.facts.length, "PR")} from ${data.repos.join(", ")}`,
+      ),
+    );
+    built += 1;
+  }
+  return built > 0 ? 0 : 1;
 }

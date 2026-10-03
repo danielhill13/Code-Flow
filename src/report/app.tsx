@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { statLabel } from "../core/format.ts";
 import {
+  type Breakdown,
   breakdowns,
   type Choices,
   type Contributors,
-  type Dimension,
   defaultBreakdown,
   selectionName,
   validSelection,
@@ -13,6 +13,8 @@ import type { DataSource, Meta } from "../core/source.ts";
 import type { ViewQuery } from "../core/views/context.ts";
 import { DEFAULT_SORT, type PrSet } from "../core/views/prs.ts";
 import { grainOf, type WindowKey, windowOf } from "../core/windows.ts";
+import type { AdminApi } from "./admin/api.ts";
+import { Setup } from "./admin/setup.tsx";
 import { Drawer } from "./drawer.tsx";
 import { tabHref } from "./links.ts";
 import { SelectionBar } from "./selector.tsx";
@@ -23,7 +25,7 @@ import { Overview } from "./tabs/overview.tsx";
 import { PullRequests } from "./tabs/prs.tsx";
 import { Review } from "./tabs/review.tsx";
 import { Speed } from "./tabs/speed.tsx";
-import { type BreakdownChoice, Segmented, when } from "./ui.tsx";
+import { type BreakdownChoice, capital, Segmented, when } from "./ui.tsx";
 
 const WINDOWS: readonly { value: WindowKey; label: string }[] = [
   { value: "30d", label: "30 d" },
@@ -45,14 +47,44 @@ const WHO: readonly { value: Contributors; label: string }[] = [
 
 const PAGE = 50;
 
-export function App(props: { source: DataSource }) {
-  const meta = useAsync(() => props.source.meta(), "meta");
-  if (!meta) return <p class="wrap">Loading…</p>;
-  return <Report source={props.source} meta={meta} />;
+/**
+ * The report. Static, it reads the data `codeflow build` embedded. Served by `codeflow serve`, it
+ * also gets the server's orgs, to switch between, and `admin`, to edit the org's setup with.
+ */
+export function App(props: { source: DataSource; admin?: AdminApi; orgs?: readonly string[] }) {
+  const { source, admin } = props;
+  // Bumped after each save, so the report is read again under the new setup.
+  const [revision, setRevision] = useState(0);
+  const loaded = useAsync(
+    () =>
+      source.meta().then(
+        (meta): Meta | null => meta,
+        (error: unknown) => {
+          // A served org that hasn't synced yet can still be set up.
+          if (admin) return null;
+          throw error;
+        },
+      ),
+    `meta:${revision}`,
+  );
+  const shell = { admin, orgs: props.orgs, onSaved: () => setRevision((r) => r + 1) };
+  if (loaded === undefined) return <p class="wrap">Loading…</p>;
+  if (loaded === null && admin) return <Unsynced {...shell} admin={admin} />;
+  if (loaded === null) return null;
+  return <Report source={source} meta={loaded} revision={revision} {...shell} />;
 }
 
-function Report({ source, meta }: { source: DataSource; meta: Meta }) {
-  const [state, setState] = useHashState(meta.choices);
+type Shell = { admin?: AdminApi; orgs?: readonly string[]; onSaved: () => void };
+
+function Report({
+  source,
+  meta,
+  revision,
+  admin,
+  orgs,
+  onSaved,
+}: Shell & { source: DataSource; meta: Meta; revision: number }) {
+  const [state, setState] = useHashState(meta.choices, admin !== undefined);
   const [theme, setTheme] = useTheme();
   const [limit, setLimit] = useState(PAGE);
   const asOf = new Date(meta.asOf);
@@ -68,6 +100,7 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
   useEffect(() => setLimit(PAGE), [listKey]);
 
   const key = JSON.stringify([
+    revision,
     state.tab,
     query,
     state.tab === "compare" ? [pick.a, pick.b] : null,
@@ -99,11 +132,13 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
           sort: state.list.sort,
           limit,
         });
+      case "setup":
+        return Promise.resolve(null);
     }
   }
   const opened = useAsync(
     () => (state.pr ? source.pr(state.pr) : Promise.resolve(null)),
-    `pr:${state.pr}`,
+    `pr:${state.pr}:${revision}`,
   );
   const drawer = opened && opened.id === state.pr ? opened : null;
   const closeDrawer = useCallback(() => setState((s) => ({ ...s, pr: null })), [setState]);
@@ -120,29 +155,38 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
         : " · outside contributors";
   const name = selectionName(meta.choices, state.selection);
   const subline =
-    state.tab === "compare"
-      ? "two calendar periods"
-      : state.tab === "flow"
-        ? `open as of ${when(meta.asOf)}`
-        : state.tab === "prs"
-          ? "the evidence behind every number"
-          : `${window.current.label}, compared with ${window.previous.label}`;
+    state.tab === "setup"
+      ? `people, teams, groups and rules for ${admin?.org ?? ""}`
+      : state.tab === "compare"
+        ? "two calendar periods"
+        : state.tab === "flow"
+          ? `open as of ${when(meta.asOf)}`
+          : state.tab === "prs"
+            ? "the evidence behind every number"
+            : `${window.current.label}, compared with ${window.previous.label}`;
   const note =
-    state.tab === "compare"
-      ? "Calendar periods · choose A and B below"
-      : state.tab === "flow"
-        ? `Open PRs as of ${when(meta.asOf)} · the window applies to trends and abandoned only`
-        : state.tab === "prs"
-          ? ""
-          : `vs ${window.previous.label} · ${unit} points`;
+    state.tab === "setup"
+      ? ""
+      : state.tab === "compare"
+        ? "Calendar periods · choose A and B below"
+        : state.tab === "flow"
+          ? `Open PRs as of ${when(meta.asOf)} · the window applies to trends and abandoned only`
+          : state.tab === "prs"
+            ? ""
+            : `vs ${window.previous.label} · ${unit} points`;
 
   return (
     <>
       <header class="header">
         <div class="wrap bar-row">
           <span class="logo">codeflow</span>
+          {admin ? (
+            <OrgPicker current={admin.org} orgs={orgs ?? [admin.org]} />
+          ) : (
+            meta.org && <span class="org-name">{meta.org}</span>
+          )}
           <span class="divider" />
-          <SelectionBar choices={meta.choices} state={state} />
+          {state.tab !== "setup" && <SelectionBar choices={meta.choices} state={state} />}
           <div class="header-right">
             <span class="through">Data through {when(meta.asOf)}</span>
             <Segmented
@@ -162,7 +206,7 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
           </div>
         </div>
         <nav class="wrap tabs" aria-label="Tabs">
-          {TABS.map((t) => (
+          {tabsFor(admin).map((t) => (
             <a
               key={t.key}
               href={tabHref(state, t.key)}
@@ -175,7 +219,7 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
         </nav>
       </header>
 
-      <div class="controls">
+      <div class="controls" hidden={state.tab === "setup"}>
         <div class="wrap">
           {state.tab !== "compare" && state.tab !== "prs" && (
             <Segmented
@@ -216,8 +260,14 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
         <div class="heading">
           <h1>{question}</h1>
           <p>
-            {name}
-            {who} · {subline}
+            {state.tab === "setup" ? (
+              capital(subline)
+            ) : (
+              <>
+                {name}
+                {who} · {subline}
+              </>
+            )}
           </p>
         </div>
         {state.tab === "compare" && (
@@ -228,15 +278,19 @@ function Report({ source, meta }: { source: DataSource; meta: Meta }) {
             onChange={(compare) => update({ compare })}
           />
         )}
-        {model ? (
+        {state.tab === "setup" && admin ? (
+          <Setup api={admin} meta={meta} onSaved={onSaved} />
+        ) : model ? (
           <Body
             tab={state.tab}
             model={model}
             state={state}
             meta={meta}
             asOf={asOf}
+            name={name}
             breakdown={{
               offered: breakdowns(meta.choices, state.selection),
+              current: query.by,
               onChange: (by) => update({ by }),
             }}
             onList={(list) => update({ list })}
@@ -276,6 +330,7 @@ function Body(props: {
   onSet: (set: PrSet) => void;
   onMore: () => void;
   breakdown: BreakdownChoice;
+  name: string;
 }) {
   const { model, state, asOf } = props;
   // The model is the one the tab asked for: useAsync keys it by tab and query.
@@ -286,6 +341,7 @@ function Body(props: {
           model={model as Parameters<typeof Overview>[0]["model"]}
           state={state}
           breakdown={props.breakdown}
+          name={props.name}
         />
       );
     case "speed":
@@ -296,6 +352,7 @@ function Body(props: {
           model={model as Parameters<typeof Review>[0]["model"]}
           state={state}
           breakdown={props.breakdown}
+          name={props.name}
         />
       );
     case "flow":
@@ -304,6 +361,8 @@ function Body(props: {
       );
     case "compare":
       return <Compare model={model as Parameters<typeof Compare>[0]["model"]} state={state} />;
+    case "setup":
+      return null;
     case "prs":
       return (
         <PullRequests
@@ -318,8 +377,62 @@ function Body(props: {
   }
 }
 
+/** An org that hasn't synced yet, under `codeflow serve`: only its setup, to get it ready. */
+function Unsynced({ admin, orgs, onSaved }: Shell & { admin: AdminApi }) {
+  useTheme();
+  return (
+    <>
+      <header class="header">
+        <div class="wrap bar-row">
+          <span class="logo">codeflow</span>
+          <OrgPicker current={admin.org} orgs={orgs ?? [admin.org]} />
+        </div>
+        <nav class="wrap tabs" aria-label="Tabs">
+          <a href="#tab=setup" class="current" aria-current="page">
+            Setup
+          </a>
+        </nav>
+      </header>
+      <main class="wrap" data-view="#tab=setup" data-ready="true">
+        <div class="heading">
+          <h1>Nothing synced yet</h1>
+          <p>
+            Run <code>npm run codeflow -- sync --org {admin.org}</code> to fetch {admin.org}'s pull
+            requests; the report appears here when it's done. Meanwhile, set up who is who and what
+            counts.
+          </p>
+        </div>
+        <Setup api={admin} meta={null} onSaved={onSaved} />
+      </main>
+    </>
+  );
+}
+
+/** Which org is shown. Switching loads the other org's page afresh: nothing carries over. */
+function OrgPicker(props: { current: string; orgs: readonly string[] }) {
+  if (props.orgs.length < 2) return <span class="org-name">{props.current}</span>;
+  return (
+    <select
+      class="org-picker"
+      aria-label="Org"
+      value={props.current}
+      onChange={(e) => location.assign(`/orgs/${encodeURIComponent(e.currentTarget.value)}/`)}
+    >
+      {props.orgs.map((org) => (
+        <option key={org} value={org}>
+          {org}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+/** The tabs this report has: Setup only where it can save. */
+const tabsFor = (admin: AdminApi | undefined) =>
+  admin ? TABS : TABS.filter((t) => t.key !== "setup");
+
 /** The breakdown asked for, if the selection offers it, or else the selection's default. */
-function breakdownOf(choices: Choices, state: ReportState): Dimension | null {
+function breakdownOf(choices: Choices, state: ReportState): Breakdown | null {
   const offered = breakdowns(choices, state.selection);
   return state.by !== null && offered.includes(state.by)
     ? state.by
@@ -329,10 +442,12 @@ function breakdownOf(choices: Choices, state: ReportState): Dimension | null {
 /** The state in the URL. Links change it by navigating; controls replace it in place. */
 function useHashState(
   choices: Choices,
+  canSetup: boolean,
 ): [ReportState, (update: (s: ReportState) => ReportState) => void] {
   const read = () => {
     const state = readState(location.hash);
-    return { ...state, selection: validSelection(choices, state.selection) };
+    const tab = state.tab === "setup" && !canSetup ? "overview" : state.tab;
+    return { ...state, tab, selection: validSelection(choices, state.selection) };
   };
   const [state, setState] = useState<ReportState>(read);
   useEffect(() => {

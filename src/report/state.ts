@@ -3,10 +3,10 @@
 
 import type { OpenState } from "../core/facts.ts";
 import {
+  type Breakdown,
   CONTRIBUTORS,
   type Contributors,
   DIMENSIONS,
-  type Dimension,
   EVERYTHING,
   type Selection,
 } from "../core/selection.ts";
@@ -20,7 +20,7 @@ import {
 } from "../core/views/prs.ts";
 import { WINDOW_KEYS, type WindowKey } from "../core/windows.ts";
 
-export type Tab = "overview" | "speed" | "review" | "flow" | "compare" | "prs";
+export type Tab = "overview" | "speed" | "review" | "flow" | "compare" | "prs" | "setup";
 
 export const TABS: readonly { key: Tab; label: string; question: string }[] = [
   { key: "overview", label: "Overview", question: "Are we getting faster or slower?" },
@@ -29,6 +29,8 @@ export const TABS: readonly { key: Tab; label: string; question: string }[] = [
   { key: "flow", label: "Flow", question: "What's stuck right now?" },
   { key: "compare", label: "Compare", question: "Did the change work?" },
   { key: "prs", label: "Pull requests", question: "Which pull requests are behind this number?" },
+  // Only where the report can save: under `codeflow serve` (decision D33).
+  { key: "setup", label: "Setup", question: "Who is who, and what counts?" },
 ];
 
 export type Grain = "month" | "quarter" | "year" | "custom";
@@ -53,7 +55,7 @@ export type ReportState = {
   tab: Tab;
   selection: Selection;
   /** What breakdowns are by; null for the default (selection.ts, defaultBreakdown). */
-  by: Dimension | null;
+  by: Breakdown | null;
   window: WindowKey;
   percentile: number;
   contributors: Contributors;
@@ -92,13 +94,11 @@ export function readState(hash: string): ReportState {
     tab,
     selection: {
       team: params.getAll("team"),
-      product: params.getAll("product"),
+      group: params.getAll("group"),
       repo: params.getAll("repo"),
       person: params.getAll("person"),
     },
-    by: (DIMENSIONS as readonly string[]).includes(get("by") ?? "")
-      ? (get("by") as Dimension)
-      : null,
+    by: readBreakdown(get("by")),
     window: (WINDOW_KEYS as readonly string[]).includes(get("w") ?? "")
       ? (get("w") as WindowKey)
       : DEFAULT_STATE.window,
@@ -213,4 +213,10 @@ function readSort(text: string | null): PrSort | null {
   const desc = text.startsWith("-");
   const key = (desc ? text.slice(1) : text) as PrColumn;
   return SORTABLE.includes(key) ? { key, dir: desc ? "desc" : "asc" } : null;
+}
+
+/** "team", "repo" or "group:<kind>"; anything else is no breakdown chosen. */
+function readBreakdown(text: string | null): Breakdown | null {
+  if (text === "team" || text === "repo") return text;
+  return text?.startsWith("group:") && text.length > "group:".length ? (text as Breakdown) : null;
 }

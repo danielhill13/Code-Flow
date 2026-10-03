@@ -19,52 +19,59 @@ Every number traces back to the pull requests behind it.
 
 codeflow describes how work flows through a team. It does not rank people.
 
-## Requirements
+## Get started
 
-- Node.js 24 or later
-- Read access to the repositories you want to measure, through a `GITHUB_TOKEN` or a logged-in
-  [GitHub CLI](https://cli.github.com) (`gh auth login`). codeflow only reads.
-
-## Try it
-
-From a clone of this repository:
+You need Node.js 24 or later, git, and read access to the repos you want to measure.
 
 ```bash
+git clone https://github.com/danielhill13/Code-Flow.git
+cd Code-Flow
 npm install
-npm run codeflow -- init --repo usebruno/bruno
-npm run codeflow -- doctor
-npm run codeflow -- sync
-npm run codeflow -- summary
-npm run codeflow -- pr 9000
-npm run codeflow -- build
+npm run build
+gh auth login                                  # or: export GITHUB_TOKEN=...
+npm run codeflow -- init --owner your-org      # or: --repo your-org/api; --org names it
+npm run codeflow -- doctor                     # check the token and estimate the first sync
+npm run codeflow -- sync                       # fetch PRs; stop and resume any time
+npm run codeflow -- build                      # write codeflow-report.html
+open codeflow-report-your-org.html
 ```
 
-- `init` writes a `codeflow.yml`.
-- `doctor` checks your token, lists the repos your config selects, and works out what the first
-  sync will cost in time and API rate limit, from a dry run of the real sync query. It is
-  read-only and spends a few rate-limit points.
-- `sync` fetches every pull request updated since the config's `since` date, plus older ones still
-  open. After that, each run fetches only what changed. You can stop it at any time (Ctrl-C), and
-  the next run picks up where it stopped.
-- `summary` shows every metric for the last complete month (or `--period 2026-Q3`), from local
-  data. `--explain` defines each one, `--percentile 75` swaps the median for P75, and `--json`
-  is for scripts.
-- `pr` shows how codeflow read one pull request: its timeline, phases, size and reviews, ready
-  to check against GitHub.
-- `status` shows what is stored locally and how the last sync went, without going online.
-- `build` writes `codeflow-report.html`: one file, with the data inside, that opens from disk
-  with no server and makes no network requests. It has six tabs, each answering one question:
-  Overview (faster or slower?), Speed (where does the time go?), Review (is review holding us
-  up?), Flow (what's stuck right now?), Compare (did the change work?) and Pull requests (which
-  PRs are behind this number?). Every number opens the PRs behind it. The view is in the URL, so
-  a link to the file can point at any tab, scope or filtered list.
+[docs/getting-started.md](docs/getting-started.md) walks through every step: token permissions,
+what each command does, keeping the report current, and what to do when something goes wrong.
+
+## Commands
+
+| Command | What it does |
+| ------- | ------------ |
+| `init` | adds an org to the workspace (`codeflow.yml` and `orgs/<org>/`), creating it if needed |
+| `migrate` | turns a single-file config from before workspaces into a workspace |
+| `doctor` | checks the token and the repos the config selects, and estimates the first sync; read-only |
+| `sync` | fetches PRs updated since `since`, then only what changed; resumable |
+| `status` | what is stored, how the last sync went, and any branch that isn't measured but should be |
+| `summary` | every metric for a period (`--period 2026-Q3`, `--percentile 75`, `--json`, `--explain`) |
+| `pr` | how codeflow read one pull request, to check against GitHub |
+| `rules` | an org's rules, where each came from and how many PRs it applies to; `rules test <file>` previews a draft |
+| `export` | an org's people, groups and rules as a bundle (YAML, JSON, or CSV for teams) |
+| `import` | a bundle or CSV into an org: checked as a whole first, `--dry-run` to preview, merge or replace |
+| `build` | the report: one HTML file per org, with its data inside, that opens offline |
+| `serve` | the report as a web app on this machine, with an org picker and a Setup tab to edit people, teams, groups and rules |
+
+Every command takes `--org` to work on one org of several.
+
+The report has six tabs, each answering one question: Overview (faster or slower?), Speed
+(where does the time go?), Review (is review holding us up?), Flow (what's stuck right now?),
+Compare (did the change work?) and Pull requests (which PRs are behind this number?). Every
+number opens the PRs behind it. The view is in the URL, so a link can point at any tab,
+selection or filtered list.
 
 ## Configuration
 
-`codeflow.yml` says what to measure: whole organizations or users, filtered by repo name, and
-single repos. Optional `teams` (people, with dates when someone moves) and `products` (repos
-and teams) let the report look at any team, product, repo or person, or any mix of them.
-[codeflow.example.yml](codeflow.example.yml) shows every option.
+Each org's config says what to measure and how: organizations, users and single repos; teams
+(people, with dates when someone moves), people with several logins, and groups of any kind
+(products, areas: repos, teams and people), so the report can look at any team, group, repo or
+person, or any mix; and the org's own rules: what counts, how its repos are read (branches,
+product code) and how its people are treated (bots, internal), each scoped to the org, repos,
+teams, groups or people. [docs/configuration.md](docs/configuration.md) covers every option.
 
 codeflow counts each PR once, where it lands on a measured branch: by default each repo's
 default branch. PRs into feature, release or `develop` branches, and promotions such as

@@ -1,40 +1,99 @@
-// What the report looks at, in the header: a crumb per narrowed dimension, each with a menu to
-// switch it, and a picker for any mix of teams, products, repos and people (decision D26).
+// What the report looks at, in the header: a crumb per narrowed facet (teams, each kind of group,
+// repos, people), each with a menu to switch it, and a picker for any mix of them (D26, D30).
 import { useEffect, useState } from "preact/hooks";
 import {
   type Choices,
-  DIMENSIONS,
   type Dimension,
   EVERYTHING,
   isEverything,
+  kindOf,
   listed,
   type Selection,
   selectionName,
 } from "../core/selection.ts";
 import { selectionHref } from "./links.ts";
 import type { ReportState } from "./state.ts";
+import { capital } from "./ui.tsx";
 
-const LABELS: Record<Dimension, { one: string; all: string; plural: string }> = {
-  team: { one: "Team", all: "All teams", plural: "Teams" },
-  product: { one: "Product", all: "All products", plural: "Products" },
-  repo: { one: "Repo", all: "All repos", plural: "Repos" },
-  person: { one: "Person", all: "Everyone", plural: "People" },
+/**
+ * One thing a reader can narrow by: teams, the groups of one kind, repos or people. Groups of
+ * different kinds are separate facets, since they combine rather than replace each other.
+ */
+type Facet = {
+  id: string;
+  dimension: Dimension;
+  kind: string | null;
+  one: string;
+  plural: string;
+  all: string;
+  options: { value: string; label: string }[];
 };
 
-export const dimensionLabel = (dimension: Dimension) => LABELS[dimension];
+function facetsOf(choices: Choices): Facet[] {
+  const plain = (values: string[]) => values.map((value) => ({ value, label: value }));
+  return [
+    {
+      id: "team",
+      dimension: "team",
+      kind: null,
+      one: "Team",
+      plural: "Teams",
+      all: "All teams",
+      options: plain(choices.teams.map((t) => t.name)),
+    },
+    ...choices.kinds.map(
+      (kind): Facet => ({
+        id: `group:${kind}`,
+        dimension: "group",
+        kind,
+        one: capital(kind),
+        plural: `${capital(kind)}s`,
+        all: `All ${kind}s`,
+        options: plain(choices.groups.filter((g) => g.kind === kind).map((g) => g.name)),
+      }),
+    ),
+    {
+      id: "repo",
+      dimension: "repo",
+      kind: null,
+      one: "Repo",
+      plural: "Repos",
+      all: "All repos",
+      options: plain(choices.repos),
+    },
+    {
+      id: "person",
+      dimension: "person",
+      kind: null,
+      one: "Person",
+      plural: "People",
+      all: "Everyone",
+      options: choices.people.map((p) => ({ value: p.key, label: p.name ?? p.key })),
+    },
+  ];
+}
 
-/** The values a reader can pick along each dimension. */
-function optionsOf(choices: Choices): Record<Dimension, string[]> {
-  return {
-    team: choices.teams.map((t) => t.name),
-    product: choices.products.map((p) => p.name),
-    repo: choices.repos,
-    person: choices.people,
-  };
+/** The values a selection holds for one facet. */
+function valuesFor(choices: Choices, selection: Selection, facet: Facet): string[] {
+  const values = selection[facet.dimension];
+  return facet.kind === null ? values : values.filter((v) => kindOf(choices, v) === facet.kind);
+}
+
+/** The selection with one facet's values replaced. */
+function withValues(
+  choices: Choices,
+  selection: Selection,
+  facet: Facet,
+  values: string[],
+): Selection {
+  const others = selection[facet.dimension].filter(
+    (v) => facet.kind !== null && kindOf(choices, v) !== facet.kind,
+  );
+  return { ...selection, [facet.dimension]: [...others, ...values] };
 }
 
 export function SelectionBar({ choices, state }: { choices: Choices; state: ReportState }) {
-  const [menu, setMenu] = useState<Dimension | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
   const [picking, setPicking] = useState(false);
   const { selection } = state;
   const key = JSON.stringify(selection);
@@ -42,11 +101,13 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
     setMenu(null);
     setPicking(false);
   }, [key]);
-  const options = optionsOf(choices);
-  const narrowed = DIMENSIONS.filter((d) => selection[d].length > 0);
+  const facets = facetsOf(choices);
+  const narrowed = facets.filter((f) => valuesFor(choices, selection, f).length > 0);
   // With one repo and nothing else to choose, there is nothing to pick.
-  const pickable = DIMENSIONS.some((d) => options[d].length > (d === "repo" ? 1 : 0));
+  const pickable = facets.some((f) => f.options.length > (f.dimension === "repo" ? 1 : 0));
   const top = selectionName(choices, EVERYTHING);
+  const labelOf = (facet: Facet, value: string) =>
+    facet.options.find((o) => o.value === value)?.label ?? value;
 
   return (
     <nav class="crumbs" aria-label="Selection">
@@ -57,46 +118,52 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
           {top}
         </a>
       )}
-      {narrowed.map((dimension) => (
-        <span
-          key={dimension}
-          style={{ display: "flex", alignItems: "center", gap: "2px", position: "relative" }}
-        >
-          <span class="crumb-sep">/</span>
-          <button
-            type="button"
-            class="crumb current"
-            aria-expanded={menu === dimension}
-            title={selection[dimension].join(", ")}
-            onClick={() => setMenu(menu === dimension ? null : dimension)}
+      {narrowed.map((facet) => {
+        const values = valuesFor(choices, selection, facet);
+        return (
+          <span
+            key={facet.id}
+            style={{ display: "flex", alignItems: "center", gap: "2px", position: "relative" }}
           >
-            {listed(selection[dimension])}
-            <span class="caret">▾</span>
-          </button>
-          {menu === dimension && (
-            <>
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: a click outside the menu closes it */}
-              {/* biome-ignore lint/a11y/useKeyWithClickEvents: as above */}
-              <div class="menu-shade" onClick={() => setMenu(null)} />
-              <div class="menu" style={{ left: "16px" }}>
-                <div class="menu-title">{LABELS[dimension].one}</div>
-                <a href={selectionHref(state, { ...selection, [dimension]: [] })}>
-                  <span>{LABELS[dimension].all}</span>
-                </a>
-                {options[dimension].map((value) => (
-                  <a
-                    key={value}
-                    class={selection[dimension].includes(value) ? "current" : undefined}
-                    href={selectionHref(state, { ...selection, [dimension]: [value] })}
-                  >
-                    <span>{value}</span>
+            <span class="crumb-sep">/</span>
+            <button
+              type="button"
+              class="crumb current"
+              aria-expanded={menu === facet.id}
+              title={`${facet.one}: ${values.map((v) => labelOf(facet, v)).join(", ")}`}
+              onClick={() => setMenu(menu === facet.id ? null : facet.id)}
+            >
+              {listed(values.map((v) => labelOf(facet, v)))}
+              <span class="caret">▾</span>
+            </button>
+            {menu === facet.id && (
+              <>
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: a click outside the menu closes it */}
+                {/* biome-ignore lint/a11y/useKeyWithClickEvents: as above */}
+                <div class="menu-shade" onClick={() => setMenu(null)} />
+                <div class="menu" style={{ left: "16px" }}>
+                  <div class="menu-title">{facet.one}</div>
+                  <a href={selectionHref(state, withValues(choices, selection, facet, []))}>
+                    <span>{facet.all}</span>
                   </a>
-                ))}
-              </div>
-            </>
-          )}
-        </span>
-      ))}
+                  {facet.options.map((option) => (
+                    <a
+                      key={option.value}
+                      class={values.includes(option.value) ? "current" : undefined}
+                      href={selectionHref(
+                        state,
+                        withValues(choices, selection, facet, [option.value]),
+                      )}
+                    >
+                      <span>{option.label}</span>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
+          </span>
+        );
+      })}
       {pickable && (
         <span style={{ position: "relative" }}>
           <button
@@ -109,7 +176,8 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
           </button>
           {picking && (
             <Picker
-              options={options}
+              choices={choices}
+              facets={facets.filter((f) => f.options.length > (f.dimension === "repo" ? 1 : 0))}
               selection={selection}
               onApply={(next) => {
                 location.hash = selectionHref(state, next);
@@ -123,13 +191,15 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
   );
 }
 
-/** Teams, products, repos and people, with a search across all of them. */
+/** A column per facet, with a search across all of them. */
 function Picker(props: {
-  options: Record<Dimension, string[]>;
+  choices: Choices;
+  facets: Facet[];
   selection: Selection;
   onApply: (selection: Selection) => void;
   onClose: () => void;
 }) {
+  const { choices } = props;
   const [draft, setDraft] = useState<Selection>(props.selection);
   const [search, setSearch] = useState("");
   useEffect(() => {
@@ -139,15 +209,18 @@ function Picker(props: {
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   }, [props.onClose]);
-  const toggle = (dimension: Dimension, value: string) =>
-    setDraft({
-      ...draft,
-      [dimension]: draft[dimension].includes(value)
-        ? draft[dimension].filter((v) => v !== value)
-        : [...draft[dimension], value],
-    });
+  const toggle = (facet: Facet, value: string) => {
+    const values = valuesFor(choices, draft, facet);
+    setDraft(
+      withValues(
+        choices,
+        draft,
+        facet,
+        values.includes(value) ? values.filter((v) => v !== value) : [...values, value],
+      ),
+    );
+  };
   const needle = search.trim().toLowerCase();
-  const shown = DIMENSIONS.filter((d) => props.options[d].length > (d === "repo" ? 1 : 0));
   return (
     <>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: a click outside the picker closes it */}
@@ -156,31 +229,35 @@ function Picker(props: {
       <div class="menu picker" role="dialog" aria-label="Select what to look at">
         <input
           type="search"
-          placeholder="Find a team, product, repo or person"
+          placeholder="Find a team, group, repo or person"
           aria-label="Find"
           value={search}
           onInput={(e) => setSearch(e.currentTarget.value)}
         />
         <div class="picker-columns">
-          {shown.map((dimension) => {
-            const matches = props.options[dimension].filter(
-              (value) => needle === "" || value.toLowerCase().includes(needle),
+          {props.facets.map((facet) => {
+            const chosen = valuesFor(choices, draft, facet);
+            const matches = facet.options.filter(
+              (o) =>
+                needle === "" ||
+                o.label.toLowerCase().includes(needle) ||
+                o.value.toLowerCase().includes(needle),
             );
             const visible = matches.slice(0, 60);
             return (
-              <fieldset key={dimension} class="picker-column">
+              <fieldset key={facet.id} class="picker-column">
                 <legend class="menu-title">
-                  {LABELS[dimension].plural}
-                  {draft[dimension].length > 0 ? ` · ${draft[dimension].length}` : ""}
+                  {facet.plural}
+                  {chosen.length > 0 ? ` · ${chosen.length}` : ""}
                 </legend>
-                {visible.map((value) => (
-                  <label key={value}>
+                {visible.map((option) => (
+                  <label key={option.value}>
                     <input
                       type="checkbox"
-                      checked={draft[dimension].includes(value)}
-                      onChange={() => toggle(dimension, value)}
+                      checked={chosen.includes(option.value)}
+                      onChange={() => toggle(facet, option.value)}
                     />
-                    <span>{value}</span>
+                    <span>{option.label}</span>
                   </label>
                 ))}
                 {matches.length > visible.length && (

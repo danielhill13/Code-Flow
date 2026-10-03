@@ -6,6 +6,8 @@ coverage/
 # Local codeflow state: synced data, reports, and your own config (it names your org).
 .codeflow/
 /codeflow.yml
+/codeflow.yml.single.bak
+/orgs/
 *.db
 *.db-*
 codeflow-report*.html
