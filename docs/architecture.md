@@ -13,14 +13,18 @@ GitHub GraphQL ─ sync ─▶ .codeflow/codeflow.db (SQLite)
                            default_branches  when each repo's default branch changed
                            runs              outcome, calls and points of every run
                derive ─▶   pr_facts          one row per PR = f(raw, config)
+                           derivations       what each repo's facts were derived from
+               summary ─▶ the metrics for a period, in the terminal or as JSON
                build  ─▶ report.html         static track: one self-contained file
                serve  ─▶ http://…            hosted track: the same report, served
 ```
 
 - **Raw data is the system of record.** It is never edited. Every metric is a pure function of
   raw data plus config, so changing a definition costs a re-derive, not a re-fetch.
-- **Facts re-derive themselves.** Each `pr_facts` row records the config and code version it was
-  computed with, and a change to either recomputes it. There are no cache flags to remember.
+- **Facts re-derive themselves.** Each repo's facts carry a fingerprint of what they came from:
+  its raw data, the config that affects them, its measured branches, and `DERIVE_VERSION`. A
+  change to any of those re-derives that repo on the next `sync`, `summary` or `pr`. There are no
+  cache flags to remember. Deriving all 2,575 PRs of usebruno/bruno takes under a second.
 - **One PR stream covers every state.** Open, merged and closed PRs come through the same sync, so
   work in progress and abandon rate need no separate pipeline.
 - **No git clones.** GitHub's API returns per-file additions and deletions, which is enough for
@@ -57,19 +61,51 @@ three walks over that order:
   usebruno/bruno, a page takes about 10 s and the first backfill of 2,552 PRs about 25 minutes;
   later runs take seconds. Parallel repos and looser pacing are roadmap phase 5.
 
+## From raw data to numbers
+
+1. **Normalize.** The provider maps each PR's newest raw version to the neutral model
+   (`core/model.ts`), and notes any list it returned only part of.
+2. **Derive.** `core/derive.ts` turns one model into one fact (`core/facts.ts`): its timeline,
+   phases, size by path bucket, review numbers, and whether it counts. Revert links need the
+   whole repo, so they come after, from a few clues per PR (`core/reverts.ts`). Only one PR is in
+   memory at a time.
+3. **Measure.** `core/aggregate.ts` computes every metric in the registry (`core/metrics.ts`) for
+   a period. A metric is one registry entry, holding its definition, population and computation.
+   `summary`, `pr` and, later, the report all read from it.
+
+Who counts as a reviewer: anyone except the author and bots, before the PR merged or closed.
+The author is excluded because GitHub records a reply in a review thread as a review by whoever
+replied: 1,672 of usebruno/bruno's reviews are authors answering their reviewers. Bots are
+excluded unless config names them: in the same repo, CodeRabbit alone left 3,390 reviews,
+usually within minutes. Comments and reviews matching `bots.ignore_bodies` are boilerplate and
+never count.
+
+A merged PR reverts another when its body names it ("Reverts owner/name#123", as GitHub's Revert
+button writes) or a commit message reverts one of its commits ("This reverts commit <sha>").
+A revert title alone isn't enough, and neither is a commit that reverts another commit of the
+same PR. That is ordinary work in progress: 11 of usebruno/bruno's 24 revert-looking PRs were
+exactly that.
+
+A metric's function returns null for a PR it doesn't apply to: pickup for an unreviewed PR, or
+the revert rate for a merge less than 30 days old. That PR then neither helps nor hurts, and
+stays out of the metric's n. `summary` refuses a period that starts before the synced data
+does, since such a period holds only the PRs that happened to be updated later.
+
 ## Code layout
 
 ```
 src/config/             codeflow.yml schema and loader
-src/store/              the SQLite database: schema migrations, raw PRs, sync state, runs, locks
-src/providers/github/   auth, GraphQL client, queries, repo discovery, sync walks
+src/store/              the SQLite database: schema migrations, raw PRs, facts, sync state, runs
+src/providers/github/   auth, GraphQL client, queries, repo discovery, sync walks, normalize
 src/core/               provider-neutral PR model, derive, path buckets, metric registry, aggregation
-src/cli/                init · doctor · sync · status · build · serve · summary
+src/pipeline/           steps that tie config, store and core together (derive)
+src/cli/                init · doctor · sync · status · summary · pr · build · serve
 src/report/             the report UI
 src/server/             the hosted track's HTTP API
+scripts/                developer tools, such as making anonymized test fixtures
 ```
 
-So far `config`, `store`, `providers/github` and `cli` exist.
+So far everything but `report` and `server` exists.
 
 A provider's job ends at the neutral PR model. Adding Azure DevOps or GitLab later means a new
 `src/providers/<name>`, with no change to any metric.
@@ -153,15 +189,21 @@ These hold everywhere. Each gets a test as it is built.
 
 ## Per-PR timeline
 
-Each PR has five points in time:
+Each merged PR has five points in time:
 
 - **start**: the first commit, or the PR's creation if that is earlier
-- **ready**: creation, or the first ready-for-review event if the PR opened as a draft
-- **first review**: the first review or review comment by someone other than the author
-- **approval**: the last approval before merge
+- **ready**: creation, or the first ready-for-review event if the PR opened as a draft. A PR that
+  opened ready and was later turned into a draft was ready at creation.
+- **first review**: the first review submitted by someone who counts as a reviewer (above): an
+  approval, a change request, or a comment-review
+- **review end**: the last approval before merge, or the last review when nobody approved
 - **merge**
 
 The four phases between them (coding, pickup, review and merge wait) add up exactly to cycle
 time. When a point is missing, the phases around it merge: a PR merged without review has no
-pickup or review phase. A point that comes early, such as a review during the draft, is clamped
-so no phase is negative. Draft time never counts as pickup.
+pickup or review phase, so all its time after ready is merge wait. A point that comes early,
+such as a review during the draft, is clamped so no phase is negative. Draft time never counts
+as pickup.
+
+Two more values come from the same points: **time to approval** (from ready to the first
+approval) and **rounds** (how many times new commits arrived after a review).

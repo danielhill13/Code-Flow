@@ -14,6 +14,9 @@ npm run fix                  # Biome formatting and safe lint fixes
 npm run codeflow -- doctor   # read-only GitHub check; needs a codeflow.yml (gitignored)
 npm run codeflow -- sync     # fetch PRs into .codeflow/codeflow.db (gitignored); resumable
 npm run codeflow -- status   # what is stored locally; no network
+npm run codeflow -- summary  # metrics for the last complete month; --explain defines them
+npm run codeflow -- pr 9000  # how one PR was read, to check against GitHub
+node scripts/fixture.ts usebruno/bruno 9000 7719   # anonymized test fixtures from synced PRs
 npm run build                # compile to dist/, to check the publish path
 ```
 
@@ -48,4 +51,8 @@ sets it up.
   edit a migration that has shipped. Rows in `raw_prs` are only ever inserted.
 - Test sync logic against `src/testing/fake-github.ts`, which reproduces GitHub's ordering and
   keyset paging, and a real in-memory `Store`.
+- Bump `DERIVE_VERSION` in `src/core/facts.ts` whenever derive's logic changes what a fact holds:
+  that re-derives every repo. Config changes need no bump; they're in the fingerprint already.
+- A new metric is one entry in `METRICS` (`src/core/metrics.ts`). A per-PR value of null means
+  "doesn't apply"; never return 0 for that.
 - Keep dependencies few. Check Node's standard library before adding one.

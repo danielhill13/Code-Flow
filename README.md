@@ -3,9 +3,8 @@
 Code flow metrics for GitHub: how pull requests move from first commit, through review, to merge.
 Every number traces back to the pull requests behind it.
 
-> **Early development.** Phases 0 and 1 of the [roadmap](docs/roadmap.md) are done:
-> configuration, `codeflow doctor`, and `codeflow sync`, which stores pull requests locally.
-> Metrics and the report come next.
+> **Early development.** Phases 0–2 of the [roadmap](docs/roadmap.md) are done: sync, and every
+> metric below, in the terminal. The report comes next.
 
 ## What it measures
 
@@ -13,7 +12,8 @@ Every number traces back to the pull requests behind it.
   time to approval
 - **Throughput:** PRs merged, PR size and lines merged, counting product code only (not lockfiles
   or generated files)
-- **Review:** how many PRs get reviewed and approved, comments per PR, review rounds
+- **Review:** how many PRs get reviewed and approved, reviews per PR, comments, and how often work
+  goes round again after review
 - **Stability:** revert rate
 - **Flow:** work in progress, aging open PRs, abandon rate
 
@@ -34,7 +34,8 @@ npm install
 npm run codeflow -- init --repo usebruno/bruno
 npm run codeflow -- doctor
 npm run codeflow -- sync
-npm run codeflow -- status
+npm run codeflow -- summary
+npm run codeflow -- pr 9000
 ```
 
 - `init` writes a `codeflow.yml`.
@@ -44,6 +45,11 @@ npm run codeflow -- status
 - `sync` fetches every pull request updated since the config's `since` date, plus older ones still
   open. After that, each run fetches only what changed. You can stop it at any time (Ctrl-C), and
   the next run picks up where it stopped.
+- `summary` shows every metric for the last complete month (or `--period 2026-Q3`), from local
+  data. `--explain` defines each one, `--percentile 75` swaps the median for P75, and `--json`
+  is for scripts.
+- `pr` shows how codeflow read one pull request: its timeline, phases, size and reviews, ready
+  to check against GitHub.
 - `status` shows what is stored locally and how the last sync went, without going online.
 
 ## Configuration

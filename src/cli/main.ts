@@ -5,7 +5,9 @@ import { CodeflowError } from "../errors.ts";
 import { VERSION } from "../version.ts";
 import { type DoctorOptions, doctor } from "./doctor.ts";
 import { type InitOptions, init } from "./init.ts";
+import { type PrOptions, showPr } from "./pr.ts";
 import { type StatusOptions, showStatus } from "./status.ts";
+import { type SummaryOptions, summary } from "./summary.ts";
 import { type SyncOptions, sync } from "./sync.ts";
 
 const program = new Command("codeflow")
@@ -46,6 +48,28 @@ program
   .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
   .action(async (options: StatusOptions) => {
     process.exitCode = await showStatus(options);
+  });
+
+program
+  .command("summary")
+  .description("metrics for a period, from synced data (no network)")
+  .option("-p, --period <period>", "2026-09, 2026-Q3 or 2026 (default: the last complete month)")
+  .option("-r, --repo <owner/name>", "only this repo; globs work")
+  .option("--percentile <n>", "show this percentile instead of the median, e.g. 75")
+  .option("--explain", "print each metric's definition")
+  .option("--json", "print JSON instead of a table")
+  .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
+  .action(async (options: SummaryOptions) => {
+    process.exitCode = await summary(options);
+  });
+
+program
+  .command("pr")
+  .description("show how codeflow reads one pull request, to check it against GitHub")
+  .argument("<pr>", "owner/name#123, or just 123")
+  .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
+  .action(async (target: string, options: PrOptions) => {
+    process.exitCode = await showPr(target, options);
   });
 
 try {

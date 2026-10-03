@@ -64,6 +64,22 @@ const MIGRATIONS: readonly string[] = [
     acquired_at  TEXT NOT NULL
   ) STRICT;
   `,
+  /* 2: facts derived from raw PRs */ `
+  -- One row per PR: a pure function of its newest raw version, the config and derive's code.
+  CREATE TABLE pr_facts (
+    pr_id    TEXT PRIMARY KEY,
+    repo_id  TEXT NOT NULL REFERENCES repos (id),
+    fact     TEXT NOT NULL                   -- JSON, shaped like core/facts.ts PrFact
+  ) STRICT;
+  CREATE INDEX pr_facts_by_repo ON pr_facts (repo_id);
+
+  -- What each repo's facts were derived from. When that changes, they are derived again.
+  CREATE TABLE derivations (
+    repo_id     TEXT PRIMARY KEY REFERENCES repos (id),
+    inputs      TEXT NOT NULL,               -- fingerprint of raw data, config and code version
+    derived_at  TEXT NOT NULL
+  ) STRICT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

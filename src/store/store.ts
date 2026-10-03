@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { hostname } from "node:os";
 import { dirname } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
+import type { PrFact } from "../core/facts.ts";
 import { CodeflowError } from "../errors.ts";
 import { migrate } from "./migrations.ts";
 import { type Database, openDatabase, transaction } from "./sqlite.ts";
@@ -64,6 +65,16 @@ export type RepoSummary = {
 };
 
 export type LockOwner = { pid: number; host: string };
+
+/** A repo as derive needs it. */
+export type StoredRepo = {
+  id: string;
+  provider: string;
+  fullName: string;
+  defaultBranch: string | null;
+  /** Every branch that has been the default since codeflow first saw the repo, oldest first. */
+  defaultBranches: string[];
+};
 
 const STATE_COLUMNS = {
   watermark: "watermark",
@@ -328,6 +339,85 @@ export class Store {
         payload: JSON.parse(gunzipSync(row.payload).toString("utf8")),
       };
     }
+  }
+
+  // Facts
+
+  repos(): StoredRepo[] {
+    const rows = this.#db
+      .prepare("SELECT id, provider, full_name, default_branch FROM repos ORDER BY full_name")
+      .all() as {
+      id: string;
+      provider: string;
+      full_name: string;
+      default_branch: string | null;
+    }[];
+    const history = this.#db.prepare(
+      "SELECT branch FROM default_branches WHERE repo_id = ? AND branch IS NOT NULL ORDER BY seen_at",
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      provider: row.provider,
+      fullName: row.full_name,
+      defaultBranch: row.default_branch,
+      defaultBranches: (history.all(row.id) as { branch: string }[]).map((r) => r.branch),
+    }));
+  }
+
+  /** Changes whenever a PR version is added to the repo, since raw rows are only ever inserted. */
+  rawFingerprint(repoId: string): string {
+    const row = this.#db
+      .prepare(
+        "SELECT COUNT(*) AS n, COALESCE(MAX(rowid), 0) AS last FROM raw_prs WHERE repo_id = ?",
+      )
+      .get(repoId) as { n: number; last: number };
+    return `${row.n}:${row.last}`;
+  }
+
+  /** The fingerprint a repo's current facts were derived from, if they have been. */
+  derivedInputs(repoId: string): string | undefined {
+    const row = this.#db.prepare("SELECT inputs FROM derivations WHERE repo_id = ?").get(repoId) as
+      | { inputs: string }
+      | undefined;
+    return row?.inputs;
+  }
+
+  /** Replaces a repo's facts and records what they came from, in one transaction. */
+  replaceFacts(repoId: string, facts: readonly PrFact[], inputs: string, now = new Date()): void {
+    transaction(this.#db, () => {
+      this.#db.prepare("DELETE FROM pr_facts WHERE repo_id = ?").run(repoId);
+      const insert = this.#db.prepare(
+        "INSERT INTO pr_facts (pr_id, repo_id, fact) VALUES (?, ?, ?)",
+      );
+      for (const fact of facts) insert.run(fact.id, repoId, JSON.stringify(fact));
+      this.#db
+        .prepare(
+          `INSERT INTO derivations (repo_id, inputs, derived_at) VALUES (?, ?, ?)
+           ON CONFLICT (repo_id) DO UPDATE SET inputs = excluded.inputs, derived_at = excluded.derived_at`,
+        )
+        .run(repoId, inputs, now.toISOString());
+    });
+  }
+
+  /** Every PR's facts, optionally for one repo. */
+  facts(repoId?: string): PrFact[] {
+    const rows = this.#db
+      .prepare("SELECT fact FROM pr_facts WHERE ? IS NULL OR repo_id = ?")
+      .all(repoId ?? null, repoId ?? null) as { fact: string }[];
+    return rows.map((row) => JSON.parse(row.fact) as PrFact);
+  }
+
+  /**
+   * When the data was last known complete: the start of the newest sync that finished without
+   * errors. Anything that happened on GitHub after that may not be stored yet.
+   */
+  dataThrough(): string | null {
+    const row = this.#db
+      .prepare(
+        "SELECT started_at FROM runs WHERE command = 'sync' AND status = 'ok' ORDER BY id DESC LIMIT 1",
+      )
+      .get() as { started_at: string } | undefined;
+    return row?.started_at ?? null;
   }
 
   repoSummaries(): RepoSummary[] {

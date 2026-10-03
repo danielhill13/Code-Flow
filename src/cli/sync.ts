@@ -1,5 +1,6 @@
 import { relative } from "node:path";
 import { CodeflowError } from "../errors.ts";
+import { deriveFacts } from "../pipeline/derive.ts";
 import { discoverRepos, type SourceResult, sourceName } from "../providers/github/discover.ts";
 import { fetchFrom, type RepoOutcome, syncRepos, type WalkName } from "../providers/github/sync.ts";
 import { Store } from "../store/store.ts";
@@ -108,6 +109,9 @@ export async function sync(options: SyncOptions): Promise<number> {
     });
     if (failure !== undefined) throw failure;
 
+    // Facts follow whatever was stored, even by a run that stopped partway.
+    const derived = deriveFacts(store, config);
+
     const changed = outcomes.reduce(
       (sum, outcome) => sum + outcome.walks.reduce((n, walk) => n + walk.newVersions, 0),
       0,
@@ -137,6 +141,17 @@ export async function sync(options: SyncOptions): Promise<number> {
         ),
       ),
     );
+    if (derived.derived > 0) {
+      print(
+        status(
+          "info",
+          "",
+          dim(
+            `metrics recomputed for ${plural(derived.prs, "PR")} in ${derived.seconds.toFixed(1)} s`,
+          ),
+        ),
+      );
+    }
     return runStatus === "ok" ? 0 : runStatus === "interrupted" ? 130 : 1;
   } finally {
     store.releaseLock("sync");

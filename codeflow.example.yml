@@ -21,3 +21,27 @@ github:
 
 # Where synced data is stored, relative to this file. Keep it out of version control.
 data_dir: .codeflow
+
+# How PRs are measured. Everything below is optional.
+
+# Measured branches per repo (owner/name glob → branch names). Default: each repo's default
+# branch, plus any branch that was the default before (a rename keeps its history).
+branches:
+  your-org/legacy-app: [develop]
+
+# A PR whose head is one of these branches, in the same repo, promotes work between long-lived
+# branches and isn't counted again. Forks don't count: a fork's `main` is ordinary work.
+# Setting this replaces the defaults, which are:
+promotions: [main, master, trunk, develop, development, dev, staging, stage, production, prod, release, "release/*", "releases/*"]
+
+bots:
+  accounts: [ci-helper]               # treat these logins as bots too (GitHub's own bots always are)
+  reviewers: []                       # bots whose reviews count as review, e.g. [coderabbitai]
+  include_prs: false                  # count PRs that bots open
+  ignore_bodies: ["^Thanks for your contribution"]   # regexes: matching comments are ignored
+
+# What counts as product code. Rules here run before the built-in ones; first match wins.
+# Buckets: product, test, docs, generated, vendored, lockfile.
+paths:
+  - { match: "packages/*-tests/**", bucket: test }
+  - { match: ["schema/**", "*.graphql"], bucket: generated, repos: [your-org/api] }

@@ -1,0 +1,3648 @@
+[
+  {
+    "id": "PR_kwDOIFKaXM53SJtZ",
+    "number": 2750,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/2750",
+    "state": "MERGED",
+    "isDraft": false,
+    "isCrossRepository": true,
+    "createdAt": "2024-08-02T17:29:35Z",
+    "updatedAt": "2025-10-23T13:43:55Z",
+    "mergedAt": "2024-08-05T06:21:01Z",
+    "closedAt": "2024-08-05T06:21:01Z",
+    "baseRefName": "main",
+    "headRefName": "feature/hide-private-auth-options",
+    "additions": 157,
+    "deletions": 26,
+    "changedFiles": 23,
+    "reviewDecision": null,
+    "author": {
+      "__typename": "User",
+      "login": "user1"
+    },
+    "authorAssociation": "CONTRIBUTOR",
+    "mergedBy": {
+      "__typename": "User",
+      "login": "user2"
+    },
+    "mergeCommit": {
+      "oid": "c5ec7eea349b1f3fff8ee4db1bed4964e5736b6b"
+    },
+    "labels": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "name": "size/L"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 0
+    },
+    "commits": {
+      "totalCount": 8,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "OA"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "d2eb6ca0f9a4a6d346e6b4bfe5a65d7e1204d9b9",
+            "authoredDate": "2024-05-02T22:30:47Z",
+            "committedDate": "2024-08-02T22:26:14Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user3"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "5ad93057f5ad5464ecfb299bf93f03242eec0813",
+            "authoredDate": "2024-05-05T10:24:10Z",
+            "committedDate": "2024-08-02T22:26:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user3"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "111d1ce170d7caa3f8fe5d416ca227178a597210",
+            "authoredDate": "2024-05-06T04:44:45Z",
+            "committedDate": "2024-08-02T22:26:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user3"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "c3cdc9570ca0d6a00867f8ea6a67cef91d18a382",
+            "authoredDate": "2024-05-08T04:48:21Z",
+            "committedDate": "2024-08-02T22:26:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user3"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "cbc822b07a241986cbae3f6113cf511b44338e1c",
+            "authoredDate": "2024-05-08T10:07:18Z",
+            "committedDate": "2024-08-02T22:26:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user3"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "aca0e2cfa42cf5d3f3c78f8c09c23fccc0f00ed1",
+            "authoredDate": "2024-06-23T21:28:46Z",
+            "committedDate": "2024-08-02T22:26:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user3"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "4e4b30480a51072df21efc32cb6549558df40972",
+            "authoredDate": "2024-08-02T17:12:09Z",
+            "committedDate": "2024-08-02T22:28:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user1"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "7f5ec9cc387f7d05a4cd42ba355c24fe35cb78a8",
+            "authoredDate": "2024-08-02T22:36:08Z",
+            "committedDate": "2024-08-02T22:36:08Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user1"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 0,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": []
+    },
+    "comments": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHOzN30lA=="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user2"
+          },
+          "createdAt": "2024-08-05T06:21:27Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user4"
+          },
+          "createdAt": "2025-10-23T13:43:55Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 23,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MjM"
+      },
+      "nodes": [
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/AwsV4Auth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/BasicAuth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/BearerAuth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/DigestAuth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/OAuth2/AuthorizationCode/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/OAuth2/AuthorizationCode/inputsConfig.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/OAuth2/ClientCredentials/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/OAuth2/ClientCredentials/inputsConfig.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/OAuth2/PasswordCredentials/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/CollectionSettings/Auth/OAuth2/PasswordCredentials/inputsConfig.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/Environments/EnvironmentSettings/EnvironmentList/EnvironmentDetails/EnvironmentVariables/index.js",
+          "additions": 9,
+          "deletions": 11,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/AwsV4Auth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/BasicAuth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/BearerAuth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/DigestAuth/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/OAuth2/AuthorizationCode/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/OAuth2/AuthorizationCode/inputsConfig.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/OAuth2/ClientCredentials/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/OAuth2/ClientCredentials/inputsConfig.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/OAuth2/PasswordCredentials/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/Auth/OAuth2/PasswordCredentials/inputsConfig.js",
+          "additions": 4,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/SingleLineEditor/index.js",
+          "additions": 56,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/common/codemirror.js",
+          "additions": 58,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 24,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABkSEyxMgBqzEzNzU4NzUzNTE1"
+      },
+      "nodes": [
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2024-08-02T22:36:27Z"
+        },
+        {
+          "__typename": "ReadyForReviewEvent",
+          "createdAt": "2024-08-05T06:20:55Z"
+        },
+        {
+          "__typename": "MergedEvent",
+          "createdAt": "2024-08-05T06:21:01Z"
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2024-08-05T06:21:01Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM60Gjpo",
+    "number": 6134,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/6134",
+    "state": "CLOSED",
+    "isDraft": false,
+    "isCrossRepository": false,
+    "createdAt": "2025-11-18T12:38:26Z",
+    "updatedAt": "2025-11-24T17:46:29Z",
+    "mergedAt": null,
+    "closedAt": "2025-11-24T17:46:25Z",
+    "baseRefName": "main",
+    "headRefName": "dependabot/npm_and_yarn/babel-dependencies-2c0c816683",
+    "additions": 1835,
+    "deletions": 438,
+    "changedFiles": 6,
+    "reviewDecision": null,
+    "author": {
+      "__typename": "Bot",
+      "login": "dependabot"
+    },
+    "authorAssociation": "CONTRIBUTOR",
+    "mergedBy": null,
+    "mergeCommit": null,
+    "labels": {
+      "totalCount": 3,
+      "nodes": [
+        {
+          "name": "size/S"
+        },
+        {
+          "name": "dependencies"
+        },
+        {
+          "name": "javascript"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 0
+    },
+    "commits": {
+      "totalCount": 1,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MQ"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "872791ce00edb3331afe8d4f1cdeb2a47539dddf",
+            "authoredDate": "2025-11-18T12:38:25Z",
+            "committedDate": "2025-11-18T12:38:25Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user5"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 0,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      },
+      "nodes": []
+    },
+    "comments": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHO1Oh5YQ=="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "github-actions"
+          },
+          "createdAt": "2025-11-18T12:41:41Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "dependabot"
+          },
+          "createdAt": "2025-11-24T17:46:23Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 6,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Ng"
+      },
+      "nodes": [
+        {
+          "path": "package-lock.json",
+          "additions": 1825,
+          "deletions": 428,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/package.json",
+          "additions": 5,
+          "deletions": 5,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-common/package.json",
+          "additions": 1,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-converters/package.json",
+          "additions": 2,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-filestore/package.json",
+          "additions": 1,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-requests/package.json",
+          "additions": 1,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 14,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABmrb5VWgBqzIxMTQ1MjEyMTc1"
+      },
+      "nodes": [
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2025-11-18T12:38:27Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user2"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2025-11-18T12:38:27Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2025-11-18T12:38:27Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2025-11-18T12:38:27Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2025-11-24T17:46:25Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM68B-nO",
+    "number": 6738,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/6738",
+    "state": "MERGED",
+    "isDraft": false,
+    "isCrossRepository": true,
+    "createdAt": "2026-01-08T04:06:55Z",
+    "updatedAt": "2026-01-09T13:28:38Z",
+    "mergedAt": "2026-01-09T13:28:38Z",
+    "closedAt": "2026-01-09T13:28:38Z",
+    "baseRefName": "main",
+    "headRefName": "main",
+    "additions": 2,
+    "deletions": 1,
+    "changedFiles": 3,
+    "reviewDecision": null,
+    "author": {
+      "__typename": "User",
+      "login": "user9"
+    },
+    "authorAssociation": "COLLABORATOR",
+    "mergedBy": {
+      "__typename": "User",
+      "login": "user6"
+    },
+    "mergeCommit": {
+      "oid": "2acfe60a5f9762c1db9984d1a556cfa7e7922548"
+    },
+    "labels": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "name": "size/XS"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 1
+    },
+    "commits": {
+      "totalCount": 3,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mw"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "fc5007889de92c365267ef515d11c42144d6c6ac",
+            "authoredDate": "2026-01-08T03:56:23Z",
+            "committedDate": "2026-01-08T03:56:23Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user9"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "393d225ea2d519c8a86a94397db3efdaf088b1e6",
+            "authoredDate": "2026-01-08T03:57:07Z",
+            "committedDate": "2026-01-08T03:57:07Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user9"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "f7628d253dccec78b8e0ddeabda31524e9a180da",
+            "authoredDate": "2026-01-08T03:59:18Z",
+            "committedDate": "2026-01-08T03:59:18Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user9"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpO0MjAyNi0wMS0wOVQxMzoyODoyNFq0MjAyNi0wMS0wOVQxMzoyODoyNFrO2TIR4w=="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-01-08T04:09:25Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user6"
+          },
+          "state": "APPROVED",
+          "submittedAt": "2026-01-09T13:28:24Z",
+          "body": ""
+        }
+      ]
+    },
+    "comments": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHO3dYD2g=="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "vercel"
+          },
+          "createdAt": "2026-01-08T04:06:58Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "createdAt": "2026-01-08T04:07:06Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 3,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mw"
+      },
+      "nodes": [
+        {
+          "path": "assets/images/landing-2-dark.png",
+          "additions": 0,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "assets/images/landing-2-light.png",
+          "additions": 0,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "readme.md",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 16,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABm6Lx23ABqzIxOTQ3NTA2OTI0"
+      },
+      "nodes": [
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-01-08T04:06:56Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user2"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-01-08T04:06:56Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-01-08T04:06:56Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-01-08T04:06:56Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "MergedEvent",
+          "createdAt": "2026-01-09T13:28:38Z"
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2026-01-09T13:28:38Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM73M3sZ",
+    "number": 8790,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/8790",
+    "state": "MERGED",
+    "isDraft": false,
+    "isCrossRepository": true,
+    "createdAt": "2026-07-28T01:15:33Z",
+    "updatedAt": "2026-09-06T23:32:54Z",
+    "mergedAt": "2026-09-06T23:32:54Z",
+    "closedAt": "2026-09-06T23:32:54Z",
+    "baseRefName": "main",
+    "headRefName": "docs/project-governance",
+    "additions": 127,
+    "deletions": 0,
+    "changedFiles": 1,
+    "reviewDecision": "APPROVED",
+    "author": {
+      "__typename": "User",
+      "login": "user2"
+    },
+    "authorAssociation": "CONTRIBUTOR",
+    "mergedBy": {
+      "__typename": "User",
+      "login": "user2"
+    },
+    "mergeCommit": {
+      "oid": "e2a73c0980425076f44ee1d12485a7b4ce985d85"
+    },
+    "labels": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "name": "size/L"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 5
+    },
+    "commits": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mg"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "f6966b8ab51c69718759843c0393b012116d06c6",
+            "authoredDate": "2026-07-28T07:20:58Z",
+            "committedDate": "2026-07-28T07:20:58Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user2"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "f0e8ea7ed51863511951ed7f4df68157a2a97389",
+            "authoredDate": "2026-08-05T06:37:07Z",
+            "committedDate": "2026-08-05T06:37:07Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user2"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 4,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpO0MjAyNi0wOC0wNVQwNjo1NTo0Mlq0MjAyNi0wOC0wNVQwNjo1NTo0M1rPAAAAASHI7x0="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-07-28T01:16:53Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "copilot-pull-request-reviewer"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-07-28T01:18:24Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-07-28T02:09:55Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user6"
+          },
+          "state": "APPROVED",
+          "submittedAt": "2026-08-05T06:55:42Z",
+          "body": ""
+        }
+      ]
+    },
+    "comments": {
+      "totalCount": 1,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHPAAAAAS_okvs="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "createdAt": "2026-07-28T01:15:58Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 1,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MQ"
+      },
+      "nodes": [
+        {
+          "path": "governance.md",
+          "additions": 127,
+          "deletions": 0,
+          "changeType": "ADDED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 25,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABoHkRVHABqzMwNjU2NjA3NDAz"
+      },
+      "nodes": [
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:34Z",
+          "requestedReviewer": {
+            "__typename": "Bot",
+            "login": "copilot-pull-request-reviewer"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:34Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:34Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:34Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:34Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user10"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:35Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user11"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:35Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user12"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:35Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user13"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-07-28T01:15:35Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user14"
+          }
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-07-28T02:08:25Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-07-28T05:44:17Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-07-28T06:06:35Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-07-28T06:08:02Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-07-28T07:21:10Z"
+        },
+        {
+          "__typename": "MergedEvent",
+          "createdAt": "2026-09-06T23:32:54Z"
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2026-09-06T23:32:54Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM7RA7Gk",
+    "number": 7719,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/7719",
+    "state": "MERGED",
+    "isDraft": false,
+    "isCrossRepository": true,
+    "createdAt": "2026-04-09T04:48:23Z",
+    "updatedAt": "2026-04-28T10:01:11Z",
+    "mergedAt": "2026-04-28T10:01:11Z",
+    "closedAt": "2026-04-28T10:01:11Z",
+    "baseRefName": "main",
+    "headRefName": "feat/ws-multi-message",
+    "additions": 1347,
+    "deletions": 298,
+    "changedFiles": 29,
+    "reviewDecision": "APPROVED",
+    "author": {
+      "__typename": "User",
+      "login": "user15"
+    },
+    "authorAssociation": "COLLABORATOR",
+    "mergedBy": {
+      "__typename": "User",
+      "login": "user10"
+    },
+    "mergeCommit": {
+      "oid": "a305b41c937084949ba8cc45b64546cad430efb6"
+    },
+    "labels": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "name": "size/XXL"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 19
+    },
+    "commits": {
+      "totalCount": 14,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MTQ"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "756feff3c8140895d3aaa6402ea7faf6d261429c",
+            "authoredDate": "2026-04-09T04:47:01Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "ab168d9f8421483afabe1df0dc3d4d030b553329",
+            "authoredDate": "2026-04-09T05:36:41Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "19267f18337a6e4ec6f957f2c9b07933cdfe3044",
+            "authoredDate": "2026-04-09T05:49:51Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d66f13c10b3a570026d289a0b64b2355b3fe3fba",
+            "authoredDate": "2026-04-09T06:39:34Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d5c7d4546bf46a556e73e341abc663589517ea5b",
+            "authoredDate": "2026-04-15T09:53:33Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d60f13300aadcc8821645531e6f01f57902c6625",
+            "authoredDate": "2026-04-17T07:12:14Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "71a148f87026aa8d1d192a23afed8438b70e0641",
+            "authoredDate": "2026-04-17T07:29:14Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "8c3987c6e7d7f3cb418da102d98b31a4d8767981",
+            "authoredDate": "2026-04-17T09:10:53Z",
+            "committedDate": "2026-04-17T09:23:15Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "b8e7dbb93d26cd1d8a8a48e3421b16236276b60c",
+            "authoredDate": "2026-04-17T10:13:47Z",
+            "committedDate": "2026-04-17T10:13:47Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "cf2779b419198160f48974d97c9d003631b5f9f6",
+            "authoredDate": "2026-04-17T10:32:07Z",
+            "committedDate": "2026-04-17T10:32:07Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "b214dbb2a1197383252260a6e15b1b4b5fc56fc0",
+            "authoredDate": "2026-04-22T07:43:00Z",
+            "committedDate": "2026-04-22T07:43:00Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "cab206a24b0656d07da4767036584e0118cf74ee",
+            "authoredDate": "2026-04-27T07:26:22Z",
+            "committedDate": "2026-04-27T07:26:22Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d966c15ab16ff575417567a0a212cc589d812d5e",
+            "authoredDate": "2026-04-27T13:10:43Z",
+            "committedDate": "2026-04-27T13:10:43Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user10"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "fe4ed5c69e25f052889ea913c9a8bb1a500e8b56",
+            "authoredDate": "2026-04-28T07:00:55Z",
+            "committedDate": "2026-04-28T07:01:04Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user15"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 9,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpO0MjAyNi0wNC0yOFQxMDowMDo1NVq0MjAyNi0wNC0yOFQxMDowMDo1NVrO-Zpx_w=="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-04-09T04:54:22Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-04-09T05:14:34Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-04-09T05:42:18Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-04-09T05:55:00Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-04-09T06:45:37Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-04-21T10:16:00Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "state": "DISMISSED",
+          "submittedAt": "2026-04-27T12:44:47Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "state": "DISMISSED",
+          "submittedAt": "2026-04-27T13:11:39Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "state": "APPROVED",
+          "submittedAt": "2026-04-28T10:00:55Z",
+          "body": ""
+        }
+      ]
+    },
+    "comments": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHPAAAAAQHsxaU="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "createdAt": "2026-04-09T04:48:40Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "createdAt": "2026-04-27T13:15:14Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 29,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mjk"
+      },
+      "nodes": [
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WSRequestPane/index.js",
+          "additions": 98,
+          "deletions": 9,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/SingleWSMessage/StyledWrapper.js",
+          "additions": 64,
+          "deletions": 48,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/SingleWSMessage/index.js",
+          "additions": 178,
+          "deletions": 106,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/StyledWrapper.js",
+          "additions": 15,
+          "deletions": 19,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/index.js",
+          "additions": 83,
+          "deletions": 58,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/providers/ReduxStore/slices/collections/actions.js",
+          "additions": 4,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/providers/ReduxStore/slices/collections/index.js",
+          "additions": 2,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/collections/index.js",
+          "additions": 4,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/network/index.js",
+          "additions": 6,
+          "deletions": 6,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-converters/src/opencollection/items/websocket.ts",
+          "additions": 3,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-electron/src/ipc/network/ws-event-handlers.js",
+          "additions": 9,
+          "deletions": 25,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-electron/src/utils/collection.js",
+          "additions": 2,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-filestore/src/formats/yml/items/parseWebsocketRequest.ts",
+          "additions": 21,
+          "deletions": 9,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-filestore/src/formats/yml/items/stringifyWebsocketRequest.ts",
+          "additions": 19,
+          "deletions": 9,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/src/bruToJson.js",
+          "additions": 4,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/src/jsonToBru.js",
+          "additions": 4,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/tests/bruToJson.spec.js",
+          "additions": 150,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-schema-types/src/requests/websocket.ts",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/bruno.json",
+          "additions": 5,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/collection.bru",
+          "additions": 3,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/ws-multi-msg.bru",
+          "additions": 29,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/ws-single-msg.bru",
+          "additions": 21,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/init-user-data/preferences.json",
+          "additions": 12,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/multi-message.spec.ts",
+          "additions": 256,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/fixtures/collection/opencollection.yml",
+          "additions": 6,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/fixtures/collection/ws-multi-msg.yml",
+          "additions": 24,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/fixtures/collection/ws-single-msg.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/init-user-data/preferences.json",
+          "additions": 12,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/multi-message.spec.ts",
+          "additions": 294,
+          "deletions": 0,
+          "changeType": "ADDED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 54,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABndOJGlgBqzI0OTQyMTczODkx"
+      },
+      "nodes": [
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-04-09T04:48:26Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user2"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-04-09T04:48:26Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-04-09T04:48:26Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-04-09T04:48:26Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-04-09T04:48:26Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user10"
+          }
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-04-09T05:08:00Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-04-17T09:23:28Z"
+        },
+        {
+          "__typename": "MergedEvent",
+          "createdAt": "2026-04-28T10:01:11Z"
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2026-04-28T10:01:11Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM7Yo04s",
+    "number": 7921,
+    "title": "Revert \"…\"",
+    "body": "Reverts usebruno/bruno#7719",
+    "url": "https://github.com/usebruno/bruno/pull/7921",
+    "state": "MERGED",
+    "isDraft": false,
+    "isCrossRepository": false,
+    "createdAt": "2026-05-06T05:12:29Z",
+    "updatedAt": "2026-05-06T08:29:30Z",
+    "mergedAt": "2026-05-06T08:29:30Z",
+    "closedAt": "2026-05-06T08:29:30Z",
+    "baseRefName": "main",
+    "headRefName": "revert-7719-feat/ws-multi-message",
+    "additions": 298,
+    "deletions": 1347,
+    "changedFiles": 29,
+    "reviewDecision": "APPROVED",
+    "author": {
+      "__typename": "User",
+      "login": "user10"
+    },
+    "authorAssociation": "COLLABORATOR",
+    "mergedBy": {
+      "__typename": "User",
+      "login": "user6"
+    },
+    "mergeCommit": {
+      "oid": "973ca18e00e1fa09c69b6f402e0b6bbbdae4e0e4"
+    },
+    "labels": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "name": "size/XXL"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 8
+    },
+    "commits": {
+      "totalCount": 1,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MQ"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "8258552854348ef8c2b89ed74d1325319a6e9413",
+            "authoredDate": "2026-05-06T05:12:23Z",
+            "committedDate": "2026-05-06T05:12:23Z",
+            "message": "This reverts commit a305b41c937084949ba8cc45b64546cad430efb6.",
+            "author": {
+              "user": {
+                "login": "user10"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 3,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpO0MjAyNi0wNS0wNlQwODoyOToyMlq0MjAyNi0wNS0wNlQwODoyOToyMlrO_GTc6Q=="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "copilot-pull-request-reviewer"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-05-06T05:19:34Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-05-06T05:20:42Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user6"
+          },
+          "state": "APPROVED",
+          "submittedAt": "2026-05-06T08:29:22Z",
+          "body": ""
+        }
+      ]
+    },
+    "comments": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHPAAAAAQVim8s="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "createdAt": "2026-05-06T05:12:42Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "github-actions"
+          },
+          "createdAt": "2026-05-06T05:16:15Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 29,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mjk"
+      },
+      "nodes": [
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WSRequestPane/index.js",
+          "additions": 9,
+          "deletions": 98,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/SingleWSMessage/StyledWrapper.js",
+          "additions": 48,
+          "deletions": 64,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/SingleWSMessage/index.js",
+          "additions": 106,
+          "deletions": 178,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/StyledWrapper.js",
+          "additions": 19,
+          "deletions": 15,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/RequestPane/WsBody/index.js",
+          "additions": 58,
+          "deletions": 83,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/providers/ReduxStore/slices/collections/actions.js",
+          "additions": 1,
+          "deletions": 4,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/providers/ReduxStore/slices/collections/index.js",
+          "additions": 1,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/collections/index.js",
+          "additions": 2,
+          "deletions": 4,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/network/index.js",
+          "additions": 6,
+          "deletions": 6,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-converters/src/opencollection/items/websocket.ts",
+          "additions": 1,
+          "deletions": 3,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-electron/src/ipc/network/ws-event-handlers.js",
+          "additions": 25,
+          "deletions": 9,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-electron/src/utils/collection.js",
+          "additions": 0,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-filestore/src/formats/yml/items/parseWebsocketRequest.ts",
+          "additions": 9,
+          "deletions": 21,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-filestore/src/formats/yml/items/stringifyWebsocketRequest.ts",
+          "additions": 9,
+          "deletions": 19,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/src/bruToJson.js",
+          "additions": 1,
+          "deletions": 4,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/src/jsonToBru.js",
+          "additions": 1,
+          "deletions": 4,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/tests/bruToJson.spec.js",
+          "additions": 2,
+          "deletions": 150,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-schema-types/src/requests/websocket.ts",
+          "additions": 0,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/bruno.json",
+          "additions": 0,
+          "deletions": 5,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/collection.bru",
+          "additions": 0,
+          "deletions": 3,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/ws-multi-msg.bru",
+          "additions": 0,
+          "deletions": 29,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/fixtures/collection/ws-single-msg.bru",
+          "additions": 0,
+          "deletions": 21,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/init-user-data/preferences.json",
+          "additions": 0,
+          "deletions": 12,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-bru/multi-message.spec.ts",
+          "additions": 0,
+          "deletions": 256,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/fixtures/collection/opencollection.yml",
+          "additions": 0,
+          "deletions": 6,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/fixtures/collection/ws-multi-msg.yml",
+          "additions": 0,
+          "deletions": 24,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/fixtures/collection/ws-single-msg.yml",
+          "additions": 0,
+          "deletions": 18,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/init-user-data/preferences.json",
+          "additions": 0,
+          "deletions": 12,
+          "changeType": "DELETED"
+        },
+        {
+          "path": "tests/websockets/multi-message-yml/multi-message.spec.ts",
+          "additions": 0,
+          "deletions": 294,
+          "changeType": "DELETED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 19,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABnfxoChABqzI1MjA5NTk1NTUx"
+      },
+      "nodes": [
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-05-06T05:12:30Z",
+          "requestedReviewer": {
+            "__typename": "Bot",
+            "login": "copilot-pull-request-reviewer"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-05-06T05:12:30Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user2"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-05-06T05:12:30Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-05-06T05:12:30Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-05-06T05:12:30Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "MergedEvent",
+          "createdAt": "2026-05-06T08:29:30Z"
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2026-05-06T08:29:30Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM8AAAABAIgx2Q",
+    "number": 9000,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/9000",
+    "state": "MERGED",
+    "isDraft": false,
+    "isCrossRepository": true,
+    "createdAt": "2026-08-18T10:52:15Z",
+    "updatedAt": "2026-09-02T10:29:37Z",
+    "mergedAt": "2026-09-02T10:29:36Z",
+    "closedAt": "2026-09-02T10:29:36Z",
+    "baseRefName": "main",
+    "headRefName": "fix/saved-response-not-showing-preview",
+    "additions": 856,
+    "deletions": 10,
+    "changedFiles": 28,
+    "reviewDecision": "APPROVED",
+    "author": {
+      "__typename": "User",
+      "login": "user16"
+    },
+    "authorAssociation": "CONTRIBUTOR",
+    "mergedBy": {
+      "__typename": "User",
+      "login": "user11"
+    },
+    "mergeCommit": {
+      "oid": "7d34a4074f0ae8b8f978a1531b5229c032791778"
+    },
+    "labels": {
+      "totalCount": 2,
+      "nodes": [
+        {
+          "name": "size/XL"
+        },
+        {
+          "name": "v4.2.0"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 0,
+      "nodes": []
+    },
+    "reviewThreads": {
+      "totalCount": 47
+    },
+    "commits": {
+      "totalCount": 38,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mzg"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "16d212fb8d3605e525f91c3bdc8d84fca05688b5",
+            "authoredDate": "2026-08-18T10:51:15Z",
+            "committedDate": "2026-08-28T11:27:25Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "29649a8f1637edba5cbd225a97279fb6b5f1a588",
+            "authoredDate": "2026-08-19T14:34:50Z",
+            "committedDate": "2026-08-28T11:27:25Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "4d3c32e9a21469adbcda60d080aaefa6dba8d6e6",
+            "authoredDate": "2026-08-19T14:54:08Z",
+            "committedDate": "2026-08-28T11:27:25Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "ab1250ea3551f56a7dc23f4a9f52c211116fa01a",
+            "authoredDate": "2026-08-19T15:07:12Z",
+            "committedDate": "2026-08-28T11:27:25Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "52a8fceed6746e041d2ddb7ee79d46b8c7d9f960",
+            "authoredDate": "2026-08-19T15:44:52Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "3bb54bceaeefc19a11a2e873b9d9e53cd64b0c9e",
+            "authoredDate": "2026-08-19T16:04:51Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "26a036773fa15ce89ca020c1db20bc444c02faab",
+            "authoredDate": "2026-08-19T16:11:48Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "bed8736e9f01365a81f55931447c34e6ef59fbb4",
+            "authoredDate": "2026-08-19T17:07:23Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "ebeb6c97ae321a95f6dcbe50557b26bd497859d2",
+            "authoredDate": "2026-08-19T17:21:06Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "15d5d91477d8d1380b4a44785f23709bb143bbe3",
+            "authoredDate": "2026-08-20T12:10:37Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "fabde0552559edd86a6c0ead83fc488047c35fd6",
+            "authoredDate": "2026-08-20T12:10:51Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "2a48b5798d41605e3d624759665b475c1db81241",
+            "authoredDate": "2026-08-20T13:30:11Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "e91553f54234da13ce74f577062ff6fce2946af4",
+            "authoredDate": "2026-08-20T13:30:24Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "1a45e5d0e8b014b869f70a0d1bee59e135f0464c",
+            "authoredDate": "2026-08-24T10:46:51Z",
+            "committedDate": "2026-08-28T11:27:26Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "8d7348821a2e780eb7a3b4502f7e7ef45056006b",
+            "authoredDate": "2026-08-24T12:41:31Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d01b9cbaecb813e9409105831fc29c67db9c4ce0",
+            "authoredDate": "2026-08-25T08:25:47Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "eea22191565c028ff3fd9c39d68fc4da8bd170c0",
+            "authoredDate": "2026-08-25T08:26:13Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "becbf55afbef69257307a34933d1f6e752eef94f",
+            "authoredDate": "2026-08-25T08:29:29Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "2295b5a4dd452ca5a559bef6704f5f6fa26c53a7",
+            "authoredDate": "2026-08-26T12:45:56Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "feb742565f47e270e2e180096dc13f8d23b716e5",
+            "authoredDate": "2026-08-26T13:05:00Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "530143e0c620ea44598b399608698e455c012744",
+            "authoredDate": "2026-08-26T13:27:48Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "64b79b0065786f114de371084648f4bf0307f7d7",
+            "authoredDate": "2026-08-26T13:52:13Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d0a962d609bd7c74e6686824ac80d77287db416e",
+            "authoredDate": "2026-08-27T08:01:03Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "9b70cc739f989b93b87c1992226964c3804b152d",
+            "authoredDate": "2026-08-27T12:32:22Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "3bf085c5dafa0ae3468ec66f487f8f90acbba85a",
+            "authoredDate": "2026-08-27T13:43:15Z",
+            "committedDate": "2026-08-28T11:27:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "a8e4938892d16ea1f4815abbbfab3f39490d6503",
+            "authoredDate": "2026-08-28T09:38:06Z",
+            "committedDate": "2026-08-28T11:27:28Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d4b7a625b4f328692f22598ed4e23e971d7332a1",
+            "authoredDate": "2026-08-28T09:50:57Z",
+            "committedDate": "2026-08-28T11:27:28Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "2eb3f03df55de6aa330458212d3d4620a3681348",
+            "authoredDate": "2026-08-28T10:19:01Z",
+            "committedDate": "2026-08-28T11:27:28Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "ec9d8f572d2127181fb730013c268bafcda1fc01",
+            "authoredDate": "2026-08-28T10:32:44Z",
+            "committedDate": "2026-08-28T11:27:28Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "dc5b7c8ec7111bc7ed0b272869b6f0bd91c294e7",
+            "authoredDate": "2026-08-31T09:59:20Z",
+            "committedDate": "2026-08-31T09:59:20Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "e09d49bae897570e76e78b915ea98d02b2dd47dc",
+            "authoredDate": "2026-08-31T10:09:05Z",
+            "committedDate": "2026-08-31T10:09:05Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "eff638046518687b5f5deb988eb28e4d6020017f",
+            "authoredDate": "2026-08-31T15:04:02Z",
+            "committedDate": "2026-08-31T15:04:02Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "ca57a7648056e4d168fb607ae85954dcf0591465",
+            "authoredDate": "2026-08-31T15:07:00Z",
+            "committedDate": "2026-08-31T15:07:00Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "2d4220dd8ebe77b7ea699641dab0944500ac581c",
+            "authoredDate": "2026-08-31T15:15:06Z",
+            "committedDate": "2026-08-31T15:15:06Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "84e079e427e7d307c9a05170dc53b08046ca2dc4",
+            "authoredDate": "2026-08-31T15:17:56Z",
+            "committedDate": "2026-08-31T15:17:56Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "15cbf7493dcee0721309eadeec989b39cf5e7d30",
+            "authoredDate": "2026-09-01T11:51:21Z",
+            "committedDate": "2026-09-01T11:51:21Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "fe880bd9042704a26f996df675008314813dd0ed",
+            "authoredDate": "2026-09-01T12:52:27Z",
+            "committedDate": "2026-09-01T12:52:27Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "127a184962f2e5231787349581e907f22109cc1d",
+            "authoredDate": "2026-09-02T10:12:49Z",
+            "committedDate": "2026-09-02T10:12:49Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user16"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 42,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpO0MjAyNi0wOS0wMlQxMDoyMjowNVq0MjAyNi0wOS0wMlQxMDoyMjowNVrPAAAAAS9LDfs="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-19T18:01:26Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-20T03:13:32Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-20T03:13:55Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-20T13:36:48Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user17"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-21T06:33:09Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-24T10:44:44Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-24T10:53:16Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-24T12:33:04Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-24T12:33:26Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-24T12:33:59Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user14"
+          },
+          "state": "CHANGES_REQUESTED",
+          "submittedAt": "2026-08-26T09:56:43Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-26T13:04:43Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-26T13:27:59Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-26T13:28:52Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-26T13:31:52Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-26T13:42:03Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-27T12:03:37Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-28T10:33:20Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user14"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T09:27:58Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T13:36:24Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T13:36:29Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user14"
+          },
+          "state": "CHANGES_REQUESTED",
+          "submittedAt": "2026-08-31T14:14:06Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T14:58:38Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T14:59:31Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T14:59:50Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T15:00:52Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T15:07:24Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T15:14:25Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-08-31T15:18:19Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user14"
+          },
+          "state": "CHANGES_REQUESTED",
+          "submittedAt": "2026-09-01T11:53:30Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user14"
+          },
+          "state": "CHANGES_REQUESTED",
+          "submittedAt": "2026-09-01T11:55:28Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-01T12:34:25Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-01T12:37:07Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-01T12:52:19Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user14"
+          },
+          "state": "DISMISSED",
+          "submittedAt": "2026-09-01T14:23:33Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user11"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-02T07:23:34Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user11"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-02T09:36:52Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user11"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-02T09:39:14Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-02T10:10:47Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-02T10:11:40Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user16"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-02T10:11:50Z",
+          "body": ""
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user11"
+          },
+          "state": "APPROVED",
+          "submittedAt": "2026-09-02T10:22:05Z",
+          "body": ""
+        }
+      ]
+    },
+    "comments": {
+      "totalCount": 3,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHPAAAAAUQwD2E="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "createdAt": "2026-08-18T10:52:24Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user17"
+          },
+          "createdAt": "2026-08-25T05:00:50Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user10"
+          },
+          "createdAt": "2026-08-27T12:15:29Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 28,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Mjg"
+      },
+      "nodes": [
+        {
+          "path": "packages/bruno-app/src/components/ResponseExample/CreateExampleModal/index.js",
+          "additions": 1,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/ResponseExample/ResponseExampleResponsePane/ResponseExampleResponseContent/index.js",
+          "additions": 30,
+          "deletions": 3,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/ResponseExample/ResponseExampleResponsePane/ResponseExampleResponseHeaders/index.js",
+          "additions": 4,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/components/ResponsePane/ResponseBookmark/index.js",
+          "additions": 8,
+          "deletions": 4,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/response/getBinaryPreviewType.spec.js",
+          "additions": 36,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/response/index.js",
+          "additions": 24,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/responseBodyProcessor.js",
+          "additions": 40,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/responseBodyProcessor.spec.js",
+          "additions": 62,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "packages/bruno-lang/v2/tests/examples/examples.spec.js",
+          "additions": 48,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/binary-preview.spec.ts",
+          "additions": 302,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/audio/binary-preview-audio-m4a.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/audio/binary-preview-audio-mp3.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/audio/binary-preview-audio-wav.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/binary-preview-json.yml",
+          "additions": 17,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/binary-preview-mislabeled.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/binary-preview-pdf.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/binary-preview-svg.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/binary-preview-unknown-binary.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/images/binary-preview-image-gif.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/images/binary-preview-image-jpeg.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/images/binary-preview-image-png.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/images/binary-preview-image-webp.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/opencollection.yml",
+          "additions": 3,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/video/binary-preview-video-mp4.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/fixtures/collection/video/binary-preview-video-webm.yml",
+          "additions": 18,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/response-examples/binary-preview/init-user-data/preferences.json",
+          "additions": 6,
+          "deletions": 0,
+          "changeType": "ADDED"
+        },
+        {
+          "path": "tests/utils/page/locators.ts",
+          "additions": 2,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "tests/utils/page/response-example.ts",
+          "additions": 39,
+          "deletions": 0,
+          "changeType": "ADDED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 108,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABoGGqwoABqzMwNDA4MTk4MDE1"
+      },
+      "nodes": [
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-19T11:21:57Z"
+        },
+        {
+          "__typename": "ReadyForReviewEvent",
+          "createdAt": "2026-08-19T17:48:21Z"
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user2"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user10"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user11"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user12"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user13"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-08-19T17:48:22Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user14"
+          }
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-19T17:50:11Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-20T13:33:34Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-24T10:48:11Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-24T12:45:38Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-25T08:27:40Z"
+        },
+        {
+          "__typename": "HeadRefForcePushedEvent",
+          "createdAt": "2026-08-28T11:27:46Z"
+        },
+        {
+          "__typename": "MergedEvent",
+          "createdAt": "2026-09-02T10:29:36Z"
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2026-09-02T10:29:36Z"
+        }
+      ]
+    }
+  },
+  {
+    "id": "PR_kwDOIFKaXM8AAAABCoxoIA",
+    "number": 9198,
+    "title": "…",
+    "body": "…",
+    "url": "https://github.com/usebruno/bruno/pull/9198",
+    "state": "CLOSED",
+    "isDraft": false,
+    "isCrossRepository": true,
+    "createdAt": "2026-09-08T08:08:46Z",
+    "updatedAt": "2026-10-02T17:45:58Z",
+    "mergedAt": null,
+    "closedAt": "2026-10-02T17:45:58Z",
+    "baseRefName": "main",
+    "headRefName": "fix/curl-import-multipart-form-data",
+    "additions": 60,
+    "deletions": 10,
+    "changedFiles": 4,
+    "reviewDecision": null,
+    "author": {
+      "__typename": "User",
+      "login": "user18"
+    },
+    "authorAssociation": "NONE",
+    "mergedBy": null,
+    "mergeCommit": null,
+    "labels": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "name": "size/M"
+        }
+      ]
+    },
+    "closingIssuesReferences": {
+      "totalCount": 1,
+      "nodes": [
+        {
+          "number": 9275,
+          "repository": {
+            "nameWithOwner": "usebruno/bruno"
+          }
+        }
+      ]
+    },
+    "reviewThreads": {
+      "totalCount": 1
+    },
+    "commits": {
+      "totalCount": 10,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "MTA"
+      },
+      "nodes": [
+        {
+          "commit": {
+            "oid": "c1ca291b8c98181fb2292fdf923cdf3ed035ea1d",
+            "authoredDate": "2026-09-08T08:07:52Z",
+            "committedDate": "2026-09-08T08:07:52Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "9e9109b74aa1019f716daa378fab4cb4abef01c1",
+            "authoredDate": "2026-09-09T12:12:59Z",
+            "committedDate": "2026-09-09T12:12:59Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "f9c585755fc37f0d277cdb084b32eabc3b1557d5",
+            "authoredDate": "2026-09-13T07:16:35Z",
+            "committedDate": "2026-09-13T07:16:35Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "c9610bbdecfcde4d37f0d105d0bf3ad4e7834cb5",
+            "authoredDate": "2026-09-16T12:04:35Z",
+            "committedDate": "2026-09-16T12:04:35Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "d2d671d97cbbc31c3013293cb0283d36ae1673c8",
+            "authoredDate": "2026-09-17T14:24:16Z",
+            "committedDate": "2026-09-17T14:24:16Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "ff7dd405fabd2133fb2b2f54ed7cbe41b3d33554",
+            "authoredDate": "2026-09-18T01:48:06Z",
+            "committedDate": "2026-09-18T01:48:06Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "85c4c30b24aa9be3aecdc9d9fac32a1ad441dc6f",
+            "authoredDate": "2026-09-18T13:59:57Z",
+            "committedDate": "2026-09-18T13:59:57Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "4204a62985d7ff74a2a7c9a7b7567d528eb29fd4",
+            "authoredDate": "2026-09-22T15:14:07Z",
+            "committedDate": "2026-09-22T15:14:07Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "8ee942d2ede78b0e4cb27e232707024d5c649a48",
+            "authoredDate": "2026-09-25T13:59:12Z",
+            "committedDate": "2026-09-25T13:59:12Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        },
+        {
+          "commit": {
+            "oid": "5daf59185d6e3618b184edb20870b5f07d0b73c6",
+            "authoredDate": "2026-10-02T17:45:33Z",
+            "committedDate": "2026-10-02T17:45:33Z",
+            "message": "…",
+            "author": {
+              "user": {
+                "login": "user18"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reviews": {
+      "totalCount": 2,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpO0MjAyNi0wOS0xOFQwMTo0ODoyOVq0MjAyNi0wOS0xOFQwMTo0ODoyOVrPAAAAATiHgV4="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-17T14:32:39Z",
+          "body": "…"
+        },
+        {
+          "author": {
+            "__typename": "User",
+            "login": "user18"
+          },
+          "state": "COMMENTED",
+          "submittedAt": "2026-09-18T01:48:29Z",
+          "body": ""
+        }
+      ]
+    },
+    "comments": {
+      "totalCount": 1,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpHPAAAAAUywG_4="
+      },
+      "nodes": [
+        {
+          "author": {
+            "__typename": "Bot",
+            "login": "coderabbitai"
+          },
+          "createdAt": "2026-09-08T08:11:02Z",
+          "body": "…"
+        }
+      ]
+    },
+    "files": {
+      "totalCount": 4,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "NA"
+      },
+      "nodes": [
+        {
+          "path": "packages/bruno-app/src/utils/curl/index.js",
+          "additions": 10,
+          "deletions": 2,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/curl/index.spec.js",
+          "additions": 12,
+          "deletions": 0,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/curl/parse-curl.js",
+          "additions": 17,
+          "deletions": 7,
+          "changeType": "MODIFIED"
+        },
+        {
+          "path": "packages/bruno-app/src/utils/curl/parse-curl.spec.js",
+          "additions": 21,
+          "deletions": 1,
+          "changeType": "MODIFIED"
+        }
+      ]
+    },
+    "timelineItems": {
+      "totalCount": 26,
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": "Y3Vyc29yOnYyOpPPAAABoP25C_ABqzMyMzUzOTQyOTcw"
+      },
+      "nodes": [
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:47Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user2"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:47Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user6"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:47Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user7"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:47Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user8"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:48Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user10"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:48Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user11"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:48Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user12"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:48Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user13"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-09-08T08:08:48Z",
+          "requestedReviewer": {
+            "__typename": "User",
+            "login": "user14"
+          }
+        },
+        {
+          "__typename": "ReviewRequestedEvent",
+          "createdAt": "2026-10-02T17:45:36Z",
+          "requestedReviewer": null
+        },
+        {
+          "__typename": "ClosedEvent",
+          "createdAt": "2026-10-02T17:45:58Z"
+        }
+      ]
+    }
+  }
+]

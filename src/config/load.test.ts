@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_PROMOTION_BRANCHES } from "../core/derive.ts";
 import { loadConfig, parseConfig } from "./load.ts";
 
 describe("codeflow.example.yml", () => {
@@ -42,7 +43,43 @@ since: 2025-10-01
       since: "2025-10-01",
       github: { api_url: "https://api.github.com", token_env: "GITHUB_TOKEN" },
       data_dir: ".codeflow",
+      branches: {},
+      promotions: [...DEFAULT_PROMOTION_BRANCHES],
+      bots: { accounts: [], reviewers: [], include_prs: false, ignore_bodies: [] },
+      paths: [],
     });
+  });
+
+  it("reads measurement settings", () => {
+    const config = parseConfig(`
+sources:
+  - owner: acme
+since: 2025-10-01
+branches:
+  acme/legacy: [develop, main]
+bots:
+  reviewers: [coderabbitai]
+  ignore_bodies: ["configured for manual reviews"]
+paths:
+  - { match: "packages/*-tests/**", bucket: test }
+  - { match: ["docs/**", "site/**"], bucket: product, repos: [acme/website] }
+`);
+    expect(config.branches).toEqual({ "acme/legacy": ["develop", "main"] });
+    expect(config.bots).toMatchObject({ reviewers: ["coderabbitai"], include_prs: false });
+    expect(config.paths).toEqual([
+      { match: ["packages/*-tests/**"], bucket: "test" },
+      { match: ["docs/**", "site/**"], bucket: "product", repos: ["acme/website"] },
+    ]);
+  });
+
+  it("rejects an unknown bucket and an invalid regular expression", () => {
+    const base = "sources:\n  - owner: a\nsince: 2025-10-01\n";
+    expect(errorOf(`${base}paths:\n  - { match: "x/**", bucket: tests }\n`)).toContain(
+      "paths[0].bucket",
+    );
+    expect(errorOf(`${base}bots:\n  ignore_bodies: ["(unclosed"]\n`)).toContain(
+      "bots.ignore_bodies[0]: must be a valid regular expression",
+    );
   });
 
   it("keeps owner filters and github overrides", () => {
