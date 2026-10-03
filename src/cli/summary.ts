@@ -3,12 +3,13 @@ import picomatch from "picomatch";
 import { loadConfig } from "../config/load.ts";
 import { CONCENTRATION_SHARE, type Measurement, measure } from "../core/aggregate.ts";
 import { formatValue, PHASE_LABELS, statLabel, valueNote } from "../core/format.ts";
-import { METRICS } from "../core/metrics.ts";
+import { METRICS, metricOf } from "../core/metrics.ts";
 import { isComplete, lastCompletePeriod, parsePeriod } from "../core/periods.ts";
 import { CodeflowError } from "../errors.ts";
 import { assertCovered, coveredFrom } from "../pipeline/coverage.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
+import { branchWarnings } from "./branches.ts";
 import { bold, dim, num, plural, status, table } from "./format.ts";
 import { databasePath, type Print } from "./session.ts";
 
@@ -64,10 +65,13 @@ export async function summary(options: SummaryOptions): Promise<number> {
       percentile: parsePercentile(options.percentile),
     });
 
+    const warnings = branchWarnings(store, config, asOf);
     if (options.json) {
       print(JSON.stringify(toJson(result, repos), null, 2));
     } else {
       printSummary(result, repos, isComplete(period, asOf), print);
+      if (warnings.length > 0) print();
+      for (const line of warnings) print(line);
       if (options.explain) printDefinitions(print);
     }
     return 0;
@@ -94,11 +98,12 @@ function printSummary(result: Measurement, repos: string[], complete: boolean, p
   const rows: string[][] = [];
   let group = "";
   for (const value of result.values) {
-    if (value.metric.group !== group) {
-      group = value.metric.group;
+    const metric = metricOf(value.key);
+    if (metric.group !== group) {
+      group = metric.group;
       rows.push([group, "", "", ""]);
     }
-    rows.push([`  ${value.metric.label}`, formatValue(value), num(value.n), valueNote(value)]);
+    rows.push([`  ${metric.label}`, formatValue(value), num(value.n), valueNote(value)]);
   }
   print(table(["", statName, "PRs", ""], rows, { rightAlign: [1, 2] }));
   print();
@@ -168,17 +173,20 @@ function toJson(result: Measurement, repos: string[]) {
     period: result.period,
     asOf: result.asOf,
     percentile: result.percentile,
-    metrics: result.values.map(({ metric, value, n, hidden, notApplicable }) => ({
-      key: metric.key,
-      label: metric.label,
-      group: metric.group,
-      kind: metric.kind,
-      unit: "unit" in metric ? metric.unit : metric.kind === "share" ? "share" : "prs",
-      value,
-      n,
-      notApplicable,
-      ...(hidden && { hidden }),
-    })),
+    metrics: result.values.map(({ key, value, n, hidden, notApplicable }) => {
+      const metric = metricOf(key);
+      return {
+        key,
+        label: metric.label,
+        group: metric.group,
+        kind: metric.kind,
+        unit: "unit" in metric ? metric.unit : metric.kind === "share" ? "share" : "prs",
+        value,
+        n,
+        notApplicable,
+        ...(hidden && { hidden }),
+      };
+    }),
     phases: result.phases,
     open: result.open,
     excluded: result.excluded,

@@ -29,10 +29,14 @@ export type Commit = { sha: string; authoredAt: string; committedAt: string; mes
 
 export type ChangedFile = { path: string; additions: number; deletions: number };
 
+/** Who a review was requested from: a person or bot (by login), or a team (by its slug). */
+export type RequestedReviewer = Actor & { team: boolean };
+
 export type PrEvent =
   | { type: "ready_for_review" | "converted_to_draft" | "force_pushed"; at: string }
   | { type: "closed" | "reopened" | "merged"; at: string }
-  | { type: "review_requested"; at: string; reviewer: string | null }
+  /** `reviewer` is null when the account or team no longer exists. */
+  | { type: "review_requested"; at: string; reviewer: RequestedReviewer | null }
   | { type: "base_changed"; at: string; from: string; to: string };
 
 /** Lists the provider returned only part of: the PR has more than it was willing to send. */

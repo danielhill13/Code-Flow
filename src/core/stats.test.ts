@@ -9,9 +9,9 @@ import {
 import { minObservations, percentile, percentileStat } from "./stats.ts";
 
 describe("minObservations", () => {
-  it("asks for five observations above the percentile", () => {
-    expect([0.25, 0.5, 0.75, 0.85, 0.9, 0.95].map(minObservations)).toEqual([
-      7, 10, 20, 34, 50, 100,
+  it("asks for five observations beyond the percentile, on whichever side is thinner", () => {
+    expect([0.05, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95].map(minObservations)).toEqual([
+      100, 20, 10, 20, 34, 50, 100,
     ]);
   });
 });
@@ -30,7 +30,7 @@ describe("percentileStat", () => {
     expect(percentileStat(tooFew, 0.5)).toEqual({
       value: null,
       n: 9,
-      hidden: "needs 10 PRs with a value, has 9",
+      hidden: "too few PRs for a median (9, needs 10)",
     });
     expect(percentileStat([...tooFew, 10], 0.5)).toEqual({ value: 5.5, n: 10 });
   });

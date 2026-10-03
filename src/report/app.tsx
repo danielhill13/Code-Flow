@@ -1,356 +1,393 @@
-import { useEffect, useState } from "preact/hooks";
-import { CONCENTRATION_SHARE, type Measurement } from "../core/aggregate.ts";
-import { num, PHASE_LABELS, percent } from "../core/format.ts";
-import { METRICS } from "../core/metrics.ts";
+import { useCallback, useEffect, useState } from "preact/hooks";
+import { statLabel } from "../core/format.ts";
 import {
-  isComplete,
-  type PeriodKind,
-  periodContaining,
-  periodKey,
-  periodsCovered,
-  periodsEnding,
-  previousPeriod,
-} from "../core/periods.ts";
-import type { DataSource, Meta, Query } from "../core/source.ts";
-import { PhaseBars, TrendChart } from "./charts.tsx";
-import { OpenTable, PrTable, SummaryTable } from "./tables.tsx";
+  breakdowns,
+  type Choices,
+  type Contributors,
+  type Dimension,
+  defaultBreakdown,
+  selectionName,
+  validSelection,
+} from "../core/selection.ts";
+import type { DataSource, Meta } from "../core/source.ts";
+import type { ViewQuery } from "../core/views/context.ts";
+import { DEFAULT_SORT, type PrSet } from "../core/views/prs.ts";
+import { grainOf, type WindowKey, windowOf } from "../core/windows.ts";
+import { Drawer } from "./drawer.tsx";
+import { tabHref } from "./links.ts";
+import { SelectionBar } from "./selector.tsx";
+import { type ReportState, readState, TABS, writeState } from "./state.ts";
+import { Compare, CompareControls, comparePick } from "./tabs/compare.tsx";
+import { Flow } from "./tabs/flow.tsx";
+import { Overview } from "./tabs/overview.tsx";
+import { PullRequests } from "./tabs/prs.tsx";
+import { Review } from "./tabs/review.tsx";
+import { Speed } from "./tabs/speed.tsx";
+import { type BreakdownChoice, Segmented, when } from "./ui.tsx";
 
-/** What the page shows. It lives in the URL, so any view can be shared as a link. */
-type View = {
-  kind: PeriodKind;
-  /** Key of the selected period, e.g. "2026-09"; null for the default. */
-  period: string | null;
-  /** One repo, or null for all of them. */
-  repo: string | null;
-  percentile: number;
-  /** The metric whose PRs are listed. */
-  metric: string;
-  /** The period those PRs come from, when a trend point picked one. */
-  at: string | null;
-};
+const WINDOWS: readonly { value: WindowKey; label: string }[] = [
+  { value: "30d", label: "30 d" },
+  { value: "60d", label: "60 d" },
+  { value: "90d", label: "90 d" },
+  { value: "ytd", label: "YTD" },
+];
 
-const KINDS: PeriodKind[] = ["month", "quarter", "year"];
-const PERCENTILES = [0.5, 0.75, 0.9];
-const TREND_LENGTH: Record<PeriodKind, number> = { month: 12, quarter: 8, year: 4 };
-const DEFAULT_VIEW: View = {
-  kind: "month",
-  period: null,
-  repo: null,
-  percentile: 0.5,
-  metric: "merged",
-  at: null,
-};
+const STATISTICS: readonly { value: number; label: string }[] = [
+  { value: 0.5, label: "Median" },
+  { value: 0.75, label: "P75" },
+];
+
+const WHO: readonly { value: Contributors; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "internal", label: "Internal" },
+  { value: "external", label: "External" },
+];
+
+const PAGE = 50;
 
 export function App(props: { source: DataSource }) {
-  const meta = useAsync(() => props.source.meta(), [props.source]);
-  return meta ? <Report source={props.source} meta={meta} /> : <p>Loading…</p>;
+  const meta = useAsync(() => props.source.meta(), "meta");
+  if (!meta) return <p class="wrap">Loading…</p>;
+  return <Report source={props.source} meta={meta} />;
 }
 
 function Report({ source, meta }: { source: DataSource; meta: Meta }) {
+  const [state, setState] = useHashState(meta.choices);
+  const [theme, setTheme] = useTheme();
+  const [limit, setLimit] = useState(PAGE);
   const asOf = new Date(meta.asOf);
-  const [view, update] = useView();
-  const periods = periodsCovered(view.kind, meta.coveredFrom, asOf);
-  // The default is the last complete period (rule 7); the running one is there to pick. With
-  // no covered period at all, the hooks below still run (on the current one) before saying so.
-  const covered =
-    periods.find((p) => periodKey(p) === view.period) ??
-    periods.find((p) => isComplete(p, asOf)) ??
-    periods[0];
-  const period = covered ?? periodContaining(view.kind, asOf);
-
-  const repos = view.repo && meta.repos.includes(view.repo) ? [view.repo] : null;
-  const query: Query = { period, repos, percentile: view.percentile };
-  const before = previousPeriod(period);
-  const at =
-    (view.at &&
-      periodsEnding(period, TREND_LENGTH[view.kind]).find((p) => periodKey(p) === view.at)) ||
-    period;
-  const metric = METRICS.find((m) => m.key === view.metric) ?? METRICS[0];
-  const key = [periodKey(period), repos, view.percentile];
-
-  const current = useAsync(() => source.measure(query), [source, ...key]);
-  const previous = useAsync(
-    () =>
-      before.start >= meta.coveredFrom
-        ? source.measure({ ...query, period: before })
-        : Promise.resolve(null),
-    [source, ...key],
-  );
-  const trend = useAsync(() => source.trend(query, TREND_LENGTH[view.kind]), [source, ...key]);
-  const rows = useAsync(
-    () => source.prs({ ...query, period: at }, metric?.key ?? ""),
-    [source, ...key, periodKey(at), metric?.key],
-  );
-  const open = useAsync(() => source.openPrs(repos), [source, repos]);
-
-  const trendPeriods = periodsEnding(period, TREND_LENGTH[view.kind]);
-  const showRepo = repos === null && meta.repos.length > 1;
-  const complete = isComplete(period, asOf);
-  const pick = (metricKey: string, periodKeyPicked: string | null = null) => {
-    update({ metric: metricKey, at: periodKeyPicked });
-    document.getElementById("prs")?.scrollIntoView({ behavior: "smooth" });
+  const query: ViewQuery = {
+    selection: state.selection,
+    by: breakdownOf(meta.choices, state),
+    contributors: state.contributors,
+    window: state.window,
+    percentile: state.percentile,
   };
+  const pick = comparePick(state.compare, meta.coveredFrom, asOf);
+  const listKey = JSON.stringify([state.selection, state.contributors, state.list]);
+  useEffect(() => setLimit(PAGE), [listKey]);
 
-  if (!covered) {
-    return (
-      <p>
-        No {view.kind} is covered yet: the synced data starts {meta.coveredFrom}.
-      </p>
-    );
+  const key = JSON.stringify([
+    state.tab,
+    query,
+    state.tab === "compare" ? [pick.a, pick.b] : null,
+    state.tab === "prs" ? [state.list, limit] : null,
+  ]);
+  const loaded = useAsync(async () => ({ key, model: await loadModel() }), key);
+  // A model loaded for another tab or query is never shown under this one.
+  const model = loaded?.key === key ? loaded.model : undefined;
+  function loadModel(): Promise<unknown> {
+    switch (state.tab) {
+      case "overview":
+        return source.overview(query);
+      case "speed":
+        return source.speed(query);
+      case "review":
+        return source.review(query);
+      case "flow":
+        return source.flow(query);
+      case "compare":
+        return pick.a && pick.b
+          ? source.compare({ ...query, a: pick.a, b: pick.b })
+          : Promise.resolve(null);
+      case "prs":
+        return source.prs({
+          selection: state.selection,
+          contributors: state.contributors,
+          set: state.list.set,
+          filters: state.list.filters,
+          sort: state.list.sort,
+          limit,
+        });
+    }
   }
+  const opened = useAsync(
+    () => (state.pr ? source.pr(state.pr) : Promise.resolve(null)),
+    `pr:${state.pr}`,
+  );
+  const drawer = opened && opened.id === state.pr ? opened : null;
+  const closeDrawer = useCallback(() => setState((s) => ({ ...s, pr: null })), [setState]);
+  const update = (patch: Partial<ReportState>) => setState((s) => ({ ...s, ...patch }));
+
+  const question = TABS.find((t) => t.key === state.tab)?.question ?? "";
+  const window = windowOf(state.window, asOf);
+  const unit = grainOf(window) === "month" ? "monthly" : "weekly";
+  const who =
+    state.contributors === "all"
+      ? ""
+      : state.contributors === "internal"
+        ? " · internal contributors"
+        : " · outside contributors";
+  const name = selectionName(meta.choices, state.selection);
+  const subline =
+    state.tab === "compare"
+      ? "two calendar periods"
+      : state.tab === "flow"
+        ? `open as of ${when(meta.asOf)}`
+        : state.tab === "prs"
+          ? "the evidence behind every number"
+          : `${window.current.label}, compared with ${window.previous.label}`;
+  const note =
+    state.tab === "compare"
+      ? "Calendar periods · choose A and B below"
+      : state.tab === "flow"
+        ? `Open PRs as of ${when(meta.asOf)} · the window applies to trends and abandoned only`
+        : state.tab === "prs"
+          ? ""
+          : `vs ${window.previous.label} · ${unit} points`;
 
   return (
     <>
-      <header>
-        <h1>Code flow</h1>
-        <p class="muted">
-          {repos ? repos[0] : meta.repos.join(", ")} · data through {when(meta.asOf)} · measured
-          from {meta.coveredFrom}
-        </p>
-        <form class="controls" onSubmit={(e) => e.preventDefault()}>
-          <label>
-            Period{" "}
-            <select
-              value={view.kind}
-              onChange={(e) =>
-                update({ kind: e.currentTarget.value as PeriodKind, period: null, at: null })
-              }
+      <header class="header">
+        <div class="wrap bar-row">
+          <span class="logo">codeflow</span>
+          <span class="divider" />
+          <SelectionBar choices={meta.choices} state={state} />
+          <div class="header-right">
+            <span class="through">Data through {when(meta.asOf)}</span>
+            <Segmented
+              label="Theme"
+              hideLabel
+              small
+              options={[
+                { value: "light", label: "Light" },
+                { value: "dark", label: "Dark" },
+              ]}
+              value={theme}
+              onChange={setTheme}
+            />
+            <button type="button" class="button" onClick={() => print()}>
+              Print
+            </button>
+          </div>
+        </div>
+        <nav class="wrap tabs" aria-label="Tabs">
+          {TABS.map((t) => (
+            <a
+              key={t.key}
+              href={tabHref(state, t.key)}
+              class={t.key === state.tab ? "current" : undefined}
+              aria-current={t.key === state.tab ? "page" : undefined}
             >
-              {KINDS.map((kind) => (
-                <option key={kind} value={kind}>
-                  {kind}
-                </option>
-              ))}
-            </select>{" "}
-            <select
-              value={periodKey(period)}
-              onChange={(e) => update({ period: e.currentTarget.value, at: null })}
-            >
-              {periods.map((p) => (
-                <option key={periodKey(p)} value={periodKey(p)}>
-                  {p.label}
-                  {isComplete(p, asOf) ? "" : " (so far)"}
-                </option>
-              ))}
-            </select>
-          </label>
-          {meta.repos.length > 1 && (
-            <label>
-              Repo{" "}
-              <select
-                value={repos?.[0] ?? ""}
-                onChange={(e) => update({ repo: e.currentTarget.value || null })}
-              >
-                <option value="">all {meta.repos.length}</option>
-                {meta.repos.map((repo) => (
-                  <option key={repo} value={repo}>
-                    {repo}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label>
-            Statistic{" "}
-            <select
-              value={String(view.percentile)}
-              onChange={(e) => update({ percentile: Number(e.currentTarget.value) })}
-            >
-              {PERCENTILES.map((p) => (
-                <option key={p} value={String(p)}>
-                  {p === 0.5 ? "median" : `P${p * 100}`}
-                </option>
-              ))}
-            </select>
-          </label>
-        </form>
+              {t.label}
+            </a>
+          ))}
+        </nav>
       </header>
 
-      <section>
-        <h2>
-          {period.label}
-          {complete ? "" : " (so far)"}
-        </h2>
-        {!complete && (
-          <p class="note">This period isn't over: counts and totals will still grow.</p>
-        )}
-        {current && (
-          <>
-            <SummaryTable
-              current={current}
-              previous={previous ?? null}
-              complete={complete}
-              selected={metric?.key ?? ""}
-              onPick={(metricKey) => pick(metricKey)}
+      <div class="controls">
+        <div class="wrap">
+          {state.tab !== "compare" && state.tab !== "prs" && (
+            <Segmented
+              label="Window"
+              options={WINDOWS}
+              value={state.window}
+              onChange={(w) => update({ window: w })}
             />
-            <Notes measurement={current} />
-          </>
-        )}
-      </section>
+          )}
+          <Segmented
+            label="Statistic"
+            options={STATISTICS}
+            value={state.percentile}
+            onChange={(p) => update({ percentile: p })}
+          />
+          <Segmented
+            label="Contributors"
+            options={WHO}
+            value={state.contributors}
+            onChange={(c) => update({ contributors: c })}
+          />
+          {note && <span class="controls-note">{note}</span>}
+        </div>
+      </div>
 
-      <section>
-        <h2>Trends</h2>
-        <p class="muted">
-          The {trendPeriods.length} {view.kind}s up to {period.label}. Hover a point for its value,
-          click it for its PRs.
+      <main
+        class={`wrap${state.tab === "compare" ? " compare-page" : ""}`}
+        // Which view this is, and whether its data has arrived: for tests and anyone automating.
+        data-view={writeState(state)}
+        data-ready={loaded?.key === key && (!state.pr || drawer !== null) ? "true" : "false"}
+      >
+        <p class="print-only">
+          codeflow · {name}
+          {who} ·{" "}
+          {state.tab === "compare" || state.tab === "prs" ? "" : `${window.current.label} · `}
+          data through {when(meta.asOf)} · {statLabel(state.percentile)}
         </p>
-        {trend && (
-          <div class="grid">
-            {METRICS.map((m) => (
-              <TrendChart
-                key={m.key}
-                metric={m}
-                percentile={view.percentile}
-                selected={m.key === metric?.key ? periodKey(at) : null}
-                onPick={(picked) => pick(m.key, picked)}
-                points={trendPeriods.map((p, i) => ({
-                  key: periodKey(p),
-                  label: p.label,
-                  value: trend[i]?.values.find((v) => v.metric.key === m.key) ?? null,
-                }))}
-              />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <h2>Where the time went</h2>
-        <p class="muted">Each phase's share of all cycle hours of the PRs merged in the period.</p>
-        {trend && (
-          <PhaseBars
-            rows={trendPeriods
-              .map((p, i) => ({ label: p.label, phases: trend[i]?.phases ?? null }))
-              .filter((_, i) => trend[i] !== null)
-              .reverse()}
+        <div class="heading">
+          <h1>{question}</h1>
+          <p>
+            {name}
+            {who} · {subline}
+          </p>
+        </div>
+        {state.tab === "compare" && (
+          <CompareControls
+            state={state}
+            pick={pick}
+            asOf={asOf}
+            onChange={(compare) => update({ compare })}
           />
         )}
-      </section>
+        {model ? (
+          <Body
+            tab={state.tab}
+            model={model}
+            state={state}
+            meta={meta}
+            asOf={asOf}
+            breakdown={{
+              offered: breakdowns(meta.choices, state.selection),
+              onChange: (by) => update({ by }),
+            }}
+            onList={(list) => update({ list })}
+            onSet={(set: PrSet) =>
+              update({
+                list: {
+                  from: "",
+                  set,
+                  filters: set === "open" ? [] : [{ kind: "span", ...window.current }],
+                  sort: DEFAULT_SORT[set],
+                },
+              })
+            }
+            onMore={() => setLimit((n) => n + PAGE)}
+          />
+        ) : state.tab === "compare" ? (
+          <p class="muted">
+            The data doesn't cover two periods of this kind yet. Try a shorter one, or custom dates.
+          </p>
+        ) : (
+          <p class="muted">Loading…</p>
+        )}
+      </main>
 
-      <section id="prs">
-        <h2>
-          {metric?.label} · {at.label}
-          {rows ? `: ${num(rows.length)} PRs` : ""}
-        </h2>
-        <p class="muted">
-          {metric?.definition} Click a metric above, or a point on a trend, to list other PRs.
-        </p>
-        {rows && <PrTable rows={rows} showRepo={showRepo} />}
-      </section>
-
-      <section>
-        <h2>Open now{open ? `: ${num(open.length)}` : ""}</h2>
-        <p class="muted">Pull requests still open as of {when(meta.asOf)}, oldest first.</p>
-        {open && <OpenTable prs={open} asOf={asOf} showRepo={showRepo} />}
-      </section>
-
-      <section>
-        <h2>Definitions</h2>
-        <dl>
-          {METRICS.map((m) => (
-            <div key={m.key}>
-              <dt>{m.label}</dt>
-              <dd>{m.definition}</dd>
-            </div>
-          ))}
-        </dl>
-        <p class="muted">
-          A PR counts once, where it merges into a measured branch: not bot PRs, not promotions
-          between long-lived branches. Bots aren't reviewers, and neither is a PR's author.
-          Percentiles need at least five PRs above them to show. Built {when(meta.builtAt)}.
-        </p>
-      </section>
+      {state.pr && drawer && <Drawer pr={drawer} asOf={asOf} onClose={closeDrawer} />}
     </>
   );
 }
 
-/** What a reader should know before trusting the period's numbers. */
-function Notes({ measurement }: { measurement: Measurement }) {
-  const { phases, excluded, truncated } = measurement;
-  const notCounted = [
-    excluded.base > 0 && `${num(excluded.base)} into branches that aren't measured`,
-    excluded.promotion > 0 && `${num(excluded.promotion)} promotions between long-lived branches`,
-    excluded.bot > 0 && `${num(excluded.bot)} by bots`,
-  ].filter(Boolean);
-  const concentrated = (phases ?? []).filter((phase) => phase.largestShare >= CONCENTRATION_SHARE);
-  return (
-    <ul class="notes">
-      {phases && (
-        <li>
-          Where the time went:{" "}
-          {phases
-            .map((phase) => `${PHASE_LABELS[phase.phase]} ${percent(phase.share)}`)
-            .join(" · ")}
-        </li>
-      )}
-      {concentrated.map((phase) => (
-        <li key={phase.phase}>
-          #{phase.largestPr} alone is {percent(phase.largestShare)} of all{" "}
-          {PHASE_LABELS[phase.phase]} time: one PR, not a habit.
-        </li>
-      ))}
-      {notCounted.length > 0 && (
-        <li>Not counted, though merged in the period: {notCounted.join(", ")}.</li>
-      )}
-      {truncated.length > 0 && (
-        <li>
-          GitHub sent incomplete data for {truncated.map((n) => `#${n}`).join(", ")}: its numbers
-          may be understated.
-        </li>
-      )}
-    </ul>
-  );
+function Body(props: {
+  tab: ReportState["tab"];
+  model: unknown;
+  state: ReportState;
+  meta: Meta;
+  asOf: Date;
+  onList: (list: ReportState["list"]) => void;
+  onSet: (set: PrSet) => void;
+  onMore: () => void;
+  breakdown: BreakdownChoice;
+}) {
+  const { model, state, asOf } = props;
+  // The model is the one the tab asked for: useAsync keys it by tab and query.
+  switch (props.tab) {
+    case "overview":
+      return (
+        <Overview
+          model={model as Parameters<typeof Overview>[0]["model"]}
+          state={state}
+          breakdown={props.breakdown}
+        />
+      );
+    case "speed":
+      return <Speed model={model as Parameters<typeof Speed>[0]["model"]} state={state} />;
+    case "review":
+      return (
+        <Review
+          model={model as Parameters<typeof Review>[0]["model"]}
+          state={state}
+          breakdown={props.breakdown}
+        />
+      );
+    case "flow":
+      return (
+        <Flow model={model as Parameters<typeof Flow>[0]["model"]} state={state} asOf={asOf} />
+      );
+    case "compare":
+      return <Compare model={model as Parameters<typeof Compare>[0]["model"]} state={state} />;
+    case "prs":
+      return (
+        <PullRequests
+          model={model as Parameters<typeof PullRequests>[0]["model"]}
+          state={state}
+          asOf={asOf}
+          onList={props.onList}
+          onSet={props.onSet}
+          onMore={props.onMore}
+        />
+      );
+  }
 }
 
-/** The view, read from and written back to the URL's hash. */
-function useView(): [View, (patch: Partial<View>) => void] {
-  const [view, setView] = useState<View>(() => readHash());
+/** The breakdown asked for, if the selection offers it, or else the selection's default. */
+function breakdownOf(choices: Choices, state: ReportState): Dimension | null {
+  const offered = breakdowns(choices, state.selection);
+  return state.by !== null && offered.includes(state.by)
+    ? state.by
+    : defaultBreakdown(choices, state.selection);
+}
+
+/** The state in the URL. Links change it by navigating; controls replace it in place. */
+function useHashState(
+  choices: Choices,
+): [ReportState, (update: (s: ReportState) => ReportState) => void] {
+  const read = () => {
+    const state = readState(location.hash);
+    return { ...state, selection: validSelection(choices, state.selection) };
+  };
+  const [state, setState] = useState<ReportState>(read);
   useEffect(() => {
-    const onHashChange = () => setView(readHash());
-    addEventListener("hashchange", onHashChange);
-    return () => removeEventListener("hashchange", onHashChange);
+    const onHash = () => {
+      setState(read());
+      scrollTo(0, 0);
+    };
+    addEventListener("hashchange", onHash);
+    return () => removeEventListener("hashchange", onHash);
   }, []);
-  const update = (patch: Partial<View>) => {
-    const next = { ...view, ...patch };
-    history.replaceState(null, "", `#${writeHash(next)}`);
-    setView(next);
-  };
-  return [view, update];
+  const update = useCallback((change: (s: ReportState) => ReportState) => {
+    setState((current) => {
+      const next = change(current);
+      history.replaceState(null, "", writeState(next));
+      return next;
+    });
+  }, []);
+  return [state, update];
 }
 
-function readHash(): View {
-  const params = new URLSearchParams(location.hash.slice(1));
-  const kind = params.get("kind") as PeriodKind | null;
-  const percentile = Number(params.get("p")) / 100;
-  const metric = params.get("metric");
-  return {
-    kind: kind && KINDS.includes(kind) ? kind : DEFAULT_VIEW.kind,
-    period: params.get("period"),
-    repo: params.get("repo"),
-    percentile: PERCENTILES.includes(percentile) ? percentile : DEFAULT_VIEW.percentile,
-    metric: metric && METRICS.some((m) => m.key === metric) ? metric : DEFAULT_VIEW.metric,
-    at: params.get("at"),
-  };
-}
+type Theme = "light" | "dark";
 
-function writeHash(view: View): string {
-  const params = new URLSearchParams({
-    kind: view.kind,
-    p: String(Math.round(view.percentile * 100)),
-    metric: view.metric,
+/** Light or dark: the system's choice until the viewer picks one, which this browser remembers. */
+function useTheme(): [Theme, (theme: Theme) => void] {
+  const system = (): Theme =>
+    matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  const [theme, setTheme] = useState<Theme>(() => {
+    try {
+      const saved = localStorage.getItem("codeflow-theme");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch {
+      // Storage can be blocked; the system's choice will do.
+    }
+    return system();
   });
-  if (view.period) params.set("period", view.period);
-  if (view.repo) params.set("repo", view.repo);
-  if (view.at) params.set("at", view.at);
-  return params.toString();
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+  const choose = (next: Theme) => {
+    setTheme(next);
+    try {
+      localStorage.setItem("codeflow-theme", next);
+    } catch {
+      // Not remembered, then.
+    }
+  };
+  return [theme, choose];
 }
 
-/** The value of a promise, re-run whenever `deps` change; undefined until it settles. */
-function useAsync<T>(load: () => Promise<T>, deps: readonly unknown[]): T | undefined {
+/**
+ * The value of a promise, loaded again whenever `key` changes. The last value stays until the
+ * next one arrives, so switching views doesn't flash empty.
+ */
+function useAsync<T>(load: () => Promise<T>, key: string): T | undefined {
   const [state, setState] = useState<{ key: string; value: T } | undefined>(undefined);
-  const key = JSON.stringify(
-    deps.map((dep) => (typeof dep === "object" && dep !== null && !Array.isArray(dep) ? "·" : dep)),
-  );
   useEffect(() => {
     let live = true;
     load().then((value) => {
@@ -362,6 +399,3 @@ function useAsync<T>(load: () => Promise<T>, deps: readonly unknown[]): T | unde
   }, [key]);
   return state?.value;
 }
-
-const when = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });

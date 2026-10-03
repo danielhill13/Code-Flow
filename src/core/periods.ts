@@ -1,7 +1,19 @@
-/** Calendar periods in UTC. A period runs from `start` (inclusive) to `end` (exclusive). */
+/**
+ * A stretch of time, from `start` (inclusive) to `end` (exclusive). Both are ISO 8601 in UTC: a
+ * day (YYYY-MM-DD, meaning its midnight) or an instant to the second (YYYY-MM-DDTHH:MM:SSZ, the
+ * form GitHub's timestamps take). Either form compares correctly with a timestamp as a string.
+ */
+export type Span = {
+  start: string;
+  end: string;
+  /** How the span reads: "September 2026", "last 30 days", "week of Sep 7". */
+  label: string;
+};
+
+/** Calendar periods in UTC. */
 export type PeriodKind = "month" | "quarter" | "year";
 
-export type Period = {
+export type Period = Span & {
   kind: PeriodKind;
   /** "September 2026", "Q3 2026", "2026". */
   label: string;
@@ -89,14 +101,18 @@ export function periodKey(period: Period): string {
   return `${year}-${month}`;
 }
 
-/** Whether an ISO timestamp falls inside the period. Null never does. */
-export function inPeriod(period: Period, iso: string | null): boolean {
-  return iso !== null && iso >= period.start && iso < period.end;
+/** Whether an ISO timestamp falls inside the span. Null never does. */
+export function inPeriod(span: Pick<Span, "start" | "end">, iso: string | null): boolean {
+  return iso !== null && iso >= span.start && iso < span.end;
 }
 
-export function isComplete(period: Period, asOf: Date): boolean {
-  return asOf.toISOString() >= period.end;
+/** Whether the span had ended by `asOf`, so its counts can't grow any more. */
+export function isComplete(span: Pick<Span, "end">, asOf: Date): boolean {
+  return instant(asOf) >= span.end;
 }
+
+/** An instant as a span boundary: ISO 8601 to the second, like GitHub's timestamps. */
+export const instant = (date: Date) => date.toISOString().replace(/\.\d{3}Z$/, "Z");
 
 function periodOf(kind: PeriodKind, year: number, firstMonth: number): Period {
   const months = kind === "month" ? 1 : kind === "quarter" ? 3 : 12;

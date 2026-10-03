@@ -283,3 +283,164 @@ describe("derivePr: what counts", () => {
     expect(derive({ author: null }).author).toBe("ghost");
   });
 });
+
+describe("derivePr: review log and first responses", () => {
+  it("logs each counted review, oldest first, leaving out the author's and bots'", () => {
+    const fact = derive({
+      reviews: [
+        review(carol, "03-03 09:00", "approved"),
+        review(bob, "03-02 14:00", "changes_requested"),
+        review(alice, "03-02 15:00"),
+        review(rabbit, "03-02 10:05"),
+      ],
+    });
+    expect(fact.reviewLog).toEqual([
+      { by: "bob", at: at("03-02 14:00"), state: "changes_requested" },
+      { by: "carol", at: at("03-03 09:00"), state: "approved" },
+    ]);
+  });
+
+  it("times a first response from ready, or from the reviewer's own request when that came later", () => {
+    const fact = derive({
+      events: [
+        { type: "review_requested", at: at("03-02 12:00"), reviewer: { ...carol, team: false } },
+        {
+          type: "review_requested",
+          at: at("03-02 11:00"),
+          reviewer: { login: "core", bot: false, team: true },
+        },
+      ],
+      reviews: [
+        review(bob, "03-02 14:00"),
+        review(carol, "03-02 16:00"),
+        review(bob, "03-03 09:00"),
+      ],
+    });
+    // Ready at 03-02 10:00. Bob wasn't asked: 4 hours. Carol was asked at 12:00: 4 hours.
+    expect(fact.responses).toEqual([
+      { by: "bob", hours: 4 },
+      { by: "carol", hours: 4 },
+    ]);
+  });
+});
+
+describe("derivePr: where an open PR stands", () => {
+  const open = { state: "open" as const, mergedAt: null, closedAt: null, mergedBy: null };
+  const asked = (who: typeof bob, time: string) => ({
+    type: "review_requested" as const,
+    at: at(time),
+    reviewer: { ...who, team: false },
+  });
+  const push = (time: string) => ({
+    sha: `p${time}`,
+    authoredAt: at(time),
+    committedAt: at(time),
+    message: "more",
+  });
+
+  it("is nothing once the PR has ended", () => {
+    expect(derive()).toMatchObject({ openState: null, waitingOn: null, waitingSince: null });
+  });
+
+  it("waits on its author while a draft", () => {
+    expect(derive({ ...open, draft: true })).toMatchObject({
+      openState: "draft",
+      waitingOn: { on: "author", why: "draft" },
+      waitingSince: at("03-02 10:00"),
+    });
+  });
+
+  it("waits on the people asked to review, or says nobody was asked", () => {
+    expect(
+      derive({
+        ...open,
+        events: [
+          asked(bob, "03-02 11:00"),
+          asked(rabbit, "03-02 11:00"),
+          {
+            type: "review_requested",
+            at: at("03-02 11:00"),
+            reviewer: { login: "core", bot: false, team: true },
+          },
+        ],
+      }),
+    ).toMatchObject({
+      openState: "waiting",
+      waitingOn: { on: "reviewers", why: "requested", people: ["bob"], teams: ["core"] },
+      waitingSince: at("03-02 10:00"),
+    });
+    expect(derive(open)).toMatchObject({
+      openState: "waiting",
+      waitingOn: { on: "reviewers", why: "unassigned", people: [], teams: [] },
+    });
+  });
+
+  it("waits on the author after a change request, and on the reviewer once the author pushes", () => {
+    const changes = { ...open, reviews: [review(bob, "03-03 10:00", "changes_requested")] };
+    expect(derive(changes)).toMatchObject({
+      openState: "in_review",
+      waitingOn: { on: "author", why: "changes_requested" },
+      waitingSince: at("03-03 10:00"),
+    });
+    expect(
+      derive({ ...changes, commits: [...prModel().commits, push("03-04 08:00")] }),
+    ).toMatchObject({
+      openState: "in_review",
+      waitingOn: { on: "reviewers", why: "re_review", people: ["bob"], teams: [] },
+      waitingSince: at("03-04 08:00"),
+    });
+  });
+
+  it("waits on the merge once approved, unless a change request still stands", () => {
+    expect(derive({ ...open, reviews: [review(bob, "03-03 10:00", "approved")] })).toMatchObject({
+      openState: "approved",
+      waitingOn: { on: "merge", why: "approved" },
+      waitingSince: at("03-03 10:00"),
+    });
+    expect(
+      derive({
+        ...open,
+        reviews: [
+          review(bob, "03-03 10:00", "approved"),
+          review(carol, "03-03 11:00", "changes_requested"),
+        ],
+      }),
+    ).toMatchObject({ openState: "in_review", waitingOn: { on: "author" } });
+    // A reviewer's own later approval replaces their change request.
+    expect(
+      derive({
+        ...open,
+        reviews: [
+          review(bob, "03-03 10:00", "changes_requested"),
+          review(bob, "03-03 12:00", "approved"),
+        ],
+      }),
+    ).toMatchObject({ openState: "approved" });
+  });
+
+  it("after comments alone, waits on the author, then on the reviewers once the author pushes", () => {
+    const commented = { ...open, reviews: [review(bob, "03-03 10:00")] };
+    expect(derive(commented)).toMatchObject({
+      openState: "in_review",
+      waitingOn: { on: "author", why: "review_comments" },
+    });
+    expect(
+      derive({ ...commented, commits: [...prModel().commits, push("03-03 12:00")] }),
+    ).toMatchObject({ waitingOn: { on: "reviewers", why: "re_review", people: ["bob"] } });
+  });
+
+  it("stops waiting on a reviewer once they review, until they are asked again", () => {
+    const fact = derive({
+      ...open,
+      events: [asked(bob, "03-02 11:00"), asked(carol, "03-02 11:00"), asked(bob, "03-04 09:00")],
+      reviews: [review(bob, "03-03 10:00")],
+      commits: [...prModel().commits, push("03-04 08:00")],
+    });
+    expect(fact.waitingOn).toEqual({
+      on: "reviewers",
+      why: "re_review",
+      people: ["bob", "carol"],
+      teams: [],
+    });
+  });
+});

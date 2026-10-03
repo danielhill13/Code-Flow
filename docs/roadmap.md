@@ -5,7 +5,7 @@
 | 0 | Project scaffold, config, `init`, `doctor` | `doctor` checks a real repo and estimates the first sync | Done |
 | 1 | `sync`: every PR state into SQLite, incremental by `updatedAt`, throttled, resumable, with a run record | A full backfill works; a re-run fetches only changed PRs; an interrupted run resumes | Done |
 | 2 | `derive` and `summary`: neutral PR model, bot handling, path buckets, origin-PR rule, `pr_facts` | 10–20 PRs checked by hand against GitHub; fixture tests built from public repos | Done |
-| 3 | Report UI on the `DataSource` contract, plus the static track (`build`, `run`) | A Playwright sweep of every view and control finds no `undefined`, `NaN` or `Infinity`, and the numbers match `summary` | Next |
+| 3 | Report UI on the `DataSource` contract, plus the static track (`build`, `run`) | A sweep of every view and control finds no `undefined`, `NaN` or `Infinity`, and the numbers match `summary` | In progress |
 | 4 | Hosted track: `serve`, scheduler, GitHub App auth, Docker image | The same report is served, and the conformance suite passes on both tracks | |
 | 5 | Scale: concurrent sync, webhooks, anomaly flags | Runs within budget against hundreds of repos | |
 | 6 | Work items: Jira and Azure Boards links | Link coverage is reported; work-item cycle time works | |
@@ -40,16 +40,38 @@ none from June.
 - Stability: reverted within 30 days (merges under 30 days old are left out, not counted as fine)
 - Flow: abandoned, and open PRs now
 
-**Notes for phase 3:**
+**Phase 3, so far.** The report follows the design handoff of October 2026: six tabs by
+question (Overview, Speed, Review, Flow, Compare, Pull requests), scopes from config `teams`,
+rolling windows, median or P75, and an internal/external filter. Its views are pure builders in
+`src/core/views` (D18). New since phase 2: rolling windows and weekly or monthly trends (D19);
+teams, the unassigned group and the contributors test (D20); per-reviewer review load inside a
+team (D21); P25 for the middle-half bars (D22); each open PR's state and whose move it is (D23);
+size bands; the open-PR count at any moment; the revert rate on a 30-day lag. Facts gained each
+review with its time, each reviewer's first response and the open state (`DERIVE_VERSION` 2).
+No view shows numbers for time before the synced data.
 
-- Work in progress per weekday and aging open PRs are still to build. The facts have what they
-  need (`startAt`, `readyAt`, end times, `draft`).
-- Pace projection for a partial period (rule 7) is still to build. `summary` only warns that the
-  period isn't over.
-- The report needs `summary`'s coverage guard: no numbers for periods before the synced data.
+Teams are people with dated membership and products are repos and teams (D25), stamped on each
+fact at derive time (D27). The report looks at any selection of teams, products, repos and
+people, and breaks it down by team, product or repo (D26). `status`, `summary` and `doctor`
+warn when a repo's work lands on a branch that isn't measured (D28).
 
-**Deferred, with no phase yet:** fix and defect rate, deployment (DORA) metrics, teams, other code
-hosts.
+On usebruno/bruno every tab builds in a few milliseconds. The sweep in `npm run check` renders
+all six tabs at every scope, window, statistic and filter, with and without teams, and Compare's
+months match `summary`.
+
+**Still to do in phase 3:**
+
+- `codeflow run`: sync, then build.
+- Print: check each tab on paper, and that Compare fits on one page.
+- The scope menus could show each team's merged count, as the design does.
+- Report size: 3.8 MB for bruno's 2,575 PRs. Facts could drop what no view reads.
+- Pace projection for a partial period (rule 7), and work in progress per weekday, are still
+  unbuilt; the design doesn't call for them.
+
+**Deferred, with no phase yet:** fix and defect rate, deployment (DORA) metrics, other code
+hosts. For groups: a `codeflow teams import` that drafts teams from GitHub org teams; ownership
+by path within a repo (monorepos, CODEOWNERS); people from an HR export; GitHub user IDs in the
+sync query, so a renamed login stays the same person.
 
 **Out of scope:** an AI-involvement segment, and commits per day.
 

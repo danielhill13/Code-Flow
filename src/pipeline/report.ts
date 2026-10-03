@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
+import type { Config } from "../config/schema.ts";
 import type { ReportData } from "../core/source.ts";
 import { CodeflowError } from "../errors.ts";
 import type { Store } from "../store/store.ts";
 import { coveredFrom } from "./coverage.ts";
+import { groupsOf } from "./derive.ts";
 
 /**
  * The report's page, built by Vite (npm run build:report) with an empty data slot. The path is
@@ -14,7 +16,7 @@ const TEMPLATE = new URL("../../dist/report/index.html", import.meta.url);
 const DATA_SLOT = '<script id="codeflow-data" type="application/json">null</script>';
 
 /** Everything a report needs, from the store's current facts. */
-export function reportData(store: Store, now = new Date()): ReportData {
+export function reportData(store: Store, config: Config, now = new Date()): ReportData {
   const asOf = store.dataThrough();
   if (!asOf) {
     throw new CodeflowError(
@@ -27,6 +29,7 @@ export function reportData(store: Store, now = new Date()): ReportData {
     asOf,
     coveredFrom: coveredFrom(store, repos),
     repos,
+    groups: groupsOf(config, repos),
     facts: store.facts(),
   };
 }

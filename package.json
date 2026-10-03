@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "codeflow": "node src/cli/main.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p src/report",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/report && tsc --noEmit -p src/report/tsconfig.test.json",
     "lint": "biome check .",
     "fix": "biome check --write .",
     "test": "vitest run",

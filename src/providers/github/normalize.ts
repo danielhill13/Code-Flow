@@ -177,10 +177,13 @@ function event(item: GhTimelineItem): PrEvent[] {
     case "MergedEvent":
       return [{ type: "merged", at }];
     case "ReviewRequestedEvent": {
-      const reviewer = item.requestedReviewer;
-      return [
-        { type: "review_requested", at, reviewer: reviewer?.login ?? reviewer?.slug ?? null },
-      ];
+      const requested = item.requestedReviewer;
+      const reviewer = requested?.slug
+        ? { login: requested.slug, bot: false, team: true }
+        : requested?.login
+          ? { login: requested.login, bot: requested.__typename === "Bot", team: false }
+          : null;
+      return [{ type: "review_requested", at, reviewer }];
     }
     case "BaseRefChangedEvent":
       return [

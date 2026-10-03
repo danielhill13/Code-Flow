@@ -14,7 +14,10 @@ async function load(): Promise<ReportData> {
 const root = document.getElementById("app");
 if (root) {
   load().then(
-    (data) => render(<App source={new EmbeddedSource(data)} />, root),
+    (data) => {
+      root.textContent = "";
+      render(<App source={new EmbeddedSource(data)} />, root);
+    },
     (error: unknown) => {
       root.textContent = `This report has no data: ${error instanceof Error ? error.message : String(error)}`;
     },

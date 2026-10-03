@@ -1,4 +1,5 @@
-import type { Exclusion, PrFact } from "./facts.ts";
+import type { Exclusion, OpenState, PrFact, ReviewEntry, WaitingOn } from "./facts.ts";
+import type { Attribution } from "./groups.ts";
 import type { Actor, Comment, PrModel, Review } from "./model.ts";
 import { BUCKETS, type Bucket } from "./paths.ts";
 
@@ -17,6 +18,8 @@ export type DeriveRules = {
   isIgnoredBody: (body: string) => boolean;
   /** Count bot-authored PRs in flow metrics. */
   includeBotPrs: boolean;
+  /** The team and products a PR belongs to (core/groups.ts, attribute). */
+  attribute: (pr: { repo: string; author: string; createdAt: string }) => Attribution;
 };
 
 /**
@@ -69,6 +72,20 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
       inTime(comment.at) && byOthers(comment.author) && !rules.isIgnoredBody(comment.body),
   );
 
+  const log: ReviewEntry[] = reviews.map((review) => ({
+    by: review.author.login,
+    at: review.at,
+    state: review.state as ReviewEntry["state"],
+  }));
+  // Review requests to people who count as reviewers, and to teams.
+  const requests = pr.events.flatMap((event) =>
+    event.type === "review_requested" &&
+    event.reviewer !== null &&
+    (event.reviewer.team || byOthers(event.reviewer))
+      ? [{ name: event.reviewer.login, team: event.reviewer.team, at: event.at }]
+      : [],
+  );
+
   const firstCommitAt = earliest(pr.commits.map((commit) => commit.authoredAt));
   const startAt =
     firstCommitAt !== null && firstCommitAt < pr.createdAt ? firstCommitAt : pr.createdAt;
@@ -93,6 +110,7 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     baseBranch: pr.baseBranch,
     headBranch: pr.headBranch,
     labels: pr.labels,
+    ...rules.attribute({ repo: pr.repo, author: author.login, createdAt: pr.createdAt }),
     ...inclusion(pr, authorIsBot, rules),
     createdAt: pr.createdAt,
     startAt,
@@ -126,6 +144,9 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     comments: comments.length,
     reviewThreads: pr.reviewThreads,
     rounds: rounds(pr, reviews),
+    reviewLog: log,
+    responses: responses(log, requests, readyAt ?? pr.createdAt),
+    ...standing(pr, log, requests, readyAt),
     reverts: [],
     revertedBy: null,
     revertedAt: null,
@@ -253,6 +274,127 @@ function rounds(pr: PrModel, reviews: readonly { at: string }[]): number {
     }
   }
   return count;
+}
+
+type Request = { name: string; team: boolean; at: string };
+
+/**
+ * Each reviewer's first response: from ready, or from their own review request if that came
+ * later (and before they reviewed), to their first review. A review during the draft counts as
+ * an immediate response.
+ */
+function responses(
+  log: readonly ReviewEntry[],
+  requests: readonly Request[],
+  readyAt: string,
+): PrFact["responses"] {
+  const first = new Map<string, string>();
+  for (const review of log) if (!first.has(review.by)) first.set(review.by, review.at);
+  return [...first].map(([by, at]) => {
+    const asked = latest(
+      requests
+        .filter((r) => !r.team && r.name.toLowerCase() === by.toLowerCase() && r.at <= at)
+        .map((r) => r.at),
+    );
+    const from = asked !== null && asked > readyAt ? asked : readyAt;
+    return { by, hours: Math.max(0, hours(from, at)) };
+  });
+}
+
+/**
+ * Where an open PR stands and whose move it is, from its draft flag, reviews, pushes and review
+ * requests. Without review-request removals in the data, a reviewer whose request was withdrawn
+ * still counts as asked.
+ */
+function standing(
+  pr: PrModel,
+  log: readonly ReviewEntry[],
+  requests: readonly Request[],
+  readyAt: string | null,
+): Pick<PrFact, "openState" | "waitingOn" | "waitingSince"> {
+  const state = (now: OpenState, waitingOn: WaitingOn, waitingSince: string) => ({
+    openState: now,
+    waitingOn,
+    waitingSince,
+  });
+  if (pr.state !== "open") return { openState: null, waitingOn: null, waitingSince: null };
+  if (pr.draft) {
+    const drafted = latest(
+      pr.events.filter((event) => event.type === "converted_to_draft").map((event) => event.at),
+    );
+    return state("draft", { on: "author", why: "draft" }, drafted ?? pr.createdAt);
+  }
+
+  // A request is still open while the reviewer hasn't reviewed since; a team's, while nobody has.
+  const lastReview = log.at(-1)?.at ?? null;
+  const reviewedSince = (request: Request) =>
+    log.some(
+      (review) => review.at >= request.at && (request.team || same(review.by, request.name)),
+    );
+  const pending = new Map<string, Request>();
+  for (const request of requests) pending.set(`${request.team}:${request.name}`, request);
+  const asked = [...pending.values()].filter((request) => !reviewedSince(request));
+  const people = asked.filter((r) => !r.team).map((r) => r.name);
+  const teams = asked.filter((r) => r.team).map((r) => r.name);
+  const ready = readyAt ?? pr.createdAt;
+
+  if (lastReview === null) {
+    return people.length + teams.length > 0
+      ? state("waiting", { on: "reviewers", why: "requested", people, teams }, ready)
+      : state("waiting", { on: "reviewers", why: "unassigned", people: [], teams: [] }, ready);
+  }
+
+  const lastPush = latest([
+    ...pr.commits.map((commit) => commit.committedAt),
+    ...pr.events.filter((event) => event.type === "force_pushed").map((event) => event.at),
+  ]);
+  // Each reviewer's standing verdict: their latest approval, change request or dismissal.
+  const verdicts = new Map<string, ReviewEntry>();
+  for (const review of log) if (review.state !== "commented") verdicts.set(review.by, review);
+  const changes = [...verdicts.values()].filter((v) => v.state === "changes_requested");
+  const approvals = [...verdicts.values()].filter((v) => v.state === "approved");
+  const reReview = (since: string, reviewers: string[]) =>
+    state(
+      "in_review",
+      { on: "reviewers", why: "re_review", people: unique([...reviewers, ...people]), teams },
+      since,
+    );
+
+  if (changes.length > 0) {
+    const requested = latest(changes.map((v) => v.at)) ?? lastReview;
+    return lastPush !== null && lastPush > requested
+      ? reReview(
+          lastPush,
+          changes.map((v) => v.by),
+        )
+      : state("in_review", { on: "author", why: "changes_requested" }, requested);
+  }
+  if (approvals.length > 0) {
+    return state(
+      "approved",
+      { on: "merge", why: "approved" },
+      latest(approvals.map((v) => v.at)) ?? lastReview,
+    );
+  }
+  return lastPush !== null && lastPush > lastReview
+    ? reReview(lastPush, unique(log.map((review) => review.by)))
+    : state("in_review", { on: "author", why: "review_comments" }, lastReview);
+}
+
+function same(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+function unique(names: readonly string[]): string[] {
+  const seen = new Map<string, string>();
+  for (const name of names) if (!seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
+  return [...seen.values()];
+}
+
+function latest(times: readonly string[]): string | null {
+  let max: string | null = null;
+  for (const time of times) if (max === null || time > max) max = time;
+  return max;
 }
 
 function earliest(times: readonly string[]): string | null {

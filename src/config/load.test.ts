@@ -47,7 +47,48 @@ since: 2025-10-01
       promotions: [...DEFAULT_PROMOTION_BRANCHES],
       bots: { accounts: [], reviewers: [], include_prs: false, ignore_bodies: [] },
       paths: [],
+      teams: {},
+      products: {},
     });
+  });
+
+  it("reads teams of people, with dates, and products of repos and teams", () => {
+    const config = parseConfig(`
+sources:
+  - owner: acme
+since: 2025-10-01
+teams:
+  Platform:
+    people: [mika, { login: devon, to: 2026-05-31 }]
+  Payments:
+    people: [ana, { login: devon, from: 2026-06-01 }, { login: mika, secondary: true }]
+products:
+  Checkout:
+    repos: ["acme/cart-*"]
+    teams: [Payments]
+`);
+    expect(config.teams.Payments?.people).toEqual([
+      { login: "ana", from: null, to: null, secondary: false },
+      { login: "devon", from: "2026-06-01", to: null, secondary: false },
+      { login: "mika", from: null, to: null, secondary: true },
+    ]);
+    expect(config.products).toEqual({ Checkout: { repos: ["acme/cart-*"], teams: ["Payments"] } });
+  });
+
+  it("refuses a person in two teams at once, an unknown team, and the catch-all names", () => {
+    const base = "sources:\n  - owner: a\nsince: 2025-10-01\n";
+    expect(errorOf(`${base}teams:\n  A: { people: [sam] }\n  B: { people: [sam] }\n`)).toContain(
+      "sam is in A and B at the same time",
+    );
+    expect(errorOf(`${base}products:\n  P: { teams: [Nobody] }\n`)).toContain(
+      'no team is called "Nobody"',
+    );
+    expect(errorOf(`${base}teams:\n  No team: { people: [x] }\n`)).toContain(
+      "the report's name for PRs outside any of the teams",
+    );
+    expect(errorOf(`${base}products:\n  Empty: {}\n`)).toContain(
+      "give the product `repos`, `teams`",
+    );
   });
 
   it("reads measurement settings", () => {

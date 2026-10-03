@@ -10,6 +10,7 @@ const data = (title: string): ReportData => ({
   asOf: "2026-10-02T23:00:00Z",
   coveredFrom: "2025-10-01",
   repos: ["acme/api"],
+  groups: { teams: [], products: [] },
   facts: [{ title } as ReportData["facts"][number]],
 });
 

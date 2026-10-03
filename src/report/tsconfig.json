@@ -7,5 +7,5 @@
     "jsxImportSource": "preact"
   },
   "include": ["./**/*"],
-  "exclude": []
+  "exclude": ["./**/*.test.tsx"]
 }

@@ -23,7 +23,7 @@ const many = (count: number, overrides: Partial<PrModel> = {}) =>
   Array.from({ length: count }, () => fact(overrides));
 
 const metricOf = (facts: PrFact[], key: string) => {
-  const found = measure(facts, march, { asOf }).values.find((v) => v.metric.key === key);
+  const found = measure(facts, march, { asOf }).values.find((v) => v.key === key);
   if (!found) throw new Error(`no metric ${key}`);
   return found;
 };
@@ -37,7 +37,7 @@ describe("measure", () => {
       fact({ baseBranch: "feature/x" }),
     ];
     const result = measure(facts, march, { asOf });
-    expect(result.values.find((v) => v.metric.key === "merged")).toMatchObject({ value: 3, n: 3 });
+    expect(result.values.find((v) => v.key === "merged")).toMatchObject({ value: 3, n: 3 });
     expect(result.excluded).toEqual({ bot: 1, base: 1, promotion: 0 });
   });
 
@@ -45,7 +45,7 @@ describe("measure", () => {
     expect(metricOf(many(9), "cycle")).toMatchObject({
       value: null,
       n: 9,
-      hidden: "needs 10 PRs with a value, has 9",
+      hidden: "too few PRs for a median (9, needs 10)",
     });
     expect(metricOf(many(10), "cycle")).toMatchObject({ value: 72, n: 10 });
   });
@@ -53,7 +53,7 @@ describe("measure", () => {
   it("uses another percentile when asked", () => {
     const facts = [...many(19), fact({ mergedAt: at("03-20 10:00") })];
     const p75 = measure(facts, march, { asOf, percentile: 0.75 }).values.find(
-      (v) => v.metric.key === "cycle",
+      (v) => v.key === "cycle",
     );
     expect(p75).toMatchObject({ value: 72, n: 20 });
   });

@@ -1,13 +1,15 @@
 import { existsSync, statSync } from "node:fs";
 import { relative } from "node:path";
 import { loadConfig } from "../config/load.ts";
+import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
+import { branchWarnings } from "./branches.ts";
 import { durationSeconds, type Mark, num, plural, status, table } from "./format.ts";
 import { databasePath, type Print } from "./session.ts";
 
 export type StatusOptions = { config: string };
 
-/** What is stored locally and how the last sync went. Reads the database only; no network. */
+/** What is stored locally and how the last sync went. Local only: no network. */
 export async function showStatus(options: StatusOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
   const config = await loadConfig(options.config);
@@ -82,6 +84,8 @@ export async function showStatus(options: StatusOptions): Promise<number> {
         );
       }
     }
+    deriveFacts(store, config);
+    notes.push(...branchWarnings(store, config));
     if (notes.length > 0) print();
     for (const note of notes) print(note);
     return 0;

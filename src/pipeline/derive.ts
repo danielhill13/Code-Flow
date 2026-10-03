@@ -3,6 +3,7 @@ import picomatch from "picomatch";
 import type { Config } from "../config/schema.ts";
 import { type DeriveRules, derivePr } from "../core/derive.ts";
 import { DERIVE_VERSION, type PrFact } from "../core/facts.ts";
+import { attribute, type Groups, NO_GROUPS } from "../core/groups.ts";
 import type { PrModel } from "../core/model.ts";
 import { pathClassifier } from "../core/paths.ts";
 import { linkReverts, type RevertClues, revertClues } from "../core/reverts.ts";
@@ -25,6 +26,10 @@ export type DeriveReport = {
 export function deriveFacts(store: Store, config: Config): DeriveReport {
   const started = performance.now();
   const repos = store.repos();
+  const groups = groupsOf(
+    config,
+    repos.map((repo) => repo.fullName),
+  );
   let derived = 0;
   let prs = 0;
   for (const repo of repos) {
@@ -36,10 +41,11 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
       promotions: config.promotions,
       bots: config.bots,
       paths: config.paths,
+      groups,
     });
     if (store.derivedInputs(repo.id) === inputs) continue;
 
-    const rules = rulesFor(config, measured);
+    const rules = rulesFor(config, measured, groups);
     const facts = new Map<string, PrFact>();
     const clues: RevertClues[] = [];
     // One PR in memory at a time: only its facts and revert clues are kept.
@@ -69,7 +75,23 @@ export function measuredBranches(config: Config, repo: StoredRepo): string[] {
   return [...new Set(history.filter((branch): branch is string => branch !== null))];
 }
 
-export function rulesFor(config: Config, measured: readonly string[]): DeriveRules {
+/** Config's teams and products, with product repo patterns matched against the synced repos. */
+export function groupsOf(config: Config, repos: readonly string[]): Groups {
+  return {
+    teams: Object.entries(config.teams).map(([name, team]) => ({ name, members: team.people })),
+    products: Object.entries(config.products).map(([name, product]) => {
+      const owns =
+        product.repos.length > 0 ? picomatch(product.repos, { nocase: true }) : () => false;
+      return { name, repos: repos.filter((repo) => owns(repo)), teams: product.teams };
+    }),
+  };
+}
+
+export function rulesFor(
+  config: Config,
+  measured: readonly string[],
+  groups: Groups = NO_GROUPS,
+): DeriveRules {
   // Git branch names are case-sensitive; logins are not.
   const isMeasured = measured.length > 0 ? picomatch([...measured], { dot: true }) : () => false;
   const isPromotion = picomatch(config.promotions, { dot: true });
@@ -84,6 +106,7 @@ export function rulesFor(config: Config, measured: readonly string[]): DeriveRul
     isBotReviewer: (actor) => reviewers.has(actor.login.toLowerCase()),
     isIgnoredBody: (body) => body !== "" && ignored.some((pattern) => pattern.test(body)),
     includeBotPrs: config.bots.include_prs,
+    attribute: (pr) => attribute(groups, pr),
   };
 }
 

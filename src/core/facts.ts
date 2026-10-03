@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 1;
+export const DERIVE_VERSION = 3;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -15,6 +15,30 @@ export const DERIVE_VERSION = 1;
  *   already counted when it first landed (a promotion or back-merge).
  */
 export type Exclusion = "bot" | "base" | "promotion";
+
+/** A review that counts as review: by someone other than the author, while the PR was open. */
+export type ReviewEntry = {
+  by: string;
+  at: string;
+  state: "approved" | "changes_requested" | "commented" | "dismissed";
+};
+
+/**
+ * Where an open PR stands as of the data:
+ * - `draft`: its author hasn't asked for review yet;
+ * - `waiting`: ready, and nobody has reviewed it yet;
+ * - `in_review`: reviewed, not approved, or with a change request still standing;
+ * - `approved`: approved, with no change request standing. codeflow doesn't know how many
+ *   approvals a repo requires, so one is enough.
+ */
+export type OpenState = "draft" | "waiting" | "in_review" | "approved";
+
+/** Whose move it is on an open PR, and why. Team requests are named by the team's slug. */
+export type WaitingOn =
+  | { on: "author"; why: "draft" | "changes_requested" | "review_comments" }
+  | { on: "reviewers"; why: "requested" | "re_review"; people: string[]; teams: string[] }
+  | { on: "reviewers"; why: "unassigned"; people: []; teams: [] }
+  | { on: "merge"; why: "approved" };
 
 /**
  * Everything the metrics need about one PR, derived from its newest raw version alone (plus
@@ -38,6 +62,13 @@ export type PrFact = {
   baseBranch: string;
   headBranch: string;
   labels: string[];
+
+  // Where the PR belongs (core/groups.ts): config's teams and products, as of the day it opened.
+  /** The author's primary team that day; null when they were in none. */
+  team: string | null;
+  /** Teams the author was a secondary member of that day: the PR doesn't count there. */
+  alsoTeams: string[];
+  products: string[];
 
   /** Counted in flow metrics. When false, `exclusion` says why. */
   counted: boolean;
@@ -91,6 +122,19 @@ export type PrFact = {
   reviewThreads: number;
   /** Times new commits arrived after a review: each one starts another round. */
   rounds: number;
+  /** Every review counted above, oldest first. */
+  reviewLog: ReviewEntry[];
+  /**
+   * Each reviewer's first response, in hours: from when the PR was ready, or when they were
+   * asked to review if that was later, to their first review.
+   */
+  responses: { by: string; hours: number }[];
+
+  // An open PR's state as of the data. All null once it has merged or closed.
+  openState: OpenState | null;
+  waitingOn: WaitingOn | null;
+  /** When the current wait began: the ready, review, request or push that handed it over. */
+  waitingSince: string | null;
 
   // Reverts, linked across the repo. Only merged PRs revert, and only merged PRs are reverted.
   /** Numbers of the PRs this one reverts. */

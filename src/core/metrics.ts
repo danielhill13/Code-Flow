@@ -24,6 +24,16 @@ type Base = {
   /** One or two plain sentences: what is measured, exactly. */
   definition: string;
   population: Population;
+  /**
+   * The PRs of the population the metric has a value for, when that isn't all of them: what a
+   * list of the PRs behind its number is narrowed to ("Reviewed").
+   */
+  subset?: string;
+  /**
+   * In a rolling window, the metric is measured over PRs merged this many days earlier, so that
+   * each of them is old enough to judge. Calendar periods aren't shifted.
+   */
+  lagDays?: number;
 };
 
 export type Metric = Base &
@@ -73,6 +83,7 @@ export const METRICS: readonly Metric[] = [
     unit: "hours",
     population: "merged",
     value: (pr) => pr.pickupHours,
+    subset: "Reviewed",
     definition:
       "From ready for review to the first review by someone other than the author. PRs nobody reviewed have no pickup.",
   },
@@ -84,6 +95,7 @@ export const METRICS: readonly Metric[] = [
     unit: "hours",
     population: "merged",
     value: (pr) => pr.reviewHours,
+    subset: "Reviewed",
     definition:
       "From the first review to the last approval, or to the last review when nobody approved.",
   },
@@ -105,6 +117,7 @@ export const METRICS: readonly Metric[] = [
     unit: "hours",
     population: "merged",
     value: (pr) => pr.timeToApprovalHours,
+    subset: "Approved",
     definition: "From ready for review to the first approval, for approved PRs.",
   },
   {
@@ -124,6 +137,7 @@ export const METRICS: readonly Metric[] = [
     unit: "lines",
     population: "merged",
     value: (pr) => pr.sizeLines,
+    subset: "Size known",
     definition:
       "Product lines added plus deleted. Lockfiles, generated, vendored, test and docs files don't count.",
   },
@@ -135,6 +149,7 @@ export const METRICS: readonly Metric[] = [
     unit: "lines",
     population: "merged",
     value: (pr) => pr.addedLines,
+    subset: "Size known",
     definition: "Product lines added by merged PRs.",
   },
   {
@@ -184,6 +199,7 @@ export const METRICS: readonly Metric[] = [
     kind: "share",
     population: "merged",
     test: (pr) => (pr.reviewed ? pr.rounds > 0 : null),
+    subset: "Reviewed",
     definition: "Of reviewed PRs: new commits arrived after a review, so it went round again.",
   },
   {
@@ -200,6 +216,8 @@ export const METRICS: readonly Metric[] = [
       // Too recent to tell: counting it as not reverted would flatter the rate.
       return ctx.asOf.getTime() - merged >= window ? false : null;
     },
+    subset: "Old enough to tell",
+    lagDays: REVERT_WINDOW_DAYS,
     definition: `Of merged PRs at least ${REVERT_WINDOW_DAYS} days old: reverted by another PR within ${REVERT_WINDOW_DAYS} days of merging.`,
   },
   {
@@ -212,3 +230,12 @@ export const METRICS: readonly Metric[] = [
     definition: "Of PRs that ended during the period: closed without merging.",
   },
 ];
+
+const BY_KEY = new Map(METRICS.map((metric) => [metric.key, metric]));
+
+/** The registry entry for a key. Throws for an unknown key: that is a bug, not data. */
+export function metricOf(key: string): Metric {
+  const metric = BY_KEY.get(key);
+  if (!metric) throw new Error(`No metric "${key}"`);
+  return metric;
+}

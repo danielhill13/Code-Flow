@@ -97,15 +97,17 @@ does, since such a period holds only the PRs that happened to be updated later.
 src/config/             codeflow.yml schema and loader
 src/store/              the SQLite database: schema migrations, raw PRs, facts, sync state, runs
 src/providers/github/   auth, GraphQL client, queries, repo discovery, sync walks, normalize
-src/core/               provider-neutral PR model, derive, path buckets, metric registry, aggregation
-src/pipeline/           steps that tie config, store and core together (derive)
+src/core/               provider-neutral PR model, derive, path buckets, metric registry, aggregation,
+                        teams and products (groups), selections, rolling windows, branch checks
+src/core/views/         one pure model builder per report tab, and the PR list's filters
+src/pipeline/           steps that tie config, store and core together (derive, report data)
 src/cli/                init · doctor · sync · status · summary · pr · build · serve
 src/report/             the report UI
 src/server/             the hosted track's HTTP API
 scripts/                developer tools, such as making anonymized test fixtures
 ```
 
-So far everything but `report` and `server` exists.
+So far everything but `server` exists.
 
 A provider's job ends at the neutral PR model. Adding Azure DevOps or GitLab later means a new
 `src/providers/<name>`, with no change to any metric.
@@ -116,11 +118,20 @@ The report UI reads all of its data through one interface:
 
 ```ts
 interface DataSource {
-  meta(): Promise<Meta>;                        // repos, people, date range, freshness
-  query(q: MetricQuery): Promise<MetricResult>; // aggregated tiles and series
-  prs(q: PrQuery): Promise<PrRow[]>;            // the PRs behind any number
+  meta(): Promise<Meta>;                          // scope tree, date range, freshness
+  overview(q: ViewQuery): Promise<OverviewModel>; // one call per tab, each a plain-data model
+  speed(q: ViewQuery): Promise<SpeedModel>;
+  review(q: ViewQuery): Promise<ReviewModel>;
+  flow(q: ViewQuery): Promise<FlowModel>;
+  compare(q: CompareQuery): Promise<CompareModel>;
+  prs(q: PrQuery): Promise<PrListModel>;          // the PRs behind any number
+  pr(id: string): Promise<PrDetail | null>;       // one PR, as `codeflow pr` reads it
 }
 ```
+
+Each model comes from a pure function in `src/core/views` of the facts, the scope tree and the
+query (decision D18). The static report runs those functions in the page; the server will run
+them per request and send the result as JSON.
 
 |                  | Static                               | Hosted                                     |
 | ---------------- | ------------------------------------ | ------------------------------------------ |
@@ -129,8 +140,8 @@ interface DataSource {
 | Aggregation runs | in the browser                       | in Node, on the server                     |
 | Suits            | one team, snapshots, sharing a file  | an organization, many repos, always current |
 
-Both tracks call the same `core/aggregate` code, so there is no second implementation to drift. A
-conformance test runs every query the UI can issue through both tracks and requires identical
+Both tracks call the same `core/views` builders, so there is no second implementation to drift.
+A conformance test runs every query the UI can issue through both tracks and requires identical
 results.
 
 **Scaling the hosted track**, in this order and only when needed: GitHub App authentication
@@ -155,6 +166,56 @@ Boards' artifact links) over parsing text, which misses links and invents some; 
 keys against projects that exist, since a Jira-style pattern also matches `UTF-8` and `SHA-256`;
 and report link coverage rather than assuming it.
 
+## The report
+
+Six tabs, each answering one set of questions, so a CTO and a manager read the same numbers at
+different depths:
+
+| Tab | Question | Holds |
+| --- | -------- | ----- |
+| Overview | Are we getting faster or slower? | cycle time, PRs merged, pickup and revert rate, each with its change and trend; where the time went; a row per team or repo; notes on the data |
+| Speed | Where does the time go? | cycle-time trend (statistic and P85), predictability, the four phases and time to approval, PR size against cycle time, throughput |
+| Review | Is review holding us up? | pickup, review time, reviews per PR, re-pushes, coverage; review load; what happened after review |
+| Flow | What's stuck right now? | open PRs as of the data: counts, the open trend, abandon rate, age by state, oldest first with whose move it is |
+| Compare | Did the change work? | two calendar periods (or custom dates): every metric, its PR counts, the middle half of its PRs, where the time went |
+| Pull requests | Which PRs are behind this number? | a filtered, sortable list, and a side panel showing how codeflow read one PR |
+
+- **Selection** is any mix of teams, products, repos and people (D26), shown as crumbs in the
+  header and built with a picker. Tables break it down by team, product or repo.
+- **Window** is 30, 60 or 90 days, or year to date, ending when the data does (D19). Compare uses
+  calendar periods instead.
+- **Statistic** is the median or P75, everywhere. Predictability adds P85; Compare adds P25 and
+  P75 for the middle half.
+- **Contributors** is all, internal or external, a filter only (D20, D25).
+- **Change** reads "↑ 125% from 1.3 d", "↓ 10 pts from 32%" or "same as before (2)": shares move
+  in points, the rest relatively, and moves under 3% (or half a point) are the same. Never
+  coloured good or bad.
+- **Every number is a link** to the Pull requests tab, filtered with the same tests the metric
+  uses, so the list holds the PRs the number rests on. A test checks this for every metric.
+- **The URL holds the view**: tab, scope, window, statistic, contributors, Compare's periods, the
+  PR list's filters and sort, and the open PR. Theme is the viewer's, kept in their browser.
+- **Open PRs** are draft, waiting for a first review, in review, or approved, and wait on the
+  author, reviewers or the merge (D23).
+
+`npm run check` includes a sweep that renders every tab at every scope, window, statistic and
+contributors filter, opens PR lists and side panels, and fails on `undefined`, `NaN`,
+`Infinity` or `[object Object]`.
+
+## Teams and products
+
+Two kinds of group, both from config (`core/groups.ts`):
+
+- A **team** is people. A PR belongs to its author's team on the day it opened; membership can
+  have dates, and a person is in one team at a time, so team rows add up to the total and a move
+  keeps its history. A `secondary` membership lists someone with a second team without counting
+  their PRs there.
+- A **product** is repos and teams. Products may overlap; the report says how many PRs count for
+  more than one, and totals count each PR once.
+
+Derive stamps each fact with its `team`, `alsoTeams` and `products` (D27). Where groups come
+from is open: GitHub teams, CODEOWNERS (paths within a monorepo) or an HR export can feed the
+same definitions later.
+
 ## Measurement rules
 
 These hold everywhere. Each gets a test as it is built.
@@ -162,16 +223,18 @@ These hold everywhere. Each gets a test as it is built.
 1. **A PR counts once**, where it lands on the measured branch: each repo's default branch unless
    configured otherwise. A PR whose head is itself a long-lived branch (main, develop,
    release/\*) is a promotion or back-merge. It is excluded, with the reason recorded.
-2. **Watch the measured branch.** A default-branch change, or a repo's PR volume dropping to near
-   zero, raises a flag. Otherwise a renamed branch silently zeroes a repo's numbers.
+2. **Watch the measured branch.** A default-branch change, or a repo's work landing mostly on a
+   branch that isn't measured, raises a flag (D28). Otherwise a renamed branch, or features
+   merging into `develop`, silently zeroes a repo's numbers.
 3. **Size counts product code.** Files fall into buckets: product, test, docs, generated,
    vendored, lockfile. Patterns are case-insensitive, with generic defaults and per-repo overrides.
 4. **Null is not zero.** Missing and still-maturing values stay null in every metric, chart and
    table. Limits are never applied silently: a PR the API truncates is flagged, not estimated.
 5. **Medians don't add up.** The cycle-time breakdown uses total hours per phase, because stacked
    medians don't sum to the median cycle time.
-6. **A quantile needs data behind it.** A percentile p is shown only with at least 5/(1−p)
-   non-null observations (P90 needs 50). Hidden points are counted and explained on the chart.
+6. **A quantile needs data behind it.** A percentile p is shown only with at least
+   5/min(p, 1−p) non-null observations: five beyond it on its thinner side (P50 needs 10, P25
+   and P75 20, P90 50). Hidden points are counted and explained on the chart.
 7. **Compare like with like.** The default period is the last complete one. A partial period's
    running totals are pace-projected once enough days have passed, and a partial period is never
    the baseline.
@@ -180,8 +243,8 @@ These hold everywhere. Each gets a test as it is built.
 9. **Bots are not reviewers.** Accounts GitHub reports as bots, plus any named in config, are
    left out of review metrics, and their PRs are left out of flow metrics by default. Config can
    count named bot accounts as reviewers. Boilerplate bot comments never count as review.
-10. **No leaderboards.** Per-person views exist so people can read their own flow. Nothing ranks
-    people.
+10. **No leaderboards.** Nothing breaks numbers down by author. People can be selected, alone or
+    together (D26), and review load names reviewers, as capacity (D21).
 11. **Labels come from one place.** A statistic's name (median, P75, …) comes from one function,
     and the URL captures the whole view.
 12. **Stale data looks stale.** The report always shows the data-through date and the last

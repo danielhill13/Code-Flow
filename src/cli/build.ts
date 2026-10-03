@@ -22,7 +22,7 @@ export async function build(options: BuildOptions): Promise<number> {
   const store = Store.open(dbPath);
   try {
     deriveFacts(store, config);
-    data = reportData(store);
+    data = reportData(store, config);
   } finally {
     store.close();
   }

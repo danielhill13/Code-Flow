@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { deriveFacts } from "../pipeline/derive.ts";
 import {
   discoverRepos,
   type Repo,
@@ -15,6 +16,7 @@ import {
 } from "../providers/github/estimate.ts";
 import { PR_PAGE_SIZE } from "../providers/github/queries.ts";
 import { Store } from "../store/store.ts";
+import { branchWarnings } from "./branches.ts";
 import { bold, dim, durationSeconds, num, plural, status, table } from "./format.ts";
 import { connect, type Print } from "./session.ts";
 
@@ -87,6 +89,13 @@ export async function doctor(options: DoctorOptions): Promise<number> {
   const synced = alreadySynced(session.dbPath, repos);
   if (synced > 0) {
     print(dim(`  ${plural(synced, "repo")} already synced: the next sync fetches only changes`));
+    const store = Store.open(session.dbPath);
+    try {
+      deriveFacts(store, config);
+      for (const line of branchWarnings(store, config)) print(line);
+    } finally {
+      store.close();
+    }
   }
   print();
   print(

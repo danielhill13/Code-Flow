@@ -1,10 +1,11 @@
 /**
- * Observations a percentile needs before it is shown: at least five above it, or the "P95" of
- * a small sample is just its maximum under another name. P50 needs 10, P75 20, P90 50.
+ * Observations a percentile needs before it is shown: at least five beyond it, or the "P95" of
+ * a small sample is just its maximum under another name (and the "P5" its minimum). P50 needs
+ * 10, P75 and P25 need 20, P90 needs 50.
  */
 export function minObservations(p: number): number {
   // 5 / (1 - 0.9) is 50.000000000000014 in floating point; don't let that round up to 51.
-  return Math.ceil(5 / (1 - p) - 1e-9);
+  return Math.ceil(5 / Math.min(p, 1 - p) - 1e-9);
 }
 
 /** The p-th percentile of ascending values, interpolating between ranks (R's default, type 7). */
@@ -36,8 +37,11 @@ export function percentileStat(values: readonly (number | null)[], p: number): S
     return {
       value: null,
       n: present.length,
-      hidden: `needs ${needed} PRs with a value, has ${present.length}`,
+      hidden: `too few PRs for ${p === 0.5 ? "a median" : statLabel(p)} (${present.length}, needs ${needed})`,
     };
   }
   return { value: percentile(present, p), n: present.length };
 }
+
+/** The name of a statistic: "median" for P50, "P75" and so on otherwise. */
+export const statLabel = (p: number) => (p === 0.5 ? "median" : `P${Math.round(p * 100)}`);

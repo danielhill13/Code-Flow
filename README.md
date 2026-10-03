@@ -4,7 +4,7 @@ Code flow metrics for GitHub: how pull requests move from first commit, through 
 Every number traces back to the pull requests behind it.
 
 > **Early development.** Phases 0–2 of the [roadmap](docs/roadmap.md) are done: sync, and every
-> metric below, in the terminal. The report comes next.
+> metric below, in the terminal. The report (phase 3) works and is being finished.
 
 ## What it measures
 
@@ -36,6 +36,7 @@ npm run codeflow -- doctor
 npm run codeflow -- sync
 npm run codeflow -- summary
 npm run codeflow -- pr 9000
+npm run codeflow -- build
 ```
 
 - `init` writes a `codeflow.yml`.
@@ -51,11 +52,24 @@ npm run codeflow -- pr 9000
 - `pr` shows how codeflow read one pull request: its timeline, phases, size and reviews, ready
   to check against GitHub.
 - `status` shows what is stored locally and how the last sync went, without going online.
+- `build` writes `codeflow-report.html`: one file, with the data inside, that opens from disk
+  with no server and makes no network requests. It has six tabs, each answering one question:
+  Overview (faster or slower?), Speed (where does the time go?), Review (is review holding us
+  up?), Flow (what's stuck right now?), Compare (did the change work?) and Pull requests (which
+  PRs are behind this number?). Every number opens the PRs behind it. The view is in the URL, so
+  a link to the file can point at any tab, scope or filtered list.
 
 ## Configuration
 
 `codeflow.yml` says what to measure: whole organizations or users, filtered by repo name, and
-single repos. [codeflow.example.yml](codeflow.example.yml) shows every option.
+single repos. Optional `teams` (people, with dates when someone moves) and `products` (repos
+and teams) let the report look at any team, product, repo or person, or any mix of them.
+[codeflow.example.yml](codeflow.example.yml) shows every option.
+
+codeflow counts each PR once, where it lands on a measured branch: by default each repo's
+default branch. PRs into feature, release or `develop` branches, and promotions such as
+`develop` → `main` → `prod`, aren't counted again. If a repo's work lands somewhere else, say
+features into `develop`, `status` says so and prints the `branches:` line to measure it.
 
 ## Privacy
 
@@ -70,8 +84,9 @@ every metric follows.
 ## Development
 
 ```bash
-npm run check   # typecheck, lint, tests
-npm run build   # compile to dist/, only needed for publishing
+npm run check        # typecheck, lint, tests (including a sweep of every report view)
+npm run report:dev   # the report with live reload, on the data your last sync stored
+npm run build        # compile to dist/, only needed for publishing
 ```
 
 ## License

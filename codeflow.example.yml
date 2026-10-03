@@ -45,3 +45,20 @@ bots:
 paths:
   - { match: "packages/*-tests/**", bucket: test }
   - { match: ["schema/**", "*.graphql"], bucket: generated, repos: [your-org/api] }
+
+# Teams: who works together. A PR belongs to its author's team on the day they opened it, so a
+# person is in one team at a time and a move keeps its history. Give dates (inclusive) when
+# someone moves. `secondary: true` lists someone with a team without counting their PRs there.
+# Team members also count as internal contributors, whatever GitHub says about them.
+teams:
+  Platform:
+    people: [mika, { login: devon, to: 2026-05-31 }]
+  Payments:
+    people: [ana, { login: devon, from: 2026-06-01 }, { login: mika, secondary: true }]
+
+# Products: where work lands. A product holds repos (owner/name globs), teams (their PRs in any
+# repo), or both. Products may overlap; totals still count each PR once.
+products:
+  Checkout:
+    repos: ["your-org/cart-*", your-org/payments-api]
+    teams: [Payments]

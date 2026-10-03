@@ -17,4 +17,7 @@ codeflow-report*.html
 # Private reference material from an earlier internal tool. Never commit it.
 CodeFlow_reference/
 
+# Design handoffs: reference for building the report, never committed.
+docs/design_handoff_*/
+
 .DS_Store

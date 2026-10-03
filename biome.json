@@ -6,7 +6,8 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "includes": ["**", "!docs/design_handoff_codeflow_report"]
   },
   "formatter": {
     "enabled": true,

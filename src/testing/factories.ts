@@ -1,6 +1,7 @@
 // Test data builders. Excluded from the published build.
 import type { OwnerSource } from "../config/schema.ts";
-import type { DeriveRules } from "../core/derive.ts";
+import { type DeriveRules, derivePr } from "../core/derive.ts";
+import type { PrFact } from "../core/facts.ts";
 import type { Actor, PrModel } from "../core/model.ts";
 import { pathClassifier } from "../core/paths.ts";
 import type { Repo } from "../providers/github/discover.ts";
@@ -64,6 +65,17 @@ export function prModel(overrides: Partial<PrModel> = {}): PrModel {
   };
 }
 
+let nextNumber = 1000;
+
+/** The fact for prModel(overrides), with its own id and number unless the overrides give one. */
+export function prFact(overrides: Partial<PrModel> = {}, rules = deriveRules()): PrFact {
+  const number = overrides.number ?? nextNumber++;
+  return derivePr(
+    prModel({ id: `PR_${overrides.repo ?? "acme/api"}#${number}`, number, ...overrides }),
+    rules,
+  );
+}
+
 /** Rules as a plain repo would have them: main is measured, bots are not reviewers. */
 export function deriveRules(overrides: Partial<DeriveRules> = {}): DeriveRules {
   return {
@@ -74,6 +86,7 @@ export function deriveRules(overrides: Partial<DeriveRules> = {}): DeriveRules {
     isBotReviewer: () => false,
     isIgnoredBody: () => false,
     includeBotPrs: false,
+    attribute: () => ({ team: null, alsoTeams: [], products: [] }),
     ...overrides,
   };
 }
