@@ -1,12 +1,12 @@
 import { existsSync } from "node:fs";
 import { loadConfig } from "../config/load.ts";
 import type { Exclusion, PrFact } from "../core/facts.ts";
+import { duration } from "../core/format.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
 import { bold, dim, num, plural, status } from "./format.ts";
 import { databasePath, type Print } from "./session.ts";
-import { duration } from "./summary.ts";
 
 export type PrOptions = { config: string };
 

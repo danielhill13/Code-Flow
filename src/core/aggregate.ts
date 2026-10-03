@@ -41,6 +41,9 @@ export type Measurement = {
   open: { count: number; drafts: number; medianAgeDays: number | null };
 };
 
+/** A phase holding this share of its hours in one PR deserves a warning: one PR moved it. */
+export const CONCENTRATION_SHARE = 0.25;
+
 const PHASE_FIELDS = {
   coding: "codingHours",
   pickup: "pickupHours",
@@ -59,15 +62,8 @@ export function measure(
   const p = options.percentile ?? 0.5;
   const ctx: MetricContext = { asOf: options.asOf };
   const counted = facts.filter((pr) => pr.counted);
-  const merged = counted.filter((pr) => pr.state === "merged" && inPeriod(period, pr.mergedAt));
-  const populations: Record<Population, PrFact[]> = {
-    merged,
-    ended: counted.filter((pr) =>
-      pr.state === "merged"
-        ? inPeriod(period, pr.mergedAt)
-        : pr.state === "closed" && inPeriod(period, pr.closedAt),
-    ),
-  };
+  const groups = populations(facts, period);
+  const merged = groups.merged;
 
   const excluded: Record<Exclusion, number> = { bot: 0, base: 0, promotion: 0 };
   for (const pr of facts) {
@@ -85,7 +81,7 @@ export function measure(
     period,
     asOf: options.asOf.toISOString(),
     percentile: p,
-    values: METRICS.map((metric) => metricValue(metric, populations[metric.population], p, ctx)),
+    values: METRICS.map((metric) => metricValue(metric, groups[metric.population], p, ctx)),
     phases: phaseShares(merged),
     excluded,
     truncated: merged.filter((pr) => pr.truncated.length > 0).map((pr) => pr.number),
@@ -95,6 +91,35 @@ export function measure(
       medianAgeDays: ages.length > 0 ? percentile(ages, 0.5) : null,
     },
   };
+}
+
+/** The counted PRs each population holds for a period (see Population). */
+export function populations(
+  facts: readonly PrFact[],
+  period: Period,
+): Record<Population, PrFact[]> {
+  const counted = facts.filter((pr) => pr.counted);
+  return {
+    merged: counted.filter((pr) => pr.state === "merged" && inPeriod(period, pr.mergedAt)),
+    ended: counted.filter((pr) =>
+      pr.state === "merged"
+        ? inPeriod(period, pr.mergedAt)
+        : pr.state === "closed" && inPeriod(period, pr.closedAt),
+    ),
+  };
+}
+
+/** One PR's value for a metric: a number, a yes/no for shares, or null where it doesn't apply. */
+export function prValue(metric: Metric, pr: PrFact, ctx: MetricContext): number | boolean | null {
+  switch (metric.kind) {
+    case "count":
+      return true;
+    case "sum":
+    case "distribution":
+      return metric.value(pr, ctx);
+    case "share":
+      return metric.test(pr, ctx);
+  }
 }
 
 function metricValue(

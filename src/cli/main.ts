@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { DEFAULT_CONFIG_FILE } from "../config/load.ts";
 import { CodeflowError } from "../errors.ts";
 import { VERSION } from "../version.ts";
+import { type BuildOptions, build } from "./build.ts";
 import { type DoctorOptions, doctor } from "./doctor.ts";
 import { type InitOptions, init } from "./init.ts";
 import { type PrOptions, showPr } from "./pr.ts";
@@ -61,6 +62,16 @@ program
   .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
   .action(async (options: SummaryOptions) => {
     process.exitCode = await summary(options);
+  });
+
+program
+  .command("build")
+  .description("write the report: one HTML file that opens offline (no network)")
+  .option("-o, --out <file>", "where to write it (default: codeflow-report.html)")
+  .option("--data-only", "write just the report's data, for the development server")
+  .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
+  .action(async (options: BuildOptions) => {
+    process.exitCode = await build(options);
   });
 
 program

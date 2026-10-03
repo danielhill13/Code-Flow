@@ -22,12 +22,15 @@ export function marked(mark: Mark, text: string): string {
 export const dim = (text: string) => styleText("dim", text);
 export const bold = (text: string) => styleText("bold", text);
 
-export const num = (n: number) => n.toLocaleString("en-US");
+import { num } from "../core/format.ts";
+
+export { num };
 
 export const plural = (n: number, one: string, many = `${one}s`) =>
   `${num(n)} ${n === 1 ? one : many}`;
 
-export function duration(seconds: number): string {
+/** A run time: "12 s", "3 min", "1.5 h". */
+export function durationSeconds(seconds: number): string {
   if (seconds < 90) return `${Math.max(1, Math.round(seconds))} s`;
   if (seconds < 90 * 60) return `${Math.round(seconds / 60)} min`;
   return `${(seconds / 3600).toFixed(1)} h`;

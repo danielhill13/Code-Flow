@@ -53,6 +53,42 @@ export function lastCompletePeriod(kind: PeriodKind, asOf: Date): Period {
   return periodContaining(kind, new Date(Date.parse(current.start) - 1));
 }
 
+/** The period of the same kind just before this one. */
+export function previousPeriod(period: Period): Period {
+  return periodContaining(period.kind, new Date(Date.parse(period.start) - 1));
+}
+
+/** `count` periods of the same kind ending with `last`, oldest first. */
+export function periodsEnding(last: Period, count: number): Period[] {
+  const periods = [last];
+  while (periods.length < count) periods.unshift(previousPeriod(periods[0] as Period));
+  return periods;
+}
+
+/**
+ * Every period of a kind that starts on or after `from` (YYYY-MM-DD) and has begun by `asOf`,
+ * newest first. The newest may still be running.
+ */
+export function periodsCovered(kind: PeriodKind, from: string, asOf: Date): Period[] {
+  const periods: Period[] = [];
+  for (
+    let period = periodContaining(kind, asOf);
+    period.start >= from;
+    period = previousPeriod(period)
+  ) {
+    periods.push(period);
+  }
+  return periods;
+}
+
+/** A stable key for URLs and lookups: "2026-09", "2026-Q3", "2026". */
+export function periodKey(period: Period): string {
+  const [year, month] = period.start.split("-");
+  if (period.kind === "year") return year ?? "";
+  if (period.kind === "quarter") return `${year}-Q${(Number(month) - 1) / 3 + 1}`;
+  return `${year}-${month}`;
+}
+
 /** Whether an ISO timestamp falls inside the period. Null never does. */
 export function inPeriod(period: Period, iso: string | null): boolean {
   return iso !== null && iso >= period.start && iso < period.end;

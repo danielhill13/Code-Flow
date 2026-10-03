@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { relative } from "node:path";
 import { loadConfig } from "../config/load.ts";
 import { Store } from "../store/store.ts";
-import { duration, type Mark, num, plural, status, table } from "./format.ts";
+import { durationSeconds, type Mark, num, plural, status, table } from "./format.ts";
 import { databasePath, type Print } from "./session.ts";
 
 export type StatusOptions = { config: string };
@@ -32,7 +32,7 @@ export async function showStatus(options: StatusOptions): Promise<number> {
           : run.status;
       const mark: Mark = run.status === "ok" || running ? "ok" : "warn";
       const took = run.finishedAt
-        ? `, took ${duration((Date.parse(run.finishedAt) - Date.parse(run.startedAt)) / 1000)}`
+        ? `, took ${durationSeconds((Date.parse(run.finishedAt) - Date.parse(run.startedAt)) / 1000)}`
         : "";
       print(
         status(

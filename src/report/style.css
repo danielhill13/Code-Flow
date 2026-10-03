@@ -1,0 +1,247 @@
+/* Deliberately plain: layout and legibility only. The browser picks light or dark. */
+:root {
+  color-scheme: light dark;
+  font:
+    14px / 1.45 system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  --rule: color-mix(in srgb, currentColor 15%, transparent);
+  --coding: #4e79a7;
+  --pickup: #f28e2b;
+  --review: #59a14f;
+  --mergeWait: #b07aa1;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 1200px;
+  padding: 16px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.4em;
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 1.15em;
+}
+
+section {
+  margin: 28px 0;
+}
+
+.muted {
+  opacity: 0.65;
+}
+
+.note {
+  margin: 4px 0 8px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 12px 0;
+}
+
+button.link {
+  all: unset;
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+}
+
+/* Tables */
+
+table {
+  border-collapse: collapse;
+}
+
+caption {
+  text-align: left;
+  padding-bottom: 4px;
+}
+
+th,
+td {
+  padding: 3px 10px 3px 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-weight: 600;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+tr.group th {
+  padding-top: 12px;
+  border-bottom: none;
+}
+
+tr.selected td {
+  background: color-mix(in srgb, Highlight 18%, transparent);
+}
+
+table.rows {
+  width: 100%;
+}
+
+table.rows td:nth-child(2) {
+  max-width: 420px;
+}
+
+.more {
+  margin-top: 6px;
+  display: inline-block;
+}
+
+.notes {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+/* Trends: small multiples */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px 24px;
+}
+
+.trend {
+  margin: 0;
+}
+
+.trend-body {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.trend svg {
+  width: 100%;
+  height: 64px;
+  overflow: visible;
+}
+
+.trend path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.trend .baseline {
+  stroke: var(--rule);
+}
+
+.trend .point {
+  fill: currentColor;
+  cursor: pointer;
+}
+
+.trend .point.selected {
+  fill: Highlight;
+}
+
+.trend .gap {
+  fill: none;
+  stroke: currentColor;
+  opacity: 0.4;
+}
+
+.scale,
+.axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+}
+
+.scale {
+  flex-direction: column;
+  white-space: nowrap;
+}
+
+/* Where the time went */
+
+.legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+}
+
+.phase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 3px 0;
+}
+
+.phase-label {
+  width: 120px;
+  flex: none;
+}
+
+.bar {
+  display: flex;
+  flex: 1;
+  height: 14px;
+  max-width: 600px;
+}
+
+.coding {
+  background: var(--coding);
+}
+
+.pickup {
+  background: var(--pickup);
+}
+
+.review {
+  background: var(--review);
+}
+
+.mergeWait {
+  background: var(--mergeWait);
+}
+
+/* Definitions */
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+}
+
+dl div {
+  display: contents;
+}
+
+dt {
+  font-weight: 600;
+}
+
+dd {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  dl {
+    grid-template-columns: 1fr;
+  }
+}

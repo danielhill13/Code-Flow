@@ -1,10 +1,12 @@
 import { existsSync } from "node:fs";
 import picomatch from "picomatch";
 import { loadConfig } from "../config/load.ts";
-import { type Measurement, type MetricValue, measure, type Phase } from "../core/aggregate.ts";
+import { CONCENTRATION_SHARE, type Measurement, measure } from "../core/aggregate.ts";
+import { formatValue, PHASE_LABELS, statLabel, valueNote } from "../core/format.ts";
 import { METRICS } from "../core/metrics.ts";
-import { isComplete, lastCompletePeriod, type Period, parsePeriod } from "../core/periods.ts";
+import { isComplete, lastCompletePeriod, parsePeriod } from "../core/periods.ts";
 import { CodeflowError } from "../errors.ts";
+import { assertCovered, coveredFrom } from "../pipeline/coverage.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
 import { bold, dim, num, plural, status, table } from "./format.ts";
@@ -18,16 +20,6 @@ export type SummaryOptions = {
   explain?: boolean;
   json?: boolean;
 };
-
-const PHASES: Record<Phase, string> = {
-  coding: "coding",
-  pickup: "pickup",
-  review: "review",
-  mergeWait: "merge wait",
-};
-
-/** A phase holding this share of its hours in one PR gets a warning: one PR moved the number. */
-const CONCENTRATION_WARNING = 0.25;
 
 /** Metrics for one period, from local data only (no network). */
 export async function summary(options: SummaryOptions): Promise<number> {
@@ -66,7 +58,7 @@ export async function summary(options: SummaryOptions): Promise<number> {
       }
     }
     const repos = [...new Set(facts.map((fact) => fact.repo))].sort();
-    checkCoverage(store, repos, period);
+    assertCovered(period, coveredFrom(store, repos));
     const result = measure(facts, period, {
       asOf,
       percentile: parsePercentile(options.percentile),
@@ -84,32 +76,6 @@ export async function summary(options: SummaryOptions): Promise<number> {
   }
 }
 
-/**
- * Sync stores every PR updated since `since`, so any period from then on is complete. An
- * earlier period would hold only the stragglers that happened to be updated later: refuse it
- * rather than show numbers that look real and aren't.
- */
-function checkCoverage(store: Store, repos: readonly string[], period: Period): void {
-  const selected = store.repoSummaries().filter((repo) => repos.includes(repo.fullName));
-  const unfinished = selected.filter((repo) => repo.coveredSince === null);
-  if (unfinished.length > 0) {
-    const names = unfinished.map((repo) => repo.fullName).join(", ");
-    throw new CodeflowError(
-      `The first sync of ${names} hasn't finished. Run codeflow sync to finish it.`,
-    );
-  }
-  const from = selected.reduce((latest, repo) => {
-    const since = repo.coveredSince ?? "";
-    return since > latest ? since : latest;
-  }, "");
-  if (period.start < from) {
-    throw new CodeflowError(
-      `${period.label} starts before ${from}, where the synced data begins, so PRs would be missing. ` +
-        "Pick a later period, or move `since` earlier in codeflow.yml and sync again.",
-    );
-  }
-}
-
 function printSummary(result: Measurement, repos: string[], complete: boolean, print: Print): void {
   const scope = repos.length <= 3 ? repos.join(", ") : `${plural(repos.length, "repo")}`;
   print(
@@ -124,7 +90,7 @@ function printSummary(result: Measurement, repos: string[], complete: boolean, p
   }
   print();
 
-  const statName = result.percentile === 0.5 ? "median" : `P${Math.round(result.percentile * 100)}`;
+  const statName = statLabel(result.percentile);
   const rows: string[][] = [];
   let group = "";
   for (const value of result.values) {
@@ -132,22 +98,22 @@ function printSummary(result: Measurement, repos: string[], complete: boolean, p
       group = value.metric.group;
       rows.push([group, "", "", ""]);
     }
-    rows.push([`  ${value.metric.label}`, format(value), num(value.n), note(value)]);
+    rows.push([`  ${value.metric.label}`, formatValue(value), num(value.n), valueNote(value)]);
   }
   print(table(["", statName, "PRs", ""], rows, { rightAlign: [1, 2] }));
   print();
 
   if (result.phases) {
     const split = result.phases
-      .map((p) => `${PHASES[p.phase]} ${Math.round(p.share * 100)}%`)
+      .map((p) => `${PHASE_LABELS[p.phase]} ${Math.round(p.share * 100)}%`)
       .join(" · ");
     print(`Where the time went: ${split}`);
     for (const phase of result.phases) {
-      if (phase.largestShare >= CONCENTRATION_WARNING) {
+      if (phase.largestShare >= CONCENTRATION_SHARE) {
         print(
           dim(
             `  #${phase.largestPr} alone is ${Math.round(phase.largestShare * 100)}% of all ` +
-              `${PHASES[phase.phase]} time: one PR, not a habit`,
+              `${PHASE_LABELS[phase.phase]} time: one PR, not a habit`,
           ),
         );
       }
@@ -181,40 +147,6 @@ function printDefinitions(print: Print): void {
   print(bold("Definitions"));
   for (const metric of METRICS) print(`  ${metric.label}: ${metric.definition}`);
 }
-
-/** A value in its unit: "4.5 h", "2.1 d", "64 lines", "78%". */
-export function format(value: MetricValue): string {
-  if (value.value === null) return "—";
-  const { metric } = value;
-  if (metric.kind === "count") return num(value.value);
-  if (metric.kind === "share") return percent(value.value);
-  switch (metric.unit) {
-    case "hours":
-      return duration(value.value);
-    case "lines":
-      return `${num(Math.round(value.value))} lines`;
-    case "count":
-      return Number.isInteger(value.value) ? num(value.value) : value.value.toFixed(1);
-  }
-}
-
-function note(value: MetricValue): string {
-  if (value.hidden) return value.hidden;
-  if (value.metric.key === "reverted" && value.notApplicable > 0) {
-    return `${num(value.notApplicable)} merged too recently to tell`;
-  }
-  if (value.n === 0) return "no PRs";
-  return "";
-}
-
-export function duration(hours: number): string {
-  if (hours < 1) return `${Math.round(hours * 60)} min`;
-  if (hours < 48) return `${hours.toFixed(1)} h`;
-  return `${(hours / 24).toFixed(1)} d`;
-}
-
-const percent = (share: number) =>
-  share > 0 && share < 0.1 ? `${(share * 100).toFixed(1)}%` : `${Math.round(share * 100)}%`;
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });

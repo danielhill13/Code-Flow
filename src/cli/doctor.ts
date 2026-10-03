@@ -15,7 +15,7 @@ import {
 } from "../providers/github/estimate.ts";
 import { PR_PAGE_SIZE } from "../providers/github/queries.ts";
 import { Store } from "../store/store.ts";
-import { bold, dim, duration, num, plural, status, table } from "./format.ts";
+import { bold, dim, durationSeconds, num, plural, status, table } from "./format.ts";
 import { connect, type Print } from "./session.ts";
 
 export type DoctorOptions = { config: string; all?: boolean };
@@ -75,7 +75,7 @@ export async function doctor(options: DoctorOptions): Promise<number> {
       `in ${plural(repos.length, "repo")}`,
   );
   print(
-    `  about ${duration(estimate.seconds ?? 0)}: ~${plural(estimate.pages, "query", "queries")}, ` +
+    `  about ${durationSeconds(estimate.seconds ?? 0)}: ~${plural(estimate.pages, "query", "queries")}, ` +
       `~${num(estimate.points)} points (${share})`,
   );
   print(

@@ -4,7 +4,7 @@ import { deriveFacts } from "../pipeline/derive.ts";
 import { discoverRepos, type SourceResult, sourceName } from "../providers/github/discover.ts";
 import { fetchFrom, type RepoOutcome, syncRepos, type WalkName } from "../providers/github/sync.ts";
 import { Store } from "../store/store.ts";
-import { dim, duration, marked, num, plural, status } from "./format.ts";
+import { dim, durationSeconds, marked, num, plural, status } from "./format.ts";
 import { Progress } from "./progress.ts";
 import { connect, type Print } from "./session.ts";
 
@@ -43,7 +43,7 @@ export async function sync(options: SyncOptions): Promise<number> {
     store.closeAbandonedRuns("sync");
     const runId = store.startRun("sync");
     const started = performance.now();
-    const elapsed = () => duration((performance.now() - started) / 1000);
+    const elapsed = () => durationSeconds((performance.now() - started) / 1000);
 
     // First Ctrl-C: store the page in flight, then stop. Second: quit now. Either way nothing
     // stored is lost, and the next sync carries on from the last stored page.
