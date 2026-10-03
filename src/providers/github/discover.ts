@@ -192,6 +192,11 @@ function toRepo(node: RepoNode): Repo {
   };
 }
 
+/** `acme` for an owner source, `acme/api` for a repo source. */
+export function sourceName(source: Source): string {
+  return source.kind === "owner" ? source.owner : `${source.owner}/${source.name}`;
+}
+
 function notFound(what: string): string {
   return `${what} not found, or this token can't see it`;
 }

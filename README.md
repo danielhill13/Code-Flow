@@ -3,8 +3,9 @@
 Code flow metrics for GitHub: how pull requests move from first commit, through review, to merge.
 Every number traces back to the pull requests behind it.
 
-> **Early development.** Phase 0 of the [roadmap](docs/roadmap.md) is done: configuration and
-> `codeflow doctor`. Syncing and the report come next.
+> **Early development.** Phases 0 and 1 of the [roadmap](docs/roadmap.md) are done:
+> configuration, `codeflow doctor`, and `codeflow sync`, which stores pull requests locally.
+> Metrics and the report come next.
 
 ## What it measures
 
@@ -32,11 +33,18 @@ From a clone of this repository:
 npm install
 npm run codeflow -- init --repo usebruno/bruno
 npm run codeflow -- doctor
+npm run codeflow -- sync
+npm run codeflow -- status
 ```
 
-`init` writes a `codeflow.yml`. `doctor` checks your token, lists the repos your config selects,
-and works out what the first sync will cost in time and API rate limit. It gets that cost from a
-dry run of the real sync query. `doctor` is read-only and spends a few rate-limit points.
+- `init` writes a `codeflow.yml`.
+- `doctor` checks your token, lists the repos your config selects, and works out what the first
+  sync will cost in time and API rate limit, from a dry run of the real sync query. It is
+  read-only and spends a few rate-limit points.
+- `sync` fetches every pull request updated since the config's `since` date, plus older ones still
+  open. After that, each run fetches only what changed. You can stop it at any time (Ctrl-C), and
+  the next run picks up where it stopped.
+- `status` shows what is stored locally and how the last sync went, without going online.
 
 ## Configuration
 
@@ -45,7 +53,8 @@ single repos. [codeflow.example.yml](codeflow.example.yml) shows every option.
 
 ## Privacy
 
-codeflow talks only to GitHub's API, and keeps what it fetches on your machine.
+codeflow talks only to GitHub's API. What it fetches stays on your machine, in a `.codeflow/`
+folder next to your config.
 
 ## How it works
 

@@ -5,6 +5,8 @@ import { CodeflowError } from "../errors.ts";
 import { VERSION } from "../version.ts";
 import { type DoctorOptions, doctor } from "./doctor.ts";
 import { type InitOptions, init } from "./init.ts";
+import { type StatusOptions, showStatus } from "./status.ts";
+import { type SyncOptions, sync } from "./sync.ts";
 
 const program = new Command("codeflow")
   .description("Code flow metrics for GitHub: first commit, through review, to merge.")
@@ -28,6 +30,22 @@ program
   .option("--all", "list every repo, including skipped ones")
   .action(async (options: DoctorOptions) => {
     process.exitCode = await doctor(options);
+  });
+
+program
+  .command("sync")
+  .description("fetch pull requests changed since the last sync; resumes if interrupted")
+  .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
+  .action(async (options: SyncOptions) => {
+    process.exitCode = await sync(options);
+  });
+
+program
+  .command("status")
+  .description("show what is synced locally and how the last sync went (no network)")
+  .option("-c, --config <path>", "config file", DEFAULT_CONFIG_FILE)
+  .action(async (options: StatusOptions) => {
+    process.exitCode = await showStatus(options);
   });
 
 try {

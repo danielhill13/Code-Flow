@@ -18,3 +18,6 @@ since: 2025-10-01
 github:
   api_url: https://api.github.com     # GitHub Enterprise Server: https://HOST/api/v3
   token_env: GITHUB_TOKEN             # falls back to GH_TOKEN, then `gh auth token`
+
+# Where synced data is stored, relative to this file. Keep it out of version control.
+data_dir: .codeflow

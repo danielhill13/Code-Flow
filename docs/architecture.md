@@ -8,12 +8,13 @@ records why.
 
 ```
 GitHub GraphQL ─ sync ─▶ .codeflow/codeflow.db (SQLite)
-                           raw_pr     provider-native payload per PR version, append-only
-                           repos      default-branch history, sync watermarks
-                           runs       calls, points, rows and errors per run
-               derive ─▶   pr_facts   one row per PR = f(raw, config)
-               build  ─▶ report.html  static track: one self-contained file
-               serve  ─▶ http://…     hosted track: the same report, served
+                           raw_prs           every version of every PR, provider-native, insert-only
+                           repos             what discovery saw, plus each repo's sync progress
+                           default_branches  when each repo's default branch changed
+                           runs              outcome, calls and points of every run
+               derive ─▶   pr_facts          one row per PR = f(raw, config)
+               build  ─▶ report.html         static track: one self-contained file
+               serve  ─▶ http://…            hosted track: the same report, served
 ```
 
 - **Raw data is the system of record.** It is never edited. Every metric is a pure function of
@@ -25,18 +26,50 @@ GitHub GraphQL ─ sync ─▶ .codeflow/codeflow.db (SQLite)
 - **No git clones.** GitHub's API returns per-file additions and deletions, which is enough for
   sizes and line counts. Clones return only for rework, opt-in (roadmap phase 7).
 
+## Sync
+
+GitHub lists a repo's PRs ordered by last update, and pages through them with keyset cursors
+that encode the last PR's `(updatedAt, id)`. A cursor therefore stays valid however long it is
+kept, and a PR that changes jumps to the top instead of shifting the pages below it. Sync makes
+three walks over that order:
+
+| Walk | Order | Runs | Stops at |
+| ---- | ----- | ---- | -------- |
+| backfill | newest first | until it has reached `since` | the first PR updated before `since` |
+| updates | newest first | when the repo's latest PR activity is past the watermark | the watermark |
+| open sweep | oldest first, open PRs only | once per repo | the first PR updated on or after `since` |
+
+- The watermark is the newest `updatedAt` up to which every PR's current version is stored. A
+  repo whose latest activity, which discovery already reports, is not past it costs no calls.
+- Each page is stored in the same transaction as its walk's progress. A run stopped at any point,
+  even by a crash, resumes from the last stored page and fetches nothing twice. Moving `since`
+  earlier extends the backfill from its kept cursor.
+- The open sweep exists because the backfill never reaches an open PR that has sat untouched since
+  before `since`. That PR is still work in progress.
+- A page is 25 PRs with their commits, reviews, comments, files and timeline events, at 2 points.
+  A connection longer than 100 nodes is completed with follow-up queries.
+- GitHub sometimes times out on a big page, and sometimes answers 200 OK with the body cut off
+  (seen on pages over a megabyte). The client retries a cut-off response twice. If a page still
+  fails either way, sync halves it and carries on: the cursor doesn't care how big a page was.
+- A run takes a lock, so two syncs never write the same database, and leaves a record in `runs`.
+- Requests go one at a time, at most one per second, the spacing Octokit applies to all GraphQL
+  because GitHub asks for it between writes. Sync only reads, so this is conservative. Measured on
+  usebruno/bruno, a page takes about 10 s and the first backfill of 2,552 PRs about 25 minutes;
+  later runs take seconds. Parallel repos and looser pacing are roadmap phase 5.
+
 ## Code layout
 
 ```
 src/config/             codeflow.yml schema and loader
-src/providers/github/   auth, GraphQL client, queries, repo discovery
+src/store/              the SQLite database: schema migrations, raw PRs, sync state, runs, locks
+src/providers/github/   auth, GraphQL client, queries, repo discovery, sync walks
 src/core/               provider-neutral PR model, derive, path buckets, metric registry, aggregation
-src/cli/                init · doctor · sync · build · serve · summary
+src/cli/                init · doctor · sync · status · build · serve · summary
 src/report/             the report UI
 src/server/             the hosted track's HTTP API
 ```
 
-So far only `config`, `providers/github` and `cli` exist.
+So far `config`, `store`, `providers/github` and `cli` exist.
 
 A provider's job ends at the neutral PR model. Adding Azure DevOps or GitLab later means a new
 `src/providers/<name>`, with no change to any metric.

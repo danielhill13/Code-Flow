@@ -57,11 +57,15 @@ export const REPO = /* GraphQL */ `
   ${REPO_FIELDS}
 `;
 
-/** Counts matches without fetching any. Repeated `repo:` qualifiers are OR'd together. */
-export const SEARCH_COUNT = /* GraphQL */ `
-  query SearchCount($q: String!) {
+/**
+ * Counts what a first sync fetches, without fetching it: PRs updated since a date, and older
+ * open PRs. Repeated `repo:` qualifiers in a search are OR'd together.
+ */
+export const SYNC_SEARCH_COUNTS = /* GraphQL */ `
+  query SyncSearchCounts($updated: String!, $olderOpen: String!) {
     ${RATE_LIMIT}
-    search(query: $q, type: ISSUE) { issueCount }
+    updated: search(query: $updated, type: ISSUE) { issueCount }
+    olderOpen: search(query: $olderOpen, type: ISSUE) { issueCount }
   }
 `;
 
@@ -69,68 +73,111 @@ export const SEARCH_COUNT = /* GraphQL */ `
 export const PR_PAGE_SIZE = 25;
 
 /**
- * One page of a repo's pull requests, most recently updated first, with everything a PR's
- * metrics need. `sync` walks these pages back to its watermark. Connections cap at 100 nodes;
- * a PR that exceeds one (`totalCount` > 100) needs follow-up calls.
+ * Connections on a PR that sync reads completely: PR_PAGE fetches the first 100 nodes of each,
+ * and PR_CONNECTION fetches the rest. GitHub itself caps some (commits at 250, files at 3,000);
+ * past a cap, the count exceeds the nodes stored, which marks the PR as truncated.
+ *
+ * The count to compare is `totalCount`, except on `timelineItems`: there `totalCount` ignores
+ * the `itemTypes` filter (and even undercounts the whole timeline), so it is `filteredCount`.
+ * Payloads synced before `filteredCount` was selected are still complete: sync pages every
+ * timeline to its end, and GitHub does not cap timelines.
+ */
+export const PR_CONNECTIONS = ["commits", "reviews", "comments", "files", "timelineItems"] as const;
+export type PrConnectionName = (typeof PR_CONNECTIONS)[number];
+
+const CONNECTION_ARGS: Partial<Record<PrConnectionName, string>> = {
+  timelineItems: `itemTypes: [
+    READY_FOR_REVIEW_EVENT CONVERT_TO_DRAFT_EVENT REVIEW_REQUESTED_EVENT HEAD_REF_FORCE_PUSHED_EVENT
+    BASE_REF_CHANGED_EVENT CLOSED_EVENT REOPENED_EVENT MERGED_EVENT
+  ]`,
+};
+
+const CONNECTION_NODES: Record<PrConnectionName, string> = {
+  commits: "commit { oid authoredDate committedDate message author { user { login } } }",
+  reviews: "author { __typename login } state submittedAt body",
+  comments: "author { __typename login } createdAt body",
+  files: "path additions deletions changeType",
+  timelineItems: `
+    __typename
+    ... on ReadyForReviewEvent { createdAt }
+    ... on ConvertToDraftEvent { createdAt }
+    ... on ReviewRequestedEvent {
+      createdAt
+      requestedReviewer { __typename ... on User { login } ... on Bot { login } ... on Team { slug } }
+    }
+    ... on HeadRefForcePushedEvent { createdAt }
+    ... on BaseRefChangedEvent { createdAt previousRefName currentRefName }
+    ... on ClosedEvent { createdAt }
+    ... on ReopenedEvent { createdAt }
+    ... on MergedEvent { createdAt }
+  `,
+};
+
+/** One connection's selection. `after` names the cursor variable when fetching later pages. */
+function connection(name: PrConnectionName, after?: string): string {
+  const args = ["first: 100", after && `after: ${after}`, CONNECTION_ARGS[name]].filter(Boolean);
+  return `${name}(${args.join(", ")}) {
+    totalCount${name === "timelineItems" ? " filteredCount" : ""}
+    pageInfo { hasNextPage endCursor }
+    nodes { ${CONNECTION_NODES[name]} }
+  }`;
+}
+
+/**
+ * One page of a repo's pull requests ordered by last update, with everything their metrics
+ * need. `$states: null` means every state. sync walks these pages; see sync.ts.
  */
 export const PR_PAGE = /* GraphQL */ `
-  query PrPage($owner: String!, $name: String!, $first: Int!, $after: String, $dryRun: Boolean!) {
+  query PrPage(
+    $owner: String!
+    $name: String!
+    $first: Int!
+    $after: String
+    $states: [PullRequestState!]
+    $direction: OrderDirection!
+    $dryRun: Boolean!
+  ) {
     rateLimit(dryRun: $dryRun) { cost remaining limit resetAt }
     repository(owner: $owner, name: $name) {
-      pullRequests(first: $first, after: $after, orderBy: { field: UPDATED_AT, direction: DESC }) {
+      pullRequests(
+        first: $first
+        after: $after
+        states: $states
+        orderBy: { field: UPDATED_AT, direction: $direction }
+      ) {
         pageInfo { hasNextPage endCursor }
         nodes {
-          id number title body url state isDraft
+          id number title body url state isDraft isCrossRepository
           createdAt updatedAt mergedAt closedAt
           baseRefName headRefName
           additions deletions changedFiles
+          reviewDecision
           author { __typename login }
+          authorAssociation
           mergedBy { __typename login }
-          commits(first: 100) {
+          mergeCommit { oid }
+          labels(first: 20) { totalCount nodes { name } }
+          closingIssuesReferences(first: 10) {
             totalCount
-            nodes { commit { oid authoredDate committedDate message author { user { login } } } }
+            nodes { number repository { nameWithOwner } }
           }
-          reviews(first: 100) {
-            totalCount
-            nodes { author { __typename login } state submittedAt body }
-          }
-          reviewThreads(first: 100) { totalCount }
-          comments(first: 100) {
-            totalCount
-            nodes { author { __typename login } createdAt body }
-          }
-          files(first: 100) {
-            totalCount
-            nodes { path additions deletions changeType }
-          }
-          timelineItems(
-            first: 100
-            itemTypes: [
-              READY_FOR_REVIEW_EVENT
-              CONVERT_TO_DRAFT_EVENT
-              REVIEW_REQUESTED_EVENT
-              HEAD_REF_FORCE_PUSHED_EVENT
-              BASE_REF_CHANGED_EVENT
-              CLOSED_EVENT
-              REOPENED_EVENT
-              MERGED_EVENT
-            ]
-          ) {
-            totalCount
-            nodes {
-              __typename
-              ... on ReadyForReviewEvent { createdAt }
-              ... on ConvertToDraftEvent { createdAt }
-              ... on ReviewRequestedEvent { createdAt }
-              ... on HeadRefForcePushedEvent { createdAt }
-              ... on BaseRefChangedEvent { createdAt previousRefName currentRefName }
-              ... on ClosedEvent { createdAt }
-              ... on ReopenedEvent { createdAt }
-              ... on MergedEvent { createdAt }
-            }
-          }
+          reviewThreads { totalCount }
+          ${PR_CONNECTIONS.map((name) => connection(name)).join("\n")}
         }
       }
     }
   }
 `;
+
+/** The next 100 nodes of one connection on one PR. */
+export const PR_CONNECTION = Object.fromEntries(
+  PR_CONNECTIONS.map((name) => [
+    name,
+    /* GraphQL */ `
+      query PrConnection($id: ID!, $after: String!) {
+        ${RATE_LIMIT}
+        node(id: $id) { ... on PullRequest { ${connection(name, "$after")} } }
+      }
+    `,
+  ]),
+) as Record<PrConnectionName, string>;

@@ -29,3 +29,19 @@ their PRs out of flow metrics, by default. Config can count named bot accounts a
 **D9 · 2026-10-02 · Node 24+, ESM, erasable TypeScript.** Node runs the source directly by
 stripping types, so development has no build step. The npm package ships compiled JavaScript,
 because Node does not strip types inside `node_modules`.
+
+**D10 · 2026-10-02 · SQLite through Node's built-in `node:sqlite`.** There is no native module
+to compile at install time, which is a common way open-source CLIs break. Node still labels the
+module experimental and warns on load, so `src/store/sqlite.ts` filters out exactly that warning.
+Raw payloads are stored as gzipped JSON.
+
+**D11 · 2026-10-02 · Sync walks GitHub's update order with kept cursors.** There are three walks
+(backfill, updates, open sweep), and each page is stored with its walk's progress in one
+transaction. Runs are therefore incremental and resumable, and idle repos cost nothing. See
+architecture.md, "Sync".
+
+**D12 · 2026-10-02 · Review threads are counted, not fetched.** Selecting each thread's author
+would nest a connection inside a connection and raise a page from 2 points to about 27. Sync
+stores `reviewThreads.totalCount`, plus every review and conversation comment with its author.
+"Comments per PR" will therefore count discussions, not replies, and cannot exclude threads the
+PR's author opened. Revisit if that distinction turns out to matter.

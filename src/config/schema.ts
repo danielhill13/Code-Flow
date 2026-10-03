@@ -58,6 +58,8 @@ export const ConfigSchema = z.strictObject({
   // prefault, not default: the empty object still runs through the schema, so the field
   // defaults above apply when the whole `github` block is left out.
   github: GitHubSchema.prefault({}),
+  /** Where synced data lives, relative to the config file. */
+  data_dir: z.string().min(1).default(".codeflow"),
 });
 
 export type Config = z.output<typeof ConfigSchema>;

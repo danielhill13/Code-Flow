@@ -12,6 +12,8 @@ Open-source tool that measures code flow (first commit → review → merge) for
 npm run check                # typecheck + lint + tests. Run before calling anything done.
 npm run fix                  # Biome formatting and safe lint fixes
 npm run codeflow -- doctor   # read-only GitHub check; needs a codeflow.yml (gitignored)
+npm run codeflow -- sync     # fetch PRs into .codeflow/codeflow.db (gitignored); resumable
+npm run codeflow -- status   # what is stored locally; no network
 npm run build                # compile to dist/, to check the publish path
 ```
 
@@ -42,4 +44,8 @@ sets it up.
   prints it without a stack trace.
 - Every GitHub call goes through `GitHubClient`, which counts calls and points. Queries select
   `rateLimit { cost }`.
+- All SQL lives in `src/store/`. Schema changes are new entries appended to `migrations.ts`; never
+  edit a migration that has shipped. Rows in `raw_prs` are only ever inserted.
+- Test sync logic against `src/testing/fake-github.ts`, which reproduces GitHub's ordering and
+  keyset paging, and a real in-memory `Store`.
 - Keep dependencies few. Check Node's standard library before adding one.

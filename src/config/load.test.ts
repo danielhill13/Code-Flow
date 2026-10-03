@@ -41,6 +41,7 @@ since: 2025-10-01
       ],
       since: "2025-10-01",
       github: { api_url: "https://api.github.com", token_env: "GITHUB_TOKEN" },
+      data_dir: ".codeflow",
     });
   });
 

@@ -11,7 +11,12 @@ const MARKS = {
 
 /** `✓ Token       danielhill13 via gh auth token`: a mark, a fixed-width label, the detail. */
 export function status(mark: Mark, label: string, detail: string): string {
-  return `${MARKS[mark]()} ${label.padEnd(11)} ${detail}`;
+  return marked(mark, `${label.padEnd(11)} ${detail}`);
+}
+
+/** `✓ usebruno/bruno: …`: a mark and free text. */
+export function marked(mark: Mark, text: string): string {
+  return `${MARKS[mark]()} ${text}`;
 }
 
 export const dim = (text: string) => styleText("dim", text);
