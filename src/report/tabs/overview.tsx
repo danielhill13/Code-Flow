@@ -262,7 +262,7 @@ function NoteLine({ note, state }: { note: Note; state: ReportState }) {
     case "truncated":
       return (
         <>
-          GitHub sent incomplete data for{" "}
+          The code host sent incomplete data for{" "}
           {note.prs.map((pr, i) => (
             <span key={pr.id}>
               {i > 0 && ", "}

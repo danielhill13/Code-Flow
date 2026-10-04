@@ -105,3 +105,8 @@ export function waitingOnText(pr: Pick<PrFact, "waitingOn" | "waitingSince">, as
       return `merge · approved${ago}`;
   }
 }
+
+/** Where a PR lives, by its address: "Azure DevOps" or "GitHub". */
+export function hostOf(url: string): string {
+  return /dev\.azure\.com|visualstudio\.com|\/_git\//i.test(url) ? "Azure DevOps" : "GitHub";
+}

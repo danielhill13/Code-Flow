@@ -1,13 +1,25 @@
 import { relative } from "node:path";
+import { type AdoSource, isGitHub } from "../config/schema.ts";
 import type { Org } from "../config/workspace.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
-import { discoverRepos, type SourceResult, sourceName } from "../providers/github/discover.ts";
+import { type AdoSourceResult, discoverAdo } from "../providers/ado/discover.ts";
+import { type AdoRepoOutcome, syncAdoRepo } from "../providers/ado/sync.ts";
+import { discoverRepos, sourceName } from "../providers/github/discover.ts";
 import { fetchFrom, type RepoOutcome, syncRepos, type WalkName } from "../providers/github/sync.ts";
 import { Store } from "../store/store.ts";
 import { dim, durationSeconds, marked, num, plural, status } from "./format.ts";
 import { Progress } from "./progress.ts";
-import { connect, type OrgOptions, orgHeading, orgsFor, type Print } from "./session.ts";
+import {
+  type AdoConnection,
+  connect,
+  connectAdo,
+  type OrgOptions,
+  orgHeading,
+  orgsFor,
+  type Print,
+  type Session,
+} from "./session.ts";
 
 export type SyncOptions = OrgOptions;
 
@@ -41,8 +53,9 @@ export async function sync(options: SyncOptions): Promise<number> {
 }
 
 /**
- * Syncs one org into its own database. Run from the command line, Ctrl-C stops it after the page
- * in flight; run by `serve`'s scheduler, `signal` does instead.
+ * Syncs one org into its own database: its GitHub sources, then its Azure DevOps sources, under
+ * one lock and one run record. Run from the command line, Ctrl-C stops it after the page in
+ * flight; run by `serve`'s scheduler, `signal` does instead.
  */
 export async function syncOrg(
   org: Org,
@@ -50,9 +63,26 @@ export async function syncOrg(
   print: Print,
   options: { signal?: AbortSignal } = {},
 ): Promise<number> {
-  const session = await connect(org, print);
-  if (!session) return 1;
-  const { config, client, dbPath } = session;
+  const { config } = org;
+  const githubSources = config.sources.filter(isGitHub);
+  const adoSources = config.sources.filter((s): s is AdoSource => s.kind === "ado");
+  // Each provider is connected only when the org has sources there.
+  let session: Session | null = null;
+  if (githubSources.length > 0) {
+    session = await connect(org, print);
+    if (!session) return 1;
+  } else {
+    print(
+      status(
+        "ok",
+        "Config",
+        `${relative(process.cwd(), org.files.org) || org.files.org}: ` +
+          `${plural(config.sources.length, "source")}, since ${config.since}`,
+      ),
+    );
+  }
+  const ado = adoSources.length > 0 ? await connectAdo(config, print) : null;
+  const dbPath = org.dbPath;
 
   const store = Store.open(dbPath);
   try {
@@ -65,6 +95,7 @@ export async function syncOrg(
   try {
     store.closeAbandonedRuns("sync");
     const runId = store.startRun("sync");
+    const startedAt = new Date().toISOString();
     const started = performance.now();
     const elapsed = () => durationSeconds((performance.now() - started) / 1000);
 
@@ -81,40 +112,81 @@ export async function syncOrg(
     if (external) external.addEventListener("abort", onStop);
     else process.on("SIGINT", onInterrupt);
 
-    let sources: SourceResult[] = [];
-    let outcomes: RepoOutcome[] = [];
+    const sourceErrors: { source: string; error: string }[] = [];
+    const outcomes: Outcome[] = [];
     let interrupted = false;
     let failure: unknown;
     try {
-      sources = await discoverRepos(client, config.sources);
-      for (const source of sources) {
-        if (source.error) {
-          print(status("fail", "Source", `${sourceName(source.source)}: ${source.error}`));
+      // Every source, before any PR: a source that can't be read says so up front.
+      const githubResults = session ? await discoverRepos(session.client, githubSources) : [];
+      const adoResults: AdoSourceResult[] = [];
+      for (const source of adoSources) {
+        if (ado) adoResults.push(await discoverAdo(ado.client(source.organization), source));
+      }
+      for (const result of [...githubResults, ...adoResults]) {
+        if (result.error) {
+          sourceErrors.push({ source: sourceName(result.source), error: result.error });
+          print(status("fail", "Source", `${sourceName(result.source)}: ${result.error}`));
         }
       }
-      const repos = sources.flatMap((source) => source.repos);
-      if (repos.length === 0) {
+      const githubRepos = githubResults.flatMap((result) => result.repos);
+      const adoRepos = adoResults.flatMap((result) =>
+        result.repos.map((repo) => ({ repo, organization: result.source.organization })),
+      );
+      const count = githubRepos.length + adoRepos.length;
+      if (count === 0) {
         throw new CodeflowError(
           "No repos selected, so there is nothing to sync. See: codeflow doctor",
         );
       }
-      print(status("ok", "Repos", `${plural(repos.length, "repo")} selected`));
+      print(status("ok", "Repos", `${plural(count, "repo")} selected`));
       print();
-      ({ outcomes, interrupted } = await syncRepos({
-        fetchPage: fetchFrom(client),
-        store,
-        runId,
-        repos,
-        since: config.since,
-        signal: abort.signal,
-        onStart: (repo) => progress.update(`${repo.fullName}: checking`),
-        onProgress: (repo, walk) =>
-          progress.update(
-            `${repo.fullName}: ${WALKS[walk.walk]}, ${plural(walk.prs, "PR")} in ` +
-              `${plural(walk.pages, "page")} · ${elapsed()}`,
-          ),
-        onDone: (outcome) => printOutcome(outcome, print),
-      }));
+
+      if (session && githubRepos.length > 0) {
+        const result = await syncRepos({
+          fetchPage: fetchFrom(session.client),
+          store,
+          runId,
+          repos: githubRepos,
+          since: config.since,
+          signal: abort.signal,
+          onStart: (repo) => progress.update(`${repo.fullName}: checking`),
+          onProgress: (repo, walk) =>
+            progress.update(
+              `${repo.fullName}: ${WALKS[walk.walk]}, ${plural(walk.prs, "PR")} in ` +
+                `${plural(walk.pages, "page")} · ${elapsed()}`,
+            ),
+          onDone: (outcome) => printOutcome(outcome, print),
+        });
+        outcomes.push(...result.outcomes);
+        interrupted = result.interrupted;
+      }
+      for (const { repo, organization } of adoRepos) {
+        if (interrupted || abort.signal.aborted) {
+          interrupted = true;
+          break;
+        }
+        if (!ado) break;
+        progress.update(`${repo.fullName}: checking`);
+        const outcome = await syncAdoRepo({
+          client: ado.client(organization),
+          store,
+          runId,
+          repo,
+          since: config.since,
+          startedAt,
+          signal: abort.signal,
+          onProgress: (walk) =>
+            progress.update(
+              `${repo.fullName}: ${walk.walk}, ${plural(walk.prs, "PR")} in ` +
+                `${plural(walk.pages, "page")} · ${elapsed()}`,
+            ),
+        });
+        progress.clear();
+        printOutcome(outcome, print);
+        outcomes.push(outcome);
+        if (outcome.interrupted) interrupted = true;
+      }
     } catch (err) {
       failure = err;
     } finally {
@@ -124,15 +196,14 @@ export async function syncOrg(
     }
 
     const failed =
-      failure !== undefined ||
-      sources.some((source) => source.error) ||
-      outcomes.some((outcome) => outcome.error);
+      failure !== undefined || sourceErrors.length > 0 || outcomes.some((outcome) => outcome.error);
     const runStatus = interrupted ? "interrupted" : failed ? "failed" : "ok";
+    const calls = (session?.client.stats.calls ?? 0) + (ado ? adoCalls(ado, adoSources) : 0);
     store.finishRun(runId, {
       status: runStatus,
-      calls: client.stats.calls,
-      points: client.stats.points,
-      detail: runDetail(sources, outcomes, failure),
+      calls,
+      points: session?.client.stats.points ?? 0,
+      detail: runDetail(sourceErrors, outcomes, failure),
     });
     if (failure !== undefined) throw failure;
 
@@ -140,7 +211,8 @@ export async function syncOrg(
     const derived = deriveFacts(store, config);
 
     const changed = outcomes.reduce(
-      (sum, outcome) => sum + outcome.walks.reduce((n, walk) => n + walk.newVersions, 0),
+      (sum, outcome) =>
+        sum + outcome.walks.reduce((n, walk: { newVersions: number }) => n + walk.newVersions, 0),
       0,
     );
     const upToDate = outcomes.filter((o) => !o.error && o.walks.length === 0).length;
@@ -157,15 +229,13 @@ export async function syncOrg(
         ),
       );
     }
-    const left = client.remaining === null ? "" : `, ${num(client.remaining)} left`;
+    const left = session?.client.remaining == null ? "" : `, ${num(session.client.remaining)} left`;
+    const points = session ? `, ${plural(session.client.stats.points, "point")}${left}` : "";
     print(
       status(
         "info",
         "",
-        dim(
-          `${plural(client.stats.calls, "call")}, ${plural(client.stats.points, "point")}${left}` +
-            ` · data in ${relative(process.cwd(), dbPath)}`,
-        ),
+        dim(`${plural(calls, "call")}${points} · data in ${relative(process.cwd(), dbPath)}`),
       ),
     );
     if (derived.derived > 0) {
@@ -186,7 +256,18 @@ export async function syncOrg(
   }
 }
 
-function printOutcome(outcome: RepoOutcome, print: Print): void {
+/** A repo's sync, from either provider. */
+type Outcome = RepoOutcome | AdoRepoOutcome;
+
+function adoCalls(ado: AdoConnection, sources: readonly AdoSource[]): number {
+  const organizations = new Set(sources.map((s) => s.organization));
+  return [...organizations].reduce(
+    (n, organization) => n + ado.client(organization).stats.calls,
+    0,
+  );
+}
+
+function printOutcome(outcome: Outcome, print: Print): void {
   const name = outcome.repo.fullName;
   const prs = outcome.walks.reduce((sum, walk) => sum + walk.prs, 0);
   if (outcome.error) {
@@ -197,8 +278,8 @@ function printOutcome(outcome: RepoOutcome, print: Print): void {
   }
   if (outcome.walks.length === 0) return; // up to date: counted in the summary instead
   const added = outcome.walks.reduce((sum, walk) => sum + walk.newVersions, 0);
-  const walks = outcome.walks
-    .map((walk) => `${WALKS[walk.walk]}: ${plural(walk.pages, "page")}`)
+  const walks = (outcome.walks as { walk: string; pages: number }[])
+    .map((walk) => `${WALKS[walk.walk as WalkName] ?? walk.walk}: ${plural(walk.pages, "page")}`)
     .join(", ");
   if (outcome.interrupted) {
     print(
@@ -215,11 +296,13 @@ function printOutcome(outcome: RepoOutcome, print: Print): void {
 }
 
 /** What the run record keeps about this run. */
-function runDetail(sources: SourceResult[], outcomes: RepoOutcome[], failure: unknown) {
+function runDetail(
+  sourceErrors: { source: string; error: string }[],
+  outcomes: Outcome[],
+  failure: unknown,
+) {
   return {
-    sourceErrors: sources
-      .filter((source) => source.error)
-      .map((source) => ({ source: sourceName(source.source), error: source.error })),
+    sourceErrors,
     repos: outcomes.map((outcome) => ({
       repo: outcome.repo.fullName,
       walks: outcome.walks,

@@ -20,7 +20,22 @@ export type OwnerSource = {
   forks: boolean;
 };
 export type RepoSource = { kind: "repo"; owner: string; name: string };
-export type Source = OwnerSource | RepoSource;
+/**
+ * An Azure DevOps organization's repos: in one project, or every project when `project` is
+ * null, narrowed by repo name (decision D40).
+ */
+export type AdoSource = {
+  kind: "ado";
+  organization: string;
+  project: string | null;
+  include: string[];
+  exclude: string[];
+  forks: boolean;
+};
+export type Source = OwnerSource | RepoSource | AdoSource;
+export type GitHubSource = OwnerSource | RepoSource;
+
+export const isGitHub = (source: Source): source is GitHubSource => source.kind !== "ado";
 
 // One input shape for both kinds of source, so a mistake gets one clear message instead of a
 // union error that lists everything each branch expected.
@@ -28,19 +43,45 @@ const SourceSchema = z
   .strictObject({
     owner: z.string().min(1).optional(),
     repo: z.string().regex(REPO_PATTERN, "must look like owner/name").optional(),
+    /** An Azure DevOps organization (dev.azure.com/<this>), or a collection on a server. */
+    ado: z
+      .string()
+      .regex(/^[\w.-]+$/, "must be an organization name, like contoso")
+      .optional(),
+    /** With `ado`: one project. Default: every project the token can see. */
+    project: z.string().min(1).optional(),
     include: z.array(z.string().min(1)).min(1).optional(),
     exclude: z.array(z.string().min(1)).optional(),
     archived: z.boolean().optional(),
     forks: z.boolean().optional(),
   })
-  .refine((s) => (s.owner === undefined) !== (s.repo === undefined), {
-    message: "set exactly one of `owner` or `repo`",
+  .refine((s) => [s.owner, s.repo, s.ado].filter((v) => v !== undefined).length === 1, {
+    message: "set exactly one of `owner`, `repo` (GitHub) or `ado` (Azure DevOps)",
   })
   .refine(
     (s) => s.repo === undefined || (s.include ?? s.exclude ?? s.archived ?? s.forks) === undefined,
-    { message: "`include`, `exclude`, `archived` and `forks` only apply to `owner` sources" },
+    {
+      message:
+        "`include`, `exclude`, `archived` and `forks` only apply to `owner` and `ado` sources",
+    },
   )
+  .refine((s) => s.project === undefined || s.ado !== undefined, {
+    message: "`project` only applies to `ado` sources",
+  })
+  .refine((s) => s.ado === undefined || s.archived === undefined, {
+    message: "Azure DevOps has no archived repos; disabled ones are always left out",
+  })
   .transform((s): Source => {
+    if (s.ado !== undefined) {
+      return {
+        kind: "ado",
+        organization: s.ado,
+        project: s.project ?? null,
+        include: s.include ?? ["*"],
+        exclude: s.exclude ?? [],
+        forks: s.forks ?? false,
+      };
+    }
     if (s.repo !== undefined) {
       const [owner = "", name = ""] = s.repo.split("/");
       return { kind: "repo", owner, name };
@@ -58,6 +99,14 @@ const SourceSchema = z
 const GitHubSchema = z.strictObject({
   api_url: z.url().default("https://api.github.com"),
   token_env: z.string().min(1).default("GITHUB_TOKEN"),
+});
+
+/** Where Azure DevOps is, and where its token is (decision D40). */
+const AzureDevOpsSchema = z.strictObject({
+  /** https://dev.azure.com, or an Azure DevOps Server's address, such as https://tfs.acme.com/tfs */
+  url: z.url().default("https://dev.azure.com"),
+  /** The variable holding a personal access token with Code (Read). */
+  token_env: z.string().min(1).default("AZURE_DEVOPS_TOKEN"),
 });
 
 const Pattern = z.string().min(1);
@@ -129,12 +178,20 @@ const TeamSchema = z.strictObject({
 const PersonSchema = z
   .strictObject({
     name: z.string().min(1).optional(),
-    /** Every login they use, current first. Renamed and second accounts belong here. */
-    github: z.array(z.string().min(1)).min(1).optional(),
+    /**
+     * Every login they use, current first. Renamed and second accounts belong here. Default: the
+     * key; `[]` for someone with no GitHub account (only Azure DevOps, say).
+     */
+    github: z.array(z.string().min(1)).optional(),
+    /** Their Azure DevOps sign-ins (usually email addresses), so their PRs there are theirs too. */
+    ado: z.array(z.string().min(1)).min(1).optional(),
     /** Count them as internal (true) or external (false) whatever GitHub says. */
     internal: z.boolean().optional(),
     /** Treat them as a bot: a service account, say. */
     bot: z.boolean().optional(),
+  })
+  .refine((p) => p.github === undefined || p.github.length > 0 || (p.ado?.length ?? 0) > 0, {
+    message: "give at least one login: `github: []` needs `ado` sign-ins",
   })
   .prefault({});
 
@@ -280,7 +337,7 @@ function checkGroups(
     people: Object.entries(config.people).map(([key, p]) => ({
       key,
       name: null,
-      github: p.github ?? [key],
+      github: loginsOf(key, p),
       internal: null,
       bot: null,
     })),
@@ -319,6 +376,7 @@ const settingsShape = {
   // prefault, not default: the empty object still runs through the schema, so the field
   // defaults above apply when the whole block is left out.
   github: GitHubSchema.prefault({}),
+  azure_devops: AzureDevOpsSchema.prefault({}),
   /**
    * Where synced data lives, relative to the config file (or the org's folder). Default:
    * .codeflow next to a single-file config, .codeflow/<org> in a workspace.
@@ -348,6 +406,14 @@ const settingsShape = {
   /** Whether the report offers one person's numbers: picking people, reviewers by name. */
   people_views: z.boolean().default(true),
 };
+
+/** What to measure, before an org exists: what the web app's first steps ask for. */
+export const SourcesDraftSchema = z.strictObject({
+  sources: settingsShape.sources,
+  since: settingsShape.since,
+  github: settingsShape.github,
+  azure_devops: settingsShape.azure_devops,
+});
 
 /** What people.yml, groups.yml and rules.yml hold. */
 const definitionsShape = {
@@ -393,3 +459,11 @@ export const BundleSchema = z.strictObject({
 });
 
 export type Config = z.output<typeof ConfigSchema>;
+
+/**
+ * Every login a person has, across providers: their GitHub logins (their key by default) and
+ * their Azure DevOps sign-ins. Logins are matched without regard to case.
+ */
+export function loginsOf(key: string, person: { github?: string[]; ado?: string[] }): string[] {
+  return [...(person.github ?? [key]), ...(person.ado ?? [])];
+}

@@ -1,5 +1,5 @@
 import picomatch from "picomatch";
-import type { OwnerSource, Source } from "../../config/schema.ts";
+import type { GitHubSource, OwnerSource, Source } from "../../config/schema.ts";
 import { type GitHubClient, graphqlErrors } from "./client.ts";
 import { OWNER_REPOS, REPO } from "./queries.ts";
 
@@ -61,7 +61,7 @@ type OwnerReposData = {
 /** Resolves every source to the repos it selects. A repo selected twice is measured once. */
 export async function discoverRepos(
   client: GitHubClient,
-  sources: readonly Source[],
+  sources: readonly GitHubSource[],
 ): Promise<SourceResult[]> {
   const results: SourceResult[] = [];
   for (const source of sources) {
@@ -194,7 +194,14 @@ function toRepo(node: RepoNode): Repo {
 
 /** `acme` for an owner source, `acme/api` for a repo source. */
 export function sourceName(source: Source): string {
-  return source.kind === "owner" ? source.owner : `${source.owner}/${source.name}`;
+  switch (source.kind) {
+    case "owner":
+      return source.owner;
+    case "repo":
+      return `${source.owner}/${source.name}`;
+    case "ado":
+      return `${source.organization}${source.project ? `/${source.project}` : ""} (Azure DevOps)`;
+  }
 }
 
 function notFound(what: string): string {

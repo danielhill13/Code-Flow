@@ -36,7 +36,13 @@ test("TC-601 the org picker switches orgs, and each shows nothing of the other",
   await ready(page);
   expect(page.url()).toContain("/orgs/acme/");
   const picker = page.getByLabel("Org");
-  await expect(picker.locator("option")).toHaveText(["acme", "beta", "gamma"]);
+  await expect(picker.locator("option")).toHaveText([
+    "acme",
+    "beta",
+    "gamma",
+    "company",
+    "Add an org…",
+  ]);
   await picker.selectOption("beta");
   await page.waitForURL(/\/orgs\/beta\//);
   await ready(page);
@@ -188,5 +194,9 @@ test("TC-607 an org not synced yet offers only its setup", async ({ page }) => {
   await page.goto(`${URL}/orgs/gamma/`);
   await expect(page.getByRole("heading", { name: "Nothing synced yet" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Tabs" })).toHaveText("Setup");
-  await expect(page.getByText("npm run codeflow -- sync --org gamma")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Repos", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });

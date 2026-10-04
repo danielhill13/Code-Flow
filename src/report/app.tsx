@@ -27,6 +27,7 @@ import { PullRequests } from "./tabs/prs.tsx";
 import { Review } from "./tabs/review.tsx";
 import { Speed } from "./tabs/speed.tsx";
 import { type BreakdownChoice, capital, Segmented, when } from "./ui.tsx";
+import { FirstSync } from "./welcome.tsx";
 
 const WINDOWS: readonly { value: WindowKey; label: string }[] = [
   { value: "30d", label: "30 d" },
@@ -166,7 +167,7 @@ function Report({
   const name = selectionName(meta.choices, state.selection);
   const subline =
     state.tab === "setup"
-      ? `people, teams, groups and rules for ${admin?.org ?? ""}`
+      ? `what ${admin?.org ?? ""} measures, who is who, and what counts`
       : state.tab === "compare"
         ? "two calendar periods"
         : state.tab === "flow"
@@ -396,6 +397,7 @@ function Body(props: {
 
 /** An org that hasn't synced yet, under `codeflow serve`: only its setup, to get it ready. */
 function Unsynced({ admin, orgs, onSaved, status }: Shell & { admin: AdminApi }) {
+  const [started, setStarted] = useState(false);
   useTheme();
   return (
     <>
@@ -417,11 +419,33 @@ function Unsynced({ admin, orgs, onSaved, status }: Shell & { admin: AdminApi })
         <div class="heading">
           <h1>Nothing synced yet</h1>
           <p>
-            Run <code>npm run codeflow -- sync --org {admin.org}</code> to fetch {admin.org}'s pull
-            requests; the report appears here when it's done. Meanwhile, set up who is who and what
-            counts.
+            The report appears here once {admin.org}'s pull requests are fetched. Meanwhile, set up
+            who is who and what counts.
           </p>
         </div>
+        <section class="card">
+          {started || status?.running || status?.queued ? (
+            <FirstSync org={admin.org} onDone={onSaved} />
+          ) : (
+            <div class="step-actions">
+              <button
+                type="button"
+                class="button primary"
+                onClick={async () => {
+                  await admin.syncNow();
+                  setStarted(true);
+                }}
+              >
+                Sync now
+              </button>
+              <span class="muted">
+                {status?.lastError
+                  ? `The last sync stopped: ${status.lastError}`
+                  : "Fetches the org's pull requests from GitHub."}
+              </span>
+            </div>
+          )}
+        </section>
         <Setup api={admin} meta={null} onSaved={onSaved} />
       </main>
     </>
@@ -505,24 +529,32 @@ function useSyncStatus(admin: AdminApi | undefined, onSynced: () => void): SyncS
   return status;
 }
 
-/** Which org is shown. Switching loads the other org's page afresh: nothing carries over. */
+/**
+ * Which org is shown, and the way to add another. Switching loads the other org's page afresh:
+ * nothing carries over.
+ */
 function OrgPicker(props: { current: string; orgs: readonly string[] }) {
-  if (props.orgs.length < 2) return <span class="org-name">{props.current}</span>;
   return (
     <select
       class="org-picker"
       aria-label="Org"
       value={props.current}
-      onChange={(e) => location.assign(`/orgs/${encodeURIComponent(e.currentTarget.value)}/`)}
+      onChange={(e) => {
+        const value = e.currentTarget.value;
+        location.assign(value === ADD_ORG ? "/welcome/" : `/orgs/${encodeURIComponent(value)}/`);
+      }}
     >
       {props.orgs.map((org) => (
         <option key={org} value={org}>
           {org}
         </option>
       ))}
+      <option value={ADD_ORG}>Add an org…</option>
     </select>
   );
 }
+
+const ADD_ORG = "\u0000add";
 
 /** The tabs this report has: Setup only where it can save. */
 const tabsFor = (admin: AdminApi | undefined) =>

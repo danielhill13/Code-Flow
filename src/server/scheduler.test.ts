@@ -49,6 +49,7 @@ describe("Scheduler", () => {
         return 0;
       },
     });
+    scheduler.start(3_600_000);
     await scheduler.tick();
     expect(synced).toEqual(["beta"]); // acme synced 12 h ago, daily by default
     expect(await scheduler.status("acme")).toMatchObject({
@@ -60,6 +61,7 @@ describe("Scheduler", () => {
     now += 12 * HOUR + 1;
     await scheduler.tick();
     expect(synced).toEqual(["beta", "acme", "beta"]); // a day for acme, 6 h for beta
+    await scheduler.stop();
   });
 
   it("waits before trying a failed sync again, and says what went wrong", async () => {
@@ -75,6 +77,7 @@ describe("Scheduler", () => {
         throw new Error("GitHub is down");
       },
     });
+    scheduler.start(3_600_000);
     await scheduler.tick();
     await scheduler.tick();
     expect(calls).toBe(1);
@@ -82,6 +85,7 @@ describe("Scheduler", () => {
     now += RETRY_MS + 1;
     await scheduler.tick();
     expect(calls).toBe(2);
+    await scheduler.stop();
   });
 
   it("leaves an org whose schedule is off alone", async () => {
@@ -100,8 +104,39 @@ describe("Scheduler", () => {
         return 0;
       },
     });
+    scheduler.start(3_600_000);
     await scheduler.tick();
     expect(synced).toEqual(["beta"]);
     expect((await scheduler.status("acme")).nextSync).toBeNull();
+    await scheduler.stop();
+  });
+
+  it("syncs an org when asked, without a schedule, showing its progress and log", async () => {
+    const registry = await workspace("2026-10-01T00:00:00Z");
+    const seen: string[] = [];
+    let release = () => {};
+    const scheduler = new Scheduler(registry, {
+      log: () => {},
+      sync: async (_org, _signal, report) => {
+        report("acme-co/api: checking", true);
+        report("✓ acme-co/api: 3 PRs fetched");
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return 0;
+      },
+    });
+    await scheduler.tick();
+    expect((await scheduler.status("acme")).nextSync).toBeNull(); // never started: no schedule
+    await scheduler.syncNow("acme");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const during = await scheduler.status("acme");
+    seen.push(...during.log);
+    expect(during).toMatchObject({ running: true, progress: "acme-co/api: checking" });
+    release();
+    await scheduler.tick();
+    expect(seen).toEqual(["✓ acme-co/api: 3 PRs fetched"]);
+    expect(await scheduler.status("acme")).toMatchObject({ running: false, queued: false });
+    await expect(scheduler.syncNow("gamma")).rejects.toThrow(/No org called "gamma"/);
   });
 });

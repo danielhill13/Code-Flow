@@ -23,3 +23,6 @@ CodeFlow_reference/
 docs/design_handoff_*/
 
 .DS_Store
+/coverage/
+/test-results/
+/playwright-report/

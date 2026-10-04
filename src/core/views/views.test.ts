@@ -146,11 +146,11 @@ describe("overview", () => {
     expect(tile("merged")?.series.at(-1)?.bucket.partial).toBe(true);
   });
 
-  it("lists the teams A–Z with the unassigned group last, and nothing below a single repo", () => {
+  it("lists the groups A–Z, a catch-all only when it has PRs, and nothing below a single repo", () => {
+    // "No product" holds PRs only from other times: an empty row would be noise.
     expect(model.rows.map((r) => [r.name, r.merged.value.value, r.open])).toEqual([
       ["Platform", 12, 2],
       ["Web", 3, 1],
-      [NO_PRODUCT, 0, 0],
     ]);
     expect(overview(ctx, query(platform)).rows).toEqual([]);
   });
@@ -169,10 +169,7 @@ describe("overview", () => {
     expect(model.notes[2]).toEqual({ kind: "outside", external: 1, open: 3 });
     expect(model.notes[3]).toEqual({
       kind: "tooFew",
-      rows: [
-        { name: "Web", merged: 3 },
-        { name: NO_PRODUCT, merged: 0 },
-      ],
+      rows: [{ name: "Web", merged: 3 }],
     });
   });
 

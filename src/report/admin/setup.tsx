@@ -1,88 +1,122 @@
-// The Setup tab, in `codeflow serve` only: an org's people, teams, groups and rules, edited in
-// place and written to the org's own files (decision D33). Every save is checked by the server
+// The Setup tab, in `codeflow serve` only: everything an org's config holds, edited in place and
+// written to the org's own files (decisions D33, D39). Every save is checked by the server
 // as a whole, exactly as `codeflow import` checks a bundle, and refused with the reason when it
 // wouldn't be valid or the file changed meanwhile.
 import { useEffect, useState } from "preact/hooks";
-import type { Meta } from "../../core/source.ts";
-import { Segmented } from "../ui.tsx";
-import type { AdminApi, ConfigPart, Opened, PartValue, Preview, SyncStatus } from "./api.ts";
+import { Accounts } from "./accounts.tsx";
+import type { Opened, Preview } from "./api.ts";
 import { Choice, Field, List, Problem, Text, Ticks } from "./fields.tsx";
+import {
+  Actions,
+  clean,
+  Form,
+  Head,
+  message,
+  type SectionProps,
+  summary,
+  Table,
+  usePart,
+  Waiting,
+  without,
+} from "./kit.tsx";
+import { Bots, Branches, Paths, Repos, Settings, Sync } from "./org.tsx";
 
-type Section = "people" | "teams" | "groups" | "rules" | "settings" | "transfer";
+type Section =
+  | "repos"
+  | "branches"
+  | "bots"
+  | "paths"
+  | "people"
+  | "teams"
+  | "groups"
+  | "rules"
+  | "sync"
+  | "settings"
+  | "transfer";
 
-const SECTIONS: readonly { key: Section; label: string }[] = [
-  { key: "people", label: "People" },
-  { key: "teams", label: "Teams" },
-  { key: "groups", label: "Groups" },
-  { key: "rules", label: "Rules" },
-  { key: "settings", label: "Settings" },
-  { key: "transfer", label: "Import & export" },
+/** Setup's sections, grouped by the question each answers. */
+const NAV: readonly { group: string; items: readonly { key: Section; label: string }[] }[] = [
+  {
+    group: "What to measure",
+    items: [
+      { key: "repos", label: "Repos" },
+      { key: "branches", label: "Branches" },
+      { key: "bots", label: "Bots" },
+      { key: "paths", label: "Paths" },
+    ],
+  },
+  {
+    group: "Who's who",
+    items: [
+      { key: "people", label: "People" },
+      { key: "teams", label: "Teams" },
+      { key: "groups", label: "Groups" },
+    ],
+  },
+  { group: "What counts", items: [{ key: "rules", label: "Rules" }] },
+  {
+    group: "This org",
+    items: [
+      { key: "sync", label: "Sync" },
+      { key: "settings", label: "Settings" },
+      { key: "transfer", label: "Import & export" },
+    ],
+  },
 ];
 
-export function Setup(props: { api: AdminApi; meta: Meta | null; onSaved: () => void }) {
-  const [section, setSection] = useState<Section>("teams");
+export function Setup(props: SectionProps) {
+  // An org without data starts where it needs attention: what it measures.
+  const [section, setSection] = useState<Section>(props.meta ? "teams" : "repos");
   return (
-    <>
-      <section class="card setup-nav">
-        <Segmented
-          label="Setup"
-          hideLabel
-          options={SECTIONS.map((s) => ({ value: s.key, label: s.label }))}
-          value={section}
-          onChange={setSection}
-        />
-        <span class="muted" style={{ fontSize: "12px", marginLeft: "auto" }}>
+    <div class="setup-layout">
+      <nav class="setup-nav" aria-label="Setup">
+        {NAV.map((group) => (
+          <div key={group.group} class="setup-group">
+            <span class="setup-group-name">{group.group}</span>
+            {group.items.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                class="setup-link"
+                aria-pressed={section === item.key}
+                onClick={() => setSection(item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ))}
+        <p class="muted setup-note">
           Saved to {props.api.org}'s config files, which you can also edit by hand. Each save is
           checked first.
-        </span>
-      </section>
-      {section === "people" && <People {...props} />}
-      {section === "teams" && <Teams {...props} />}
-      {section === "groups" && <GroupsSection {...props} />}
-      {section === "rules" && <Rules {...props} />}
-      {section === "settings" && <Settings {...props} />}
-      {section === "transfer" && <Transfer {...props} />}
-    </>
+        </p>
+      </nav>
+      <div class="setup-body">
+        {section === "repos" && <Repos {...props} />}
+        {section === "branches" && <Branches {...props} />}
+        {section === "bots" && <Bots {...props} />}
+        {section === "paths" && <Paths {...props} />}
+        {section === "people" && <People {...props} />}
+        {section === "teams" && <Teams {...props} />}
+        {section === "groups" && <GroupsSection {...props} />}
+        {section === "rules" && <Rules {...props} />}
+        {section === "sync" && <Sync {...props} />}
+        {section === "settings" && <Settings {...props} />}
+        {section === "transfer" && <Transfer {...props} />}
+      </div>
+    </div>
   );
-}
-
-type SectionProps = { api: AdminApi; meta: Meta | null; onSaved: () => void };
-
-/** One part of the config, opened with its version, and saved whole. */
-function usePart(api: AdminApi, part: ConfigPart, onSaved: () => void) {
-  const [opened, setOpened] = useState<Opened | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const reload = () =>
-    api.open(part).then(
-      (value) => setOpened(value),
-      (err: unknown) => setProblem(message(err)),
-    );
-  useEffect(() => {
-    reload();
-  }, [part]);
-  const save = async (value: PartValue): Promise<boolean> => {
-    if (!opened) return false;
-    setBusy(true);
-    setProblem(null);
-    try {
-      await api.save(part, value, opened.version);
-      await reload();
-      onSaved();
-      return true;
-    } catch (err) {
-      setProblem(message(err));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { opened, problem, busy, save, setProblem };
 }
 
 // People ---------------------------------------------------------------------------------------
 
-type PersonRaw = { name?: string; github?: string[]; internal?: boolean; bot?: boolean };
+type PersonRaw = {
+  name?: string;
+  github?: string[];
+  ado?: string[];
+  internal?: boolean;
+  bot?: boolean;
+};
 
 function People({ api, onSaved }: SectionProps) {
   const part = usePart(api, "people", onSaved);
@@ -108,6 +142,14 @@ function People({ api, onSaved }: SectionProps) {
   const cols = "minmax(140px,1fr) minmax(140px,1fr) minmax(200px,1.5fr) 110px 110px 130px";
   return (
     <>
+      <Accounts
+        api={api}
+        people={people}
+        version={part.opened.version}
+        save={(next) => part.save({ people: next })}
+        saveProblem={editing ? null : part.problem}
+        busy={part.busy}
+      />
       <Head
         title="People"
         note="Only people with several logins, or something config should say about them. Everyone else is measured as their login."
@@ -138,6 +180,13 @@ function People({ api, onSaved }: SectionProps) {
             onChange={(github) => person({ github })}
             hint="Every login they use, current first. Empty: the key is their login."
           />
+          <List
+            label="Azure DevOps sign-ins"
+            value={editing.person.ado ?? []}
+            onChange={(ado) => person({ ado })}
+            placeholder="ana@acme.com"
+            hint="Usually their email address: their PRs in Azure DevOps are theirs too."
+          />
           <Choice
             label="Internal"
             value={editing.person.internal}
@@ -166,7 +215,9 @@ function People({ api, onSaved }: SectionProps) {
           <div key={key} class="row dense" style={{ "--cols": cols }}>
             <span style={{ fontWeight: 500 }}>{key}</span>
             <span>{person.name ?? ""}</span>
-            <span class="soft">{(person.github ?? [key]).join(", ")}</span>
+            <span class="soft">
+              {[...(person.github ?? [key]), ...(person.ado ?? [])].join(", ")}
+            </span>
             <span>
               {person.internal === undefined ? "" : person.internal ? "internal" : "external"}
             </span>
@@ -1116,92 +1167,6 @@ function PreviewBox({ preview }: { preview: { result?: Preview; problem?: string
   );
 }
 
-// Settings -------------------------------------------------------------------------------------
-
-type SettingsRaw = { sync_every: string; stale_after_days: number; people_views: boolean };
-
-const SCHEDULES = ["6h", "12h", "24h", "7d", "off"];
-
-function Settings({ api, onSaved }: SectionProps) {
-  const part = usePart(api, "settings", onSaved);
-  const [draft, setDraft] = useState<SettingsRaw | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [status, setStatus] = useState<SyncStatus | null>(null);
-  useEffect(() => {
-    api.status().then(setStatus, () => setStatus(null));
-  }, [api]);
-  if (!part.opened) return <Waiting problem={part.problem} />;
-  const value = draft ?? (part.opened.value as SettingsRaw);
-  const set = (patch: Partial<SettingsRaw>) => {
-    setSaved(false);
-    setDraft({ ...value, ...patch });
-  };
-  const save = async () => {
-    if (await part.save(value)) {
-      setDraft(null);
-      setSaved(true);
-    }
-  };
-  return (
-    <>
-      <div class="card-head" style={{ padding: "0 2px" }}>
-        <h2>Settings</h2>
-        <span class="note">How this org's data is kept current and how its report reads it.</span>
-      </div>
-      <Form
-        title="Report settings"
-        problem={part.problem}
-        busy={part.busy}
-        onSave={save}
-        onCancel={() => {
-          setDraft(null);
-          setSaved(false);
-        }}
-      >
-        <Text
-          label="Sync every"
-          value={value.sync_every}
-          onChange={(sync_every) => set({ sync_every: sync_every.trim() })}
-          list="schedules"
-          hint={`While codeflow serve runs: a number and m, h or d, or off. 24h is daily.${
-            status?.lastSync ? ` Last synced ${new Date(status.lastSync).toLocaleString()}.` : ""
-          }${status?.nextSync ? ` Next: ${new Date(status.nextSync).toLocaleString()}.` : ""}`}
-        />
-        <datalist id="schedules">
-          {SCHEDULES.map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
-        <Field
-          label="Stale after (days)"
-          hint="An open PR with no activity by a person for longer is stale: listed apart from the PRs open now."
-        >
-          <input
-            type="number"
-            min={1}
-            max={3650}
-            value={value.stale_after_days}
-            onInput={(e) => set({ stale_after_days: Number(e.currentTarget.value) })}
-          />
-        </Field>
-        <Field
-          label="People views"
-          hint="On: the report can show one person's numbers and name reviewers. Off: teams, groups and repos only."
-        >
-          <select
-            value={value.people_views ? "on" : "off"}
-            onChange={(e) => set({ people_views: e.currentTarget.value === "on" })}
-          >
-            <option value="on">On</option>
-            <option value="off">Off</option>
-          </select>
-        </Field>
-        {saved && <p class="muted wide-field">Saved to org.yml.</p>}
-      </Form>
-    </>
-  );
-}
-
 // Import and export ----------------------------------------------------------------------------
 
 const PARTS = [
@@ -1322,128 +1287,3 @@ function Transfer({ api, onSaved }: SectionProps) {
     </div>
   );
 }
-
-// Shared ---------------------------------------------------------------------------------------
-
-function Head(props: { title: string; note: string; onAdd: () => void }) {
-  return (
-    <div class="card-head" style={{ padding: "0 2px" }}>
-      <h2>{props.title}</h2>
-      <span class="note">{props.note}</span>
-      <span class="end">
-        <button type="button" class="button" onClick={props.onAdd}>
-          Add
-        </button>
-      </span>
-    </div>
-  );
-}
-
-function Form(props: {
-  title: string;
-  problem: string | null;
-  busy: boolean;
-  onSave: () => void;
-  onCancel: () => void;
-  children: preact.ComponentChildren;
-}) {
-  return (
-    <form
-      class="card form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        props.onSave();
-      }}
-    >
-      <h2 style={{ fontSize: "14px" }} class="wide-field">
-        {props.title}
-      </h2>
-      {props.children}
-      <div class="wide-field">
-        <Problem text={props.problem} />
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button type="submit" class="button primary" disabled={props.busy}>
-            {props.busy ? "Saving…" : "Save"}
-          </button>
-          <button type="button" class="button" onClick={props.onCancel}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    </form>
-  );
-}
-
-function Table(props: {
-  cols: string;
-  head: string[];
-  empty: string;
-  children: preact.ComponentChildren[];
-}) {
-  return (
-    <section class="card flush">
-      <div class="table">
-        <div class="table-inner" style={{ "--min": "760px" }}>
-          <div class="row head" style={{ "--cols": props.cols }}>
-            {props.head.map((h) => (
-              <span key={h}>{h}</span>
-            ))}
-          </div>
-          {props.children.length > 0 ? props.children : <div class="empty">{props.empty}</div>}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Actions(props: { onEdit: () => void; onRemove: () => void }) {
-  return (
-    <span style={{ display: "flex", gap: "12px" }}>
-      <button type="button" class="link-button" onClick={props.onEdit}>
-        Edit
-      </button>
-      <button type="button" class="link-button" onClick={props.onRemove}>
-        Remove
-      </button>
-    </span>
-  );
-}
-
-function Waiting({ problem }: { problem: string | null }) {
-  return problem ? <p class="problem">{problem}</p> : <p class="muted">Loading…</p>;
-}
-
-/** "teams Payments · labels chore": a rule's scope, conditions or effects in a line. */
-function summary(fields: Record<string, unknown> | undefined): string {
-  return Object.entries(fields ?? {})
-    .map(([key, value]) => {
-      const shown = Array.isArray(value)
-        ? value
-            .map((v) =>
-              typeof v === "object" && v
-                ? `${(v as { bucket: string }).bucket}: ${String((v as { match: unknown }).match)}`
-                : String(v),
-            )
-            .join(", ")
-        : String(value);
-      return `${key.replaceAll("_", " ")} ${shown}`;
-    })
-    .join(" · ");
-}
-
-/** The object without fields that say nothing: undefined, empty strings, empty lists. */
-function clean<T extends Record<string, unknown>>(value: T): T {
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      ([, v]) => v !== undefined && v !== "" && !(Array.isArray(v) && v.length === 0),
-    ),
-  ) as T;
-}
-
-function without<T>(map: Record<string, T>, key: string | null): Record<string, T> {
-  const next = { ...map };
-  if (key !== null) delete next[key];
-  return next;
-}
-
-const message = (err: unknown) => (err instanceof Error ? err.message : String(err));

@@ -1,6 +1,9 @@
 import { existsSync } from "node:fs";
+import { relative } from "node:path";
+import { type AdoSource, type GitHubSource, isGitHub } from "../config/schema.ts";
 import type { Org } from "../config/workspace.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
+import { discoverAdo } from "../providers/ado/discover.ts";
 import {
   discoverRepos,
   type Repo,
@@ -19,7 +22,15 @@ import { PR_PAGE_SIZE } from "../providers/github/queries.ts";
 import { Store } from "../store/store.ts";
 import { branchWarnings } from "./branches.ts";
 import { bold, dim, durationSeconds, num, plural, status, table } from "./format.ts";
-import { connect, type OrgOptions, orgHeading, orgsFor, type Print } from "./session.ts";
+import {
+  adoWhoAmI,
+  connect,
+  connectAdo,
+  type OrgOptions,
+  orgHeading,
+  orgsFor,
+  type Print,
+} from "./session.ts";
 
 export type DoctorOptions = OrgOptions & { all?: boolean };
 
@@ -52,13 +63,114 @@ export async function doctor(options: DoctorOptions): Promise<number> {
 }
 
 async function doctorOrg(org: Org, options: DoctorOptions, print: Print): Promise<number> {
+  const github = org.config.sources.filter(isGitHub);
+  const ado = org.config.sources.filter((s): s is AdoSource => s.kind === "ado");
+  let code = 0;
+  if (github.length > 0) code = Math.max(code, await doctorGitHub(org, github, options, print));
+  if (ado.length > 0) code = Math.max(code, await doctorAdo(org, ado, options, print));
+  if (code === 0) print(status("ok", "Ready", "everything checks out"));
+  return code;
+}
+
+/**
+ * The Azure DevOps sources: the token works in each organization, and the repos each source
+ * selects. Azure DevOps can't count PRs without reading them, so there is no estimate: the first
+ * sync reads PR by PR, at most two requests a second.
+ */
+async function doctorAdo(
+  org: Org,
+  sources: readonly AdoSource[],
+  options: DoctorOptions,
+  print: Print,
+): Promise<number> {
+  if (org.config.sources.every((s) => s.kind === "ado")) {
+    print(
+      status(
+        "ok",
+        "Config",
+        `${relative(process.cwd(), org.files.org) || org.files.org}: ` +
+          `${plural(org.config.sources.length, "source")}, since ${org.config.since}`,
+      ),
+    );
+  }
+  const ado = await connectAdo(org.config, print);
+  let code = 0;
+  const checked = new Set<string>();
+  for (const source of sources) {
+    const client = ado.client(source.organization);
+    if (!checked.has(source.organization.toLowerCase())) {
+      checked.add(source.organization.toLowerCase());
+      try {
+        const who = await adoWhoAmI(client);
+        print(status("ok", "ADO org", `${source.organization} (${client.base}) as ${who}`));
+      } catch (err) {
+        print(status("fail", "ADO org", `${source.organization}: ${(err as Error).message}`));
+        code = 1;
+        continue;
+      }
+    }
+    const result = await discoverAdo(client, source);
+    const name = sourceName(source);
+    if (result.error) {
+      print(status("fail", "Source", `${name}: ${result.error}`));
+      code = 1;
+      continue;
+    }
+    const left = result.skipped.length > 0 ? `; left out ${num(result.skipped.length)}` : "";
+    print(
+      status(
+        result.repos.length > 0 ? "ok" : "warn",
+        "Source",
+        `${name}: ${plural(result.repos.length, "repo")} selected${left}`,
+      ),
+    );
+    const shown = options.all ? result.repos : result.repos.slice(0, REPO_ROWS);
+    if (shown.length > 0) {
+      print(
+        table(
+          ["repo", "branch"],
+          shown.map((repo) => [repo.fullName, repo.defaultBranch ?? "-"]),
+          { indent: "  " },
+        ),
+      );
+    }
+    if (shown.length < result.repos.length) {
+      print(dim(`  and ${num(result.repos.length - shown.length)} more (--all lists them)`));
+    }
+    if (options.all && result.skipped.length > 0) {
+      print(
+        table(
+          ["left out", "why"],
+          result.skipped.map((s) => [s.repo, s.reason]),
+          { indent: "  " },
+        ),
+      );
+    }
+    if (result.repos.length === 0) code = 1;
+  }
+  print(
+    dim(
+      `  The first sync reads each Azure DevOps PR in turn, at most two requests a second, ` +
+        `so it stays well inside Azure DevOps's rate limits.`,
+    ),
+  );
+  print();
+  return code;
+}
+
+async function doctorGitHub(
+  org: Org,
+  sources: readonly GitHubSource[],
+  options: DoctorOptions,
+  print: Print,
+): Promise<number> {
   const session = await connect(org, print, { explainScopes: true });
   if (!session) return 1;
   const { config, client } = session;
   const hourlyLimit = session.budget.limit;
   print();
 
-  const results = await discoverRepos(client, config.sources);
+  const results = await discoverRepos(client, sources);
   for (const result of results) printSource(result, config.since, options.all ?? false, print);
 
   const repos = results.flatMap((result) => result.repos);
@@ -122,7 +234,6 @@ async function doctorOrg(org: Org, options: DoctorOptions, print: Print): Promis
     print(status("fail", "Sources", `${plural(failed, "source")} could not be read; see above`));
     return 1;
   }
-  print(status("ok", "Ready", "everything checks out"));
   return 0;
 }
 

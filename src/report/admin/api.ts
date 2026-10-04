@@ -32,12 +32,105 @@ export type SyncStatus = {
   lastSync: string | null;
   nextSync: string | null;
   running: boolean;
+  queued: boolean;
   lastError: string | null;
+  log: string[];
+  progress: string | null;
+};
+
+/** Whether codeflow reaches GitHub, and as whom (cli/session.ts, GitHubCheck). */
+export type GitHubCheck =
+  | {
+      ok: true;
+      login: string;
+      source: string;
+      kind: string;
+      writeScopes: string[];
+      remaining: number;
+      limit: number;
+    }
+  | { ok: false; error: string };
+
+export type GitHubSettings = { api_url?: string; token_env?: string };
+export type AdoSettings = { url?: string; token_env?: string };
+
+/** Whether codeflow reads an Azure DevOps organization, and as whom (server/admin.ts). */
+export type AdoCheck =
+  | { ok: true; who: string; source: string; kind: string; organization: string }
+  | { ok: false; error: string };
+
+/** A source as org.yml writes it: on GitHub (owner, repo) or Azure DevOps (ado). */
+export type RawSource =
+  | { owner: string; include?: string[]; exclude?: string[]; archived?: boolean; forks?: boolean }
+  | { repo: string }
+  | { ado: string; project?: string; include?: string[]; exclude?: string[]; forks?: boolean };
+
+/** What a set of sources would measure (server/admin.ts, SourcesPreview). */
+export type SourcesPreview = {
+  github: GitHubCheck | null;
+  sources: {
+    name: string;
+    ownerType: string | null;
+    error: string | null;
+    repos: {
+      fullName: string;
+      defaultBranch: string | null;
+      archived: boolean;
+      fork: boolean;
+      /** Null on Azure DevOps, which can't count PRs without reading them. */
+      prs: { open: number; merged: number; closed: number } | null;
+      lastPrActivity: string | null;
+    }[];
+    skipped: { repo: string; reason: string }[];
+  }[];
+  firstSync: { prs: number; olderOpen: number; seconds: number; shareOfHour: number } | null;
+};
+
+/** What to measure, before it's saved: what a preview is asked about. */
+export type SourcesDraft = {
+  sources: RawSource[];
+  since: string;
+  github: GitHubSettings;
+  azure_devops?: AdoSettings;
+};
+
+export type SyncedRepos = {
+  repos: { fullName: string; defaultBranch: string; measured: string[] }[];
+  advice: { repo: string; branch: string; into: number; merged: number; counted: number }[];
+};
+
+/** Accounts the org's PRs show, and merge suggestions (core/identities.ts). */
+export type Identities = {
+  identities: {
+    login: string;
+    host: "github" | "ado";
+    name: string | null;
+    authored: number;
+    involved: number;
+    lastSeen: string | null;
+    person: string | null;
+  }[];
+  suggestions: {
+    github: string;
+    ado: string;
+    reason: string;
+    strength: "strong" | "likely";
+    person: string | null;
+    ambiguous: boolean;
+  }[];
 };
 
 export interface AdminApi {
   readonly org: string;
+  identities(): Promise<Identities>;
   status(): Promise<SyncStatus>;
+  syncNow(): Promise<SyncStatus>;
+  repos(): Promise<SyncedRepos>;
+  /** Takes the org off the workspace's list; its files and data stay. */
+  remove(): Promise<void>;
+  checkGitHub(github: GitHubSettings): Promise<GitHubCheck>;
+  checkAdo(settings: AdoSettings & { organization?: string }): Promise<AdoCheck>;
+  previewSources(draft: SourcesDraft): Promise<SourcesPreview>;
   open(part: ConfigPart): Promise<Opened>;
   save(
     part: ConfigPart,
@@ -63,6 +156,34 @@ export class ServerAdmin implements AdminApi {
 
   status(): Promise<SyncStatus> {
     return call(this.#base, "/status");
+  }
+
+  syncNow(): Promise<SyncStatus> {
+    return call(this.#base, "/sync", { method: "POST", body: {} });
+  }
+
+  repos(): Promise<SyncedRepos> {
+    return call(this.#base, "/repos");
+  }
+
+  identities(): Promise<Identities> {
+    return call(this.#base, "/identities");
+  }
+
+  async remove(): Promise<void> {
+    await call(this.#base, "/remove", { method: "POST", body: {} });
+  }
+
+  checkGitHub(github: GitHubSettings): Promise<GitHubCheck> {
+    return workspaceApi.checkGitHub(github);
+  }
+
+  checkAdo(settings: AdoSettings & { organization?: string }): Promise<AdoCheck> {
+    return workspaceApi.checkAdo(settings);
+  }
+
+  previewSources(draft: SourcesDraft) {
+    return workspaceApi.previewSources(draft);
   }
 
   open(part: ConfigPart): Promise<Opened> {
@@ -105,3 +226,34 @@ export class ServerAdmin implements AdminApi {
 export async function serverOrgs(): Promise<string[]> {
   return (await call<{ orgs: string[] }>("/api/orgs", "")).orgs;
 }
+
+export type WorkspaceInfo = {
+  exists: boolean;
+  /** A single-file config from before workspaces: it must be converted to add orgs. */
+  single: boolean;
+  orgs: { name: string; synced: boolean }[];
+  /** The `since` a new org gets unless told otherwise: a year back. */
+  since: string;
+};
+
+/** The calls about the workspace as a whole, before or besides any one org. */
+export const workspaceApi = {
+  info: (): Promise<WorkspaceInfo> => call("/api/workspace", ""),
+  checkGitHub: (github: GitHubSettings): Promise<GitHubCheck> =>
+    call("/api/github", "/check", { method: "POST", body: github }),
+  checkAdo: (settings: AdoSettings & { organization?: string }): Promise<AdoCheck> =>
+    call("/api/ado", "/check", { method: "POST", body: settings }),
+  previewSources: (draft: SourcesDraft): Promise<SourcesPreview> =>
+    call("/api/github", "/preview", { method: "POST", body: draft }),
+  createOrg: (input: {
+    name?: string;
+    owners?: string[];
+    repos?: string[];
+    ado?: { organization: string; project?: string; include?: string[] }[];
+    since?: string;
+    github?: GitHubSettings;
+    azure_devops?: AdoSettings;
+  }): Promise<{ name: string }> => call("/api/workspace", "/orgs", { method: "POST", body: input }),
+  convert: (name: string): Promise<{ name: string }> =>
+    call("/api/workspace", "/convert", { method: "POST", body: { name } }),
+};

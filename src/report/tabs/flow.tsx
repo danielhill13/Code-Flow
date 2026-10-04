@@ -208,7 +208,9 @@ function OpenRow(props: { pr: PrFact; cols: string; href: string; asOf: Date; ou
           {props.outside ? " · outside contributor" : ""}
         </span>
       </span>
-      <span class="soft">{pr.author}</span>
+      <span class="soft clip" title={pr.author}>
+        {pr.person}
+      </span>
       <span>{duration(ageDays(pr, props.asOf) * 24)}</span>
       <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         {pr.openState && <span class={`dot state-${pr.openState}`} />}

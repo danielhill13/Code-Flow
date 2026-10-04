@@ -7,6 +7,7 @@ import { type BuildOptions, build } from "./build.ts";
 import { type DoctorOptions, doctor } from "./doctor.ts";
 import { type InitOptions, init } from "./init.ts";
 import { type MigrateOptions, migrate } from "./migrate.ts";
+import { listPeople, type MergeOptions, mergeAccounts, type PeopleOptions } from "./people.ts";
 import { type PrOptions, showPr } from "./pr.ts";
 import { listRules, type RulesOptions, type RulesTestOptions, testRules } from "./rules.ts";
 import { type ServeOptions, serve } from "./serve.ts";
@@ -16,7 +17,9 @@ import { type SyncOptions, sync } from "./sync.ts";
 import { type ExportOptions, exportConfig, type ImportOptions, importConfig } from "./transfer.ts";
 
 const program = new Command("codeflow")
-  .description("Code flow metrics for GitHub: first commit, through review, to merge.")
+  .description(
+    "Code flow metrics for GitHub and Azure DevOps: first commit, through review, to merge.",
+  )
   .version(VERSION)
   .option("--debug", "show stack traces for unexpected errors");
 
@@ -25,6 +28,10 @@ program
   .description("add an org to the workspace, creating the workspace if there is none")
   .option("--org <name>", "the org's name (default: from the first owner)")
   .option("--owner <login...>", "measure every repo an organization or user owns")
+  .option(
+    "--ado <source...>",
+    "measure an Azure DevOps organization's repos (contoso), or one project's (contoso/Platform)",
+  )
   .option("--repo <owner/name...>", "measure one repository")
   .option("--since <date>", "first day to measure, YYYY-MM-DD (default: a year ago)")
   .option("-c, --config <path>", "workspace file", DEFAULT_CONFIG_FILE)
@@ -164,6 +171,38 @@ rules
     process.exitCode = await testRules(file, options);
   });
 
+const people = program
+  .command("people")
+  .description("the accounts in an org's PRs, on GitHub and Azure DevOps, and merging them");
+
+people
+  .command("list", { isDefault: true })
+  .description("list accounts not yet in a person (--all for every one), and likely merges")
+  .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
+  .option("--org <name>", "which org; needed when there are several")
+  .option("--all", "list every account, including those in a person")
+  .action(async (options: PeopleOptions) => {
+    process.exitCode = await listPeople(options);
+  });
+
+people
+  .command("merge")
+  .description(
+    "make one person of several accounts, such as a GitHub login and an Azure DevOps sign-in",
+  )
+  .argument("<accounts...>", "GitHub logins and Azure DevOps sign-ins")
+  .option(
+    "--as <key>",
+    "the person they become (default: one they're already in, or the GitHub login)",
+  )
+  .option("--name <name>", "the person's name (default: the one Azure DevOps shows)")
+  .option("--dry-run", "say what would change, and write nothing")
+  .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
+  .option("--org <name>", "which org; needed when there are several")
+  .action(async (logins: string[], options: MergeOptions) => {
+    process.exitCode = await mergeAccounts(logins, options);
+  });
+
 program
   .command("serve")
   .description("the report as a web app on this machine, with every org's config editable")
@@ -175,12 +214,16 @@ program
     "127.0.0.1",
   )
   .option("--no-schedule", "don't sync on the orgs' schedules (sync_every, daily by default)")
+  .option("--open", "open the page in your browser")
   .action((options: ServeOptions) => serve(options));
 
 program
   .command("pr")
-  .description("show how codeflow reads one pull request, to check it against GitHub")
-  .argument("<pr>", "owner/name#123, or just 123")
+  .description(
+    "show how codeflow reads one pull request, to check it against GitHub or Azure DevOps",
+  )
+  .argument("<pr>", "owner/name#123, 123, or the PR's address on GitHub or Azure DevOps")
+  .option("--raw", "print what the host returned for it, as stored, instead")
   .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
   .option("--org <name>", "only this org; needed by some commands when there are several")
   .action(async (target: string, options: PrOptions) => {

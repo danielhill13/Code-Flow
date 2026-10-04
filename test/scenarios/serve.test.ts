@@ -1,14 +1,10 @@
-// `codeflow serve` as a person runs it: its own process, over HTTP, with a sync running beside
-// it and config edited both through it and by hand.
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EVERYTHING } from "../../src/core/selection.ts";
 import { ghPayload } from "../../src/testing/factories.ts";
 import { acmeRepos, OWNER, scenarioStart } from "../../src/testing/scenario.ts";
-import { ROOT, serve, type Workspace, workspace } from "./support.ts";
+import { buildReportPage, ROOT, serve, type Workspace, workspace } from "./support.ts";
 
 const since = new Date(scenarioStart() - 14 * 86_400_000).toISOString().slice(0, 10);
 const WRITE = { "content-type": "application/json", "x-codeflow": "1" };
@@ -27,7 +23,7 @@ let server: { url: string; stop: () => void };
 beforeAll(async () => {
   // serve needs the report page; a fresh clone hasn't built it yet.
   if (!existsSync(join(ROOT, "dist/report/index.html"))) {
-    await promisify(execFile)("npm", ["run", "build:report"], { cwd: ROOT });
+    await buildReportPage();
   }
   ws = await workspace(acmeRepos());
   await ws.addOrg("acme", "--repo", `${OWNER}/api`, "--since", since);
@@ -176,7 +172,11 @@ describe("codeflow serve, on a schedule", () => {
       value: { sync_every: string; stale_after_days: number; people_views: boolean };
       version: string;
     };
-    expect(opened.value).toEqual({ sync_every: "24h", stale_after_days: 90, people_views: true });
+    expect(opened.value).toMatchObject({
+      sync_every: "24h",
+      stale_after_days: 90,
+      people_views: true,
+    });
     const flow = async () =>
       (await (
         await fetch(`${server.url}/api/orgs/acme/views/flow`, {
@@ -196,7 +196,7 @@ describe("codeflow serve, on a schedule", () => {
       method: "PUT",
       headers: WRITE,
       body: JSON.stringify({
-        value: { ...opened.value, stale_after_days: 365, people_views: false },
+        value: { stale_after_days: 365, people_views: false },
         version: opened.version,
       }),
     });

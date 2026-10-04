@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 6;
+export const DERIVE_VERSION = 7;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -159,4 +159,11 @@ export type PrFact = {
 
   /** Lists the provider cut short; values that depend on them are less certain. */
   truncated: Truncatable[];
+
+  /**
+   * Every account that took part, as the provider names it (before config maps it to a person):
+   * the author, reviewers and commenters, with a display name where the provider gives one.
+   * What the identity list and merge suggestions are built from (decision D42).
+   */
+  identities: { login: string; name: string | null }[];
 };

@@ -77,6 +77,12 @@ export. It writes the same files, and its answers match the static report's (a c
 test compares them). Phase 4 still needs sign-in, a scheduler and a Docker image before serve
 can be hosted.
 
+Getting started is `npm start` and the browser (D39): first steps connect to GitHub, preview what
+an org measures and run its first sync, and the Setup tab covers every option in an org's files.
+Azure DevOps is a second provider (D40): an org can measure a GitHub organization and an Azure
+DevOps project together, as one company, with people's sign-ins on both mapped to one person.
+Its requests are paced to stay inside its rate limits (D41).
+
 `codeflow serve` keeps data fresh by itself: each org syncs on its `sync_every`, daily by default
 (D37), and `codeflow run` (sync, then build) serves cron. The served page stays about 40 KB
 compressed and asks the server for each view, a few KB at a time, whatever the org's size

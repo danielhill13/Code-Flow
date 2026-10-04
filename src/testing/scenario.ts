@@ -3,7 +3,10 @@
 // long-lived branches, a revert, outside contributors from forks, open and abandoned PRs, and a
 // repo whose work lands on a branch that isn't measured. Deterministic, except that it is dated
 // relative to today: the PRs end in the last few days, so every window has data whenever tests run.
+
+import type { AdoIdentity, AdoIteration, AdoPayload, AdoThread } from "../providers/ado/types.ts";
 import type { GhActor, GhPayload } from "../providers/github/normalize.ts";
+import type { FakeAdoRepo } from "./ado-server.ts";
 import { ghPayload } from "./factories.ts";
 import type { FakeRepo } from "./github-server.ts";
 
@@ -254,6 +257,247 @@ export function countedMerges(repos: readonly FakeRepo[], from: string, to: stri
       if (pr.baseRefName !== repo.defaultBranch) continue;
       if (pr.author?.__typename === "Bot") continue;
       if (/^(main|master|develop|release\/.*)$/.test(pr.headRefName)) continue;
+      count++;
+    }
+  }
+  return count;
+}
+
+// Azure DevOps ---------------------------------------------------------------------------------
+
+/** Acme's Azure DevOps organization: the same people, other repos, one company. */
+export const ADO_ORG = "contoso";
+export const ADO_PROJECT = "Platform";
+
+/** People's Azure DevOps sign-ins: the address they use there. */
+export const adoLogin = (person: string) => `${person}@acme.example`;
+
+const identity = (person: string): AdoIdentity => ({
+  id: `id-${person}`,
+  displayName: person[0]?.toUpperCase() + person.slice(1),
+  uniqueName: adoLogin(person),
+});
+const BUILD: AdoIdentity = {
+  id: "id-build",
+  displayName: "Project Collection Build Service (contoso)",
+  uniqueName: "Build\\5f3c1a7e",
+};
+
+type AdoPlan = {
+  id: number;
+  repo: string;
+  author: AdoIdentity;
+  title: string;
+  opened: number;
+  reviewer: string;
+  /** Hours from opening: a comment, an optional "wait for author", and approval. */
+  commentAfter: number | null;
+  waitAfter: number | null;
+  approveAfter: number | null;
+  end: "completed" | "abandoned" | "active";
+  labels: string[];
+  target?: string;
+  files: { path: string; additions: number; deletions: number }[];
+};
+
+function adoPayload(plan: AdoPlan): AdoPayload {
+  const at = (hours: number) => iso(plan.opened + hours * 3_600_000);
+  const reviewer = identity(plan.reviewer);
+  const last = Math.max(plan.commentAfter ?? 0, plan.waitAfter ?? 0, plan.approveAfter ?? 0);
+  const closed = plan.end === "active" ? undefined : at(last + 2);
+  const threads: AdoThread[] = [
+    {
+      id: 1,
+      publishedDate: at(0.2),
+      comments: [
+        {
+          id: 1,
+          author: plan.author,
+          publishedDate: at(0.2),
+          commentType: "system",
+          content: "added a reviewer",
+        },
+      ],
+      properties: {
+        CodeReviewThreadType: { $value: "ReviewersUpdate" },
+        CodeReviewReviewersUpdatedAddedIdentity: { $value: "1" },
+      },
+      identities: { "1": reviewer },
+    },
+  ];
+  if (plan.commentAfter !== null) {
+    threads.push({
+      id: 2,
+      publishedDate: at(plan.commentAfter),
+      comments: [
+        {
+          id: 1,
+          author: reviewer,
+          publishedDate: at(plan.commentAfter),
+          commentType: "text",
+          content: "Why this way?",
+        },
+        {
+          id: 2,
+          parentCommentId: 1,
+          author: plan.author,
+          publishedDate: at(plan.commentAfter + 1),
+          commentType: "text",
+          content: "Simpler.",
+        },
+      ],
+      threadContext: { filePath: plan.files[0]?.path },
+    });
+  }
+  const vote = (id: number, hours: number, value: number): AdoThread => ({
+    id,
+    publishedDate: at(hours),
+    comments: [
+      {
+        id: 1,
+        author: reviewer,
+        publishedDate: at(hours),
+        commentType: "system",
+        content: `voted ${value}`,
+      },
+    ],
+    properties: {
+      CodeReviewThreadType: { $value: "VoteUpdate" },
+      CodeReviewVoteResult: { $value: String(value) },
+    },
+  });
+  if (plan.waitAfter !== null) threads.push(vote(3, plan.waitAfter, -5));
+  if (plan.approveAfter !== null) threads.push(vote(4, plan.approveAfter, 10));
+  const commit = (n: number) => `${plan.repo}${plan.id}c${n}`.padEnd(40, "0");
+  const iterations: AdoIteration[] = [
+    {
+      id: 1,
+      createdDate: at(0),
+      sourceRefCommit: { commitId: commit(1) },
+      commonRefCommit: { commitId: "base".padEnd(40, "0") },
+    },
+  ];
+  if (plan.waitAfter !== null) {
+    iterations.push({
+      id: 2,
+      createdDate: at(plan.waitAfter + 2),
+      sourceRefCommit: { commitId: commit(2) },
+      commonRefCommit: { commitId: "base".padEnd(40, "0") },
+    });
+  }
+  return {
+    pr: {
+      pullRequestId: plan.id,
+      status: plan.end,
+      title: plan.title,
+      description: "",
+      isDraft: false,
+      createdBy: plan.author,
+      creationDate: at(0),
+      ...(closed && { closedDate: closed, closedBy: reviewer }),
+      sourceRefName: `refs/heads/feature/${plan.repo}-${plan.id}`,
+      targetRefName: `refs/heads/${plan.target ?? "main"}`,
+      mergeStatus: plan.end === "completed" ? "succeeded" : "notSet",
+      ...(plan.end === "completed" && { lastMergeCommit: { commitId: commit(9) } }),
+      labels: plan.labels.map((name) => ({ name, active: true })),
+      repository: { id: `repo-${plan.repo}`, name: plan.repo, project: { name: ADO_PROJECT } },
+    },
+    webUrl: "",
+    threads,
+    iterations,
+    commits: [
+      {
+        commitId: commit(1),
+        author: { name: plan.author.displayName, date: at(-20) },
+        committer: { name: plan.author.displayName, date: at(-2) },
+        comment: plan.title,
+      },
+    ],
+    files: plan.files,
+    truncated: [],
+  };
+}
+
+/**
+ * Contoso's Azure DevOps project: two active repos and a disabled one, with PRs by the same
+ * staff as Acme's GitHub org, reviewed with comments and votes, some waiting for the author, a
+ * build service's PR, chores, abandoned and open PRs. Dated relative to `now`.
+ */
+export function contosoRepos(now = Date.now()): FakeAdoRepo[] {
+  const start = scenarioStart(now);
+  let id = 5000;
+  const plans = (repo: string, count: number, offset: number): AdoPlan[] =>
+    Array.from({ length: count }, (_, i) => {
+      const author = PEOPLE.staff[i % PEOPLE.staff.length] ?? "ana";
+      const reviewer = PEOPLE.staff[(i + 2) % PEOPLE.staff.length] ?? "mika";
+      const chore = i % 9 === 4;
+      const recent = i >= count - 3;
+      return {
+        id: ++id,
+        repo,
+        author: identity(author),
+        reviewer,
+        title: chore ? `chore: tidy ${repo} ${i}` : `Improve ${repo} part ${i}`,
+        opened: start + (offset + i * 3) * DAY + (i % 4) * 3_600_000,
+        commentAfter: i % 5 === 2 ? null : 3 + (i % 6) * 2,
+        waitAfter: i % 8 === 3 ? 20 : null,
+        approveAfter: recent && i % 2 === 0 ? null : 30 + (i % 5) * 7,
+        end: recent ? "active" : i % 13 === 6 ? "abandoned" : "completed",
+        labels: chore ? ["chore"] : [],
+        files: [
+          {
+            path: `src/${repo}/module${i}.cs`,
+            additions: 15 + ((i * 29) % 300),
+            deletions: i % 17,
+          },
+          ...(i % 4 === 0
+            ? [{ path: `tests/${repo}/Module${i}Tests.cs`, additions: 35, deletions: 1 }]
+            : []),
+        ],
+      };
+    });
+  const billing = plans("billing", 55, 2);
+  billing.push({
+    id: ++id,
+    repo: "billing",
+    author: BUILD,
+    reviewer: "ana",
+    title: "Update pipeline agents",
+    opened: start + 80 * DAY,
+    commentAfter: null,
+    waitAfter: null,
+    approveAfter: 1,
+    end: "completed",
+    labels: [],
+    files: [{ path: "azure-pipelines.yml", additions: 4, deletions: 4 }],
+  });
+  const portal = plans("portal", 45, 4);
+  const repo = (name: string, prs: AdoPlan[], extra: Partial<FakeAdoRepo> = {}): FakeAdoRepo => ({
+    organization: ADO_ORG,
+    project: ADO_PROJECT,
+    name,
+    id: `repo-${name}`,
+    defaultBranch: "refs/heads/main",
+    prs: prs.map(adoPayload),
+    ...extra,
+  });
+  return [
+    repo("billing", billing),
+    repo("portal", portal),
+    repo("retired", [], { disabled: true }),
+  ];
+}
+
+/** Azure DevOps PRs codeflow should count in a period, worked out the plain way. */
+export function countedAdoMerges(repos: readonly FakeAdoRepo[], from: string, to: string): number {
+  let count = 0;
+  for (const repo of repos) {
+    if (repo.disabled) continue;
+    for (const { pr } of repo.prs) {
+      if (pr.status !== "completed" || !pr.closedDate) continue;
+      if (pr.closedDate < from || pr.closedDate >= to) continue;
+      if (pr.targetRefName !== repo.defaultBranch) continue;
+      if (pr.createdBy.uniqueName?.startsWith("Build\\")) continue;
       count++;
     }
   }

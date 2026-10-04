@@ -26,7 +26,8 @@ export async function migrate(options: MigrateOptions): Promise<void> {
   const [single] = workspace.orgs;
   if (!single) throw new CodeflowError(`${options.config} holds no org.`);
   const first = single.config.sources[0];
-  const name = options.org ?? orgNameFrom(first?.owner ?? "default");
+  const owner = first?.kind === "ado" ? first.organization : first?.owner;
+  const name = options.org ?? orgNameFrom(owner ?? "default");
   if (!ORG_NAME.test(name)) {
     throw new CodeflowError(`"${name}" can't name an org: use lowercase letters, digits, - and _.`);
   }

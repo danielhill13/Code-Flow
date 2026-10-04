@@ -334,7 +334,10 @@ function teamsCsv(bundle: Bundle): string {
   const nameOf = (login: string) => {
     for (const [key, person] of Object.entries(people)) {
       if (!isRecord(person)) continue;
-      const logins = Array.isArray(person.github) ? person.github : [key];
+      const logins = [
+        ...(Array.isArray(person.github) ? person.github : [key]),
+        ...(Array.isArray(person.ado) ? person.ado : []),
+      ];
       if (key === login || logins.includes(login))
         return typeof person.name === "string" ? person.name : "";
     }

@@ -104,6 +104,7 @@ src/config/             config schema, the workspace loader (orgs and their file
                         export and import, and their JSON Schema
 src/store/              the SQLite database: schema migrations, raw PRs, facts, sync state, runs
 src/providers/github/   auth, GraphQL client, queries, repo discovery, sync walks, normalize
+src/providers/ado/      Azure DevOps: token, paced REST client, discovery, PR details, sync, normalize
 src/core/               provider-neutral PR model, derive, path buckets, metric registry, aggregation,
                         people and groups, the rule engine, selections, rolling windows
 src/core/views/         one pure model builder per report tab, and the PR list's filters
@@ -114,7 +115,9 @@ src/server/             `codeflow serve`: the HTTP API, per org, and its org reg
 scripts/                developer tools, such as making anonymized test fixtures
 ```
 
-A provider's job ends at the neutral PR model. Adding Azure DevOps or GitLab later means a new
+A provider's job ends at the neutral PR model. `src/providers/github` and `src/providers/ado`
+(Azure DevOps, D40) each discover repos, sync PRs into the store as fetched, and map them onto it;
+derive picks the mapping by the repo's provider. Adding GitLab later means a new
 `src/providers/<name>`, with no change to any metric.
 
 ## Two delivery tracks, one implementation
@@ -244,6 +247,12 @@ through the app, a hand edit or a sync running beside it. Writes go through the 
 (`planImport`, `applyImport`), so the app, the CLI and hand edits share one validation. It binds
 to 127.0.0.1, checks the Host header against DNS rebinding and requires an `x-codeflow` header
 on writes, which a form on another site can't send (D33).
+
+Setup beyond one org's parts goes through `server/admin.ts` (D39): `GET /api/workspace`,
+`POST /api/workspace/orgs` (as `init`), `POST /api/workspace/convert` (as `migrate`),
+`POST /api/github/check` and `POST /api/github/preview` (what sources would measure, before an
+org exists), and per org `POST sync` (sync now), `GET repos` and `POST remove`. The page at
+`/welcome/` is the first steps; `/` leads there until an org exists.
 
 A scheduler (`server/scheduler.ts`, D37) syncs each org on its `sync_every` while `serve` runs,
 and `GET /api/orgs/<org>/status` says when it last did and when it will next. Responses are

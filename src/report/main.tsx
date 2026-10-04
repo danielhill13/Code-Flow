@@ -3,6 +3,7 @@ import { HttpSource } from "../core/http-source.ts";
 import { EmbeddedSource, type ReportData } from "../core/source.ts";
 import { ServerAdmin, serverOrgs } from "./admin/api.ts";
 import { App } from "./app.tsx";
+import { Welcome } from "./welcome.tsx";
 
 /** The data `codeflow build` embedded, or, on the development server, the data it serves. */
 async function load(): Promise<ReportData> {
@@ -17,7 +18,10 @@ async function load(): Promise<ReportData> {
 const served = /^\/orgs\/([^/]+)\/?$/.exec(location.pathname)?.[1];
 
 const root = document.getElementById("app");
-if (root && served) {
+if (root && location.pathname.replace(/\/$/, "") === "/welcome") {
+  root.textContent = "";
+  render(<Welcome />, root);
+} else if (root && served) {
   const org = decodeURIComponent(served);
   serverOrgs().then(
     (orgs) => {

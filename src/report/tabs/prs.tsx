@@ -204,7 +204,12 @@ function Cell(props: { column: PrColumn | "waiting"; pr: PrFact; sorted: boolean
       );
     }
     case "author":
-      return <span class="soft">{pr.author}</span>;
+      // The person, as config makes them: one name for their accounts on every host.
+      return (
+        <span class="soft clip" title={pr.author}>
+          {pr.person}
+        </span>
+      );
     case "merged":
       return plain(pr.mergedAt ? shortDate(pr.mergedAt, year) : "—");
     case "closed":

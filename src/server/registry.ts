@@ -28,8 +28,21 @@ export class Registry {
     this.#path = path;
   }
 
-  /** The workspace, read again if its file has changed. */
+  /** The workspace file's path. */
+  get path(): string {
+    return this.#path;
+  }
+
+  /**
+   * The workspace, read again if its file has changed. No file yet is an empty workspace: the
+   * web app's first steps create it.
+   */
   async workspace(): Promise<Workspace> {
+    if (!existsSync(this.#path)) {
+      this.#workspace = null;
+      this.#orgs.clear();
+      return { path: this.#path, single: false, orgs: [] };
+    }
     const stamp = mtimes([this.#path]);
     if (!this.#workspace || stamp !== this.#workspaceStamp) {
       this.#workspace = await loadWorkspace(this.#path);

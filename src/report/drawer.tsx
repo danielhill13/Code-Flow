@@ -4,7 +4,7 @@ import { Fragment } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { PHASES } from "../core/aggregate.ts";
 import type { PrFact } from "../core/facts.ts";
-import { duration, names, num, PHASE_LABELS, waitingOnText } from "../core/format.ts";
+import { duration, hostOf, names, num, PHASE_LABELS, waitingOnText } from "../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../core/metrics.ts";
 import { isCatchAll, isInternal } from "../core/selection.ts";
 import { isStale } from "../core/stale.ts";
@@ -103,7 +103,7 @@ export function Drawer(props: {
     [
       "Size",
       pr.sizeLines === null
-        ? "Unknown: GitHub didn't list every file"
+        ? `Unknown: ${hostOf(pr.url)} didn't give every file's lines`
         : `${num(pr.sizeLines)} lines of product code`,
     ],
     ["Reviews", pr.reviews === 0 ? "None" : `${num(pr.reviews)} by ${names(pr.reviewers, [], 4)}`],
@@ -143,7 +143,7 @@ export function Drawer(props: {
           </div>
           <div style={{ fontSize: "16px", fontWeight: 600, lineHeight: 1.3 }}>{pr.title}</div>
           <div class="soft" style={{ fontSize: "12.5px" }}>
-            {[`${pr.author}${internal ? "" : " (outside contributor)"}`, pr.repo, ...teams].join(
+            {[`${pr.person}${internal ? "" : " (outside contributor)"}`, pr.repo, ...teams].join(
               " · ",
             )}
           </div>
@@ -269,9 +269,9 @@ export function Drawer(props: {
           </div>
         </section>
         <p class="muted" style={{ margin: 0, padding: "4px 22px 22px", fontSize: "12px" }}>
-          This is how codeflow read the pull request. Check it against GitHub:{" "}
+          This is how codeflow read the pull request. Check it against {hostOf(pr.url)}:{" "}
           <a class="link" href={pr.url} target="_blank" rel="noopener noreferrer">
-            open on GitHub ↗
+            open in {hostOf(pr.url)} ↗
           </a>
         </p>
       </aside>

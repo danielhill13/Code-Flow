@@ -12,6 +12,8 @@ export type InitOptions = {
   org?: string;
   owner?: string[];
   repo?: string[];
+  /** Azure DevOps sources: "organization" or "organization/project", or the source itself. */
+  ado?: (string | AdoSourceInput)[];
   since?: string;
   force?: boolean;
 };
@@ -28,18 +30,23 @@ const WORKSPACE_HEADER = [
 export async function init(options: InitOptions): Promise<void> {
   const owners = options.owner ?? [];
   const repos = options.repo ?? [];
-  if (owners.length + repos.length === 0) {
+  const ado = (options.ado ?? []).map((source) =>
+    typeof source === "string" ? adoSourceOf(source) : source,
+  );
+  if (owners.length + repos.length + ado.length === 0) {
     throw new CodeflowError(
-      "Say what to measure: --owner <org-or-user> and/or --repo <owner/name>. Both can repeat.",
+      "Say what to measure: --owner <org-or-user> or --repo <owner/name> on GitHub, or " +
+        "--ado <organization[/project]> on Azure DevOps. Each can repeat.",
     );
   }
-  const name = options.org ?? orgNameFrom(owners[0] ?? repos[0]?.split("/")[0] ?? "");
+  const name =
+    options.org ?? orgNameFrom(owners[0] ?? repos[0]?.split("/")[0] ?? ado[0]?.organization ?? "");
   if (!ORG_NAME.test(name)) {
     throw new CodeflowError(
       `"${name}" can't name an org: use lowercase letters, digits, - and _ (--org acme).`,
     );
   }
-  const orgText = renderConfig({ owners, repos, since: options.since ?? defaultSince() });
+  const orgText = renderConfig({ owners, repos, ado, since: options.since ?? defaultSince() });
   parseConfig(orgText, ORG_FILES.org); // never write a config that loading would reject
 
   const workspace = resolve(options.config);
@@ -106,13 +113,33 @@ export function orgNameFrom(owner: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function renderConfig(input: { owners: string[]; repos: string[]; since: string }): string {
+export type AdoSourceInput = { organization: string; project?: string; include?: string[] };
+
+/** "contoso/Platform" → an Azure DevOps source for project Platform of organization contoso. */
+export function adoSourceOf(text: string): AdoSourceInput {
+  const [organization = "", ...project] = text.trim().split("/");
+  return project.length > 0 ? { organization, project: project.join("/") } : { organization };
+}
+
+export function renderConfig(input: {
+  owners: string[];
+  repos: string[];
+  ado?: AdoSourceInput[];
+  since: string;
+}): string {
   return [
     "# What this org measures. docs/configuration.md describes every option.",
     "",
     "sources:",
     ...input.owners.map((owner) => `  - owner: ${scalar(owner)}`),
     ...input.repos.map((repo) => `  - repo: ${scalar(repo)}`),
+    ...(input.ado ?? []).flatMap((source) => [
+      `  - ado: ${scalar(source.organization)}           # Azure DevOps`,
+      ...(source.project ? [`    project: ${scalar(source.project)}`] : []),
+      ...(source.include?.length
+        ? [`    include: [${source.include.map((p) => scalar(p)).join(", ")}]`]
+        : []),
+    ]),
     "",
     "# Measure pull requests active on or after this date.",
     `since: ${scalar(input.since)}`,

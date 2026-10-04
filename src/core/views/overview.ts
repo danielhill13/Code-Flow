@@ -2,7 +2,14 @@
 import { CONCENTRATION_SHARE, excluded, type MetricValue, type Phase } from "../aggregate.ts";
 import { REVERT_WINDOW_DAYS } from "../metrics.ts";
 import type { Span } from "../periods.ts";
-import { type Breakdown, isInternal, kindOf, narrow, type Selection } from "../selection.ts";
+import {
+  type Breakdown,
+  isCatchAll,
+  isInternal,
+  kindOf,
+  narrow,
+  type Selection,
+} from "../selection.ts";
 import { shiftBack } from "../windows.ts";
 import {
   type Pair,
@@ -73,7 +80,14 @@ export function overview(ctx: ViewContext, q: ViewQuery): OverviewModel {
 
   const by = q.by;
   const values = by ? slice.values(by) : [];
-  const rows = by && values.length > 1 ? values.map((value) => row(ctx, q, by, value, window)) : [];
+  // A catch-all ("No team", "No product") with nothing merged or open in the window is noise: its
+  // PRs are all from other times. Real teams and groups keep their row, empty or not.
+  const rows =
+    by && values.length > 1
+      ? values
+          .map((value) => row(ctx, q, by, value, window))
+          .filter((r) => !isCatchAll(r.name) || (r.merged.value.value ?? 0) > 0 || r.open > 0)
+      : [];
 
   const notes: Note[] = [];
   const out = excluded(slice.facts, window.current);

@@ -180,7 +180,24 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     revertedBy: null,
     revertedAt: null,
     truncated: pr.truncated,
+    identities: identities(pr),
   };
+}
+
+/** The accounts on a PR, once each: its author, reviewers and commenters. */
+function identities(pr: PrModel): PrFact["identities"] {
+  const seen = new Map<string, string | null>();
+  const add = (actor: Actor | null) => {
+    if (!actor) return;
+    const login = actor.login.toLowerCase();
+    if (!seen.has(login) || (seen.get(login) === null && actor.name)) {
+      seen.set(login, actor.name ?? null);
+    }
+  };
+  add(pr.author);
+  for (const review of pr.reviews) add(review.author);
+  for (const comment of pr.comments) add(comment.author);
+  return [...seen].map(([login, name]) => ({ login, name }));
 }
 
 /** The parts of an attribution a fact keeps. */

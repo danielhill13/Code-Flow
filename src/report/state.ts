@@ -30,7 +30,7 @@ export const TABS: readonly { key: Tab; label: string; question: string }[] = [
   { key: "compare", label: "Compare", question: "Did the change work?" },
   { key: "prs", label: "Pull requests", question: "Which pull requests are behind this number?" },
   // Only where the report can save: under `codeflow serve` (decision D33).
-  { key: "setup", label: "Setup", question: "Who is who, and what counts?" },
+  { key: "setup", label: "Setup", question: "How is this org set up?" },
 ];
 
 export type Grain = "month" | "quarter" | "year" | "custom";

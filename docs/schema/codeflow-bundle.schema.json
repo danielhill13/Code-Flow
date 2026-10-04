@@ -29,6 +29,14 @@
                 "type": "string",
                 "pattern": "^[\\w.-]+\\/[\\w.-]+$"
               },
+              "ado": {
+                "type": "string",
+                "pattern": "^[\\w.-]+$"
+              },
+              "project": {
+                "type": "string",
+                "minLength": 1
+              },
               "include": {
                 "minItems": 1,
                 "type": "array",
@@ -70,6 +78,23 @@
             },
             "token_env": {
               "default": "GITHUB_TOKEN",
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "azure_devops": {
+          "default": {},
+          "type": "object",
+          "properties": {
+            "url": {
+              "default": "https://dev.azure.com",
+              "type": "string",
+              "format": "uri"
+            },
+            "token_env": {
+              "default": "AZURE_DEVOPS_TOKEN",
               "type": "string",
               "minLength": 1
             }
@@ -234,6 +259,13 @@
             "minLength": 1
           },
           "github": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "ado": {
             "minItems": 1,
             "type": "array",
             "items": {

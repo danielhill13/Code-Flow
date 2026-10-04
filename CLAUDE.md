@@ -1,6 +1,6 @@
 # codeflow
 
-Open-source tool that measures code flow (first commit → review → merge) for GitHub repos.
+Open-source tool that measures code flow (first commit → review → merge) for GitHub and Azure DevOps repos.
 
 - Design and measurement rules: [docs/architecture.md](docs/architecture.md)
 - What is built and what is next: [docs/roadmap.md](docs/roadmap.md)
@@ -52,6 +52,8 @@ sets it up.
   prints it without a stack trace.
 - Every GitHub call goes through `GitHubClient`, which counts calls and points. Queries select
   `rateLimit { cost }`.
+- Every Azure DevOps call goes through `AdoClient`, which paces requests (one at a time, at most
+  two a second, slower when the server's rate-limit headers say so). Never call its API around it.
 - All SQL lives in `src/store/`. Schema changes are new entries appended to `migrations.ts`; never
   edit a migration that has shipped. Rows in `raw_prs` are only ever inserted.
 - Test sync logic against `src/testing/fake-github.ts`, which reproduces GitHub's ordering and

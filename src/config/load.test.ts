@@ -43,6 +43,7 @@ since: 2025-10-01
       ],
       since: "2025-10-01",
       github: { api_url: "https://api.github.com", token_env: "GITHUB_TOKEN" },
+      azure_devops: { url: "https://dev.azure.com", token_env: "AZURE_DEVOPS_TOKEN" },
       branches: {},
       promotions: [...DEFAULT_PROMOTION_BRANCHES],
       bots: { accounts: [], reviewers: [], include_prs: false, ignore_bodies: [] },
@@ -209,18 +210,42 @@ github:
     );
   });
 
-  it("requires exactly one of owner or repo", () => {
+  it("requires exactly one of owner, repo or ado", () => {
     expect(errorOf("sources:\n  - owner: a\n    repo: a/b\nsince: 2025-10-01\n")).toContain(
-      "set exactly one of `owner` or `repo`",
+      "set exactly one of `owner`, `repo` (GitHub) or `ado` (Azure DevOps)",
     );
     expect(errorOf("sources:\n  - include: ['*']\nsince: 2025-10-01\n")).toContain(
-      "set exactly one of `owner` or `repo`",
+      "set exactly one of `owner`, `repo` (GitHub) or `ado` (Azure DevOps)",
+    );
+  });
+
+  it("reads Azure DevOps sources and where Azure DevOps is", () => {
+    const config = parseConfig(
+      "sources:\n  - ado: contoso\n    project: Platform\n    exclude: [old-*]\nsince: 2025-10-01\n" +
+        "azure_devops:\n  url: https://tfs.acme.com/tfs\n",
+    );
+    expect(config.sources).toEqual([
+      {
+        kind: "ado",
+        organization: "contoso",
+        project: "Platform",
+        include: ["*"],
+        exclude: ["old-*"],
+        forks: false,
+      },
+    ]);
+    expect(config.azure_devops).toEqual({
+      url: "https://tfs.acme.com/tfs",
+      token_env: "AZURE_DEVOPS_TOKEN",
+    });
+    expect(errorOf("sources:\n  - owner: a\n    project: P\nsince: 2025-10-01\n")).toContain(
+      "`project` only applies to `ado` sources",
     );
   });
 
   it("rejects owner-only filters on a repo source", () => {
     expect(errorOf("sources:\n  - repo: a/b\n    exclude: [x]\nsince: 2025-10-01\n")).toContain(
-      "only apply to `owner` sources",
+      "only apply to `owner` and `ado` sources",
     );
   });
 

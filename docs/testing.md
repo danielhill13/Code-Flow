@@ -70,6 +70,11 @@ but its own. It serves a made-up org from `src/testing/scenario.ts`, **acme-co**
   warn that the repo's work lands on a branch it doesn't measure.
 - `attic`: archived, so discovery should skip it.
 
+`src/testing/ado-server.ts` does the same for Azure DevOps's REST API, serving **contoso**'s
+project Platform (`contosoRepos()`): two repos and a disabled one, PRs by the same people with
+comment threads, votes (approve, wait for author), pushes after review, a build service's PR,
+chores, abandoned and open PRs. `countedAdoMerges()` is its oracle.
+
 The PRs are dated relative to today, so every window has data whenever the tests run.
 `countedMerges()` works out, the plain way, how many PRs codeflow should count in a period; the
 scenarios compare `summary` with it. Syncing against the fake takes about a second, because
@@ -110,6 +115,18 @@ here.
 | TC-110 | `rules` lists the org's rules, and `rules test` previews a draft without saving it |
 | TC-111 | Stale PRs are counted apart from open ones, a bot's nudge doesn't revive one, and the window is the org's |
 | TC-112 | `run` syncs and then builds, for a scheduler such as cron |
+
+### GitHub and Azure DevOps together (`test/scenarios/azure-devops.test.ts`)
+
+| ID | Behaviour |
+| -- | --------- |
+| TC-113 | `doctor` checks both hosts and lists what each selects |
+| TC-114 | `sync` reads both hosts into one database, and counts both as one company |
+| TC-115 | A person's PRs on either host are theirs, and their team's |
+| TC-116 | `pr` explains an Azure DevOps PR from its address, and leaves a build service's out |
+| TC-117 | An org only on Azure DevOps syncs without a GitHub token, and a missing Azure DevOps token is explained |
+| TC-118 | `people` lists both hosts' accounts and suggests which are one person |
+| TC-119 | Merging puts a person's Azure DevOps PRs on their team, with no new sync |
 
 ### Orgs, config and errors (`test/scenarios/orgs.test.ts`)
 
@@ -163,6 +180,15 @@ here.
 | TC-607 | An org not synced yet offers only its setup |
 | TC-608 | Org settings change the stale window and turn people views off |
 | TC-609 | The header says how fresh the data is and when it syncs next |
+
+### First steps and Setup in the browser (`test/e2e/welcome.spec.ts`)
+
+| ID | Behaviour |
+| -- | --------- |
+| TC-610 | An empty folder becomes a synced org, set up entirely in the browser: connect, preview, create, sync, report |
+| TC-611 | The org's repos, branches, bots and paths are edited in Setup, land in org.yml, and Sync now runs |
+| TC-612 | An Azure DevOps project becomes an org the same way, beside the GitHub one |
+| TC-613 | A suggested match is merged in a click, shown as one person, and can be separated (`test/e2e/people.spec.ts`) |
 
 ## Writing tests
 

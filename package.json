@@ -15,6 +15,7 @@
     "dist"
   ],
   "scripts": {
+    "start": "npm run build:report --silent && node src/cli/main.ts serve --open",
     "codeflow": "node src/cli/main.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/report && tsc --noEmit -p src/report/tsconfig.test.json && tsc --noEmit -p test/e2e",
     "lint": "biome check .",

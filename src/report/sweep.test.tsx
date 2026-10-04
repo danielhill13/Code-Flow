@@ -286,7 +286,23 @@ class FakeAdmin implements AdminApi {
       version: 1,
     },
     settings: {
-      value: { sync_every: "24h", stale_after_days: 90, people_views: true },
+      value: {
+        sources: [
+          { owner: "acme", exclude: ["*-sandbox"] },
+          { repo: "partner/sdk" },
+          { ado: "contoso", project: "Platform" },
+        ],
+        since: "2026-01-01",
+        github: {},
+        azure_devops: {},
+        branches: { "acme/legacy": ["main", "develop"] },
+        promotions: ["main", "release/*"],
+        bots: { accounts: ["deploy-svc"], reviewers: [], include_prs: false, ignore_bodies: [] },
+        paths: [{ match: ["e2e/**"], bucket: "test" }],
+        sync_every: "24h",
+        stale_after_days: 90,
+        people_views: true,
+      },
       version: 1,
     },
     rules: {
@@ -316,7 +332,117 @@ class FakeAdmin implements AdminApi {
       lastSync: asOf,
       nextSync: new Date(Date.parse(asOf) + 86_400_000).toISOString(),
       running: false,
+      queued: false,
       lastError: null,
+      log: ["✓ acme/api: 3 PRs fetched"],
+      progress: null,
+    };
+  }
+
+  syncNow() {
+    return this.status();
+  }
+
+  async repos() {
+    return {
+      repos: [
+        { fullName: "acme/api", defaultBranch: "main", measured: ["main"] },
+        { fullName: "acme/legacy", defaultBranch: "main", measured: ["main", "develop"] },
+      ],
+      advice: [],
+    };
+  }
+
+  async remove() {}
+
+  async checkGitHub() {
+    return {
+      ok: true as const,
+      login: "tester",
+      source: "$GITHUB_TOKEN",
+      kind: "token",
+      writeScopes: [],
+      remaining: 4999,
+      limit: 5000,
+    };
+  }
+
+  async identities() {
+    return {
+      identities: [
+        {
+          login: "ana",
+          host: "github" as const,
+          name: "Ana Ruiz",
+          authored: 12,
+          involved: 30,
+          lastSeen: asOf,
+          person: "ana",
+        },
+        {
+          login: "mika",
+          host: "github" as const,
+          name: null,
+          authored: 8,
+          involved: 20,
+          lastSeen: asOf,
+          person: null,
+        },
+        {
+          login: "mika@acme.example",
+          host: "ado" as const,
+          name: "Mika Sato",
+          authored: 5,
+          involved: 9,
+          lastSeen: asOf,
+          person: null,
+        },
+      ],
+      suggestions: [
+        {
+          github: "mika",
+          ado: "mika@acme.example",
+          reason: "the address's name is the login",
+          strength: "strong" as const,
+          person: null,
+          ambiguous: false,
+        },
+      ],
+    };
+  }
+
+  async checkAdo() {
+    return {
+      ok: true as const,
+      who: "Tester",
+      source: "$AZURE_DEVOPS_TOKEN",
+      kind: "personal access token",
+      organization: "contoso",
+    };
+  }
+
+  async previewSources() {
+    return {
+      github: await this.checkGitHub(),
+      sources: [
+        {
+          name: "acme",
+          ownerType: "Organization",
+          error: null,
+          repos: [
+            {
+              fullName: "acme/api",
+              defaultBranch: "main",
+              archived: false,
+              fork: false,
+              prs: { open: 3, merged: 40, closed: 2 },
+              lastPrActivity: asOf,
+            },
+          ],
+          skipped: [{ repo: "acme/play-sandbox", reason: "excluded" }],
+        },
+      ],
+      firstSync: { prs: 45, olderOpen: 0, seconds: 12, shareOfHour: 0.01 },
     };
   }
 
@@ -398,7 +524,9 @@ describe("the report, served", () => {
   it("offers the other orgs, and a Setup tab", async () => {
     await show({ tab: "overview" });
     const picker = document.querySelector<HTMLSelectElement>(".org-picker");
-    expect([...(picker?.options ?? [])].map((o) => o.value)).toEqual(["acme", "beta"]);
+    const options = [...(picker?.options ?? [])];
+    expect(options.slice(0, 2).map((o) => o.value)).toEqual(["acme", "beta"]);
+    expect(options.at(-1)?.textContent).toBe("Add an org…");
     expect(picker?.value).toBe("acme");
     expect(document.querySelector("nav.tabs")?.textContent).toContain("Setup");
   });
@@ -406,7 +534,18 @@ describe("the report, served", () => {
   it("shows every section of the setup without broken values", async () => {
     await show({ tab: "setup" });
     const sections = {
-      People: ["Ana Ruiz", "ana-old"],
+      Repos: ["GitHub: every repo", "GitHub: one repo", "Azure DevOps organization", "Project"],
+      Branches: ["acme/legacy", "main, develop", "Promotion branches"],
+      Bots: ["Also bots", "Bots whose reviews count", "Ignore comments matching"],
+      Paths: ["Path rules", "Add a rule"],
+      Sync: ["Last synced", "3 PRs fetched", "Sync now"],
+      People: [
+        "Ana Ruiz",
+        "ana-old",
+        "Same person on GitHub and Azure DevOps?",
+        "mika@acme.example",
+        "Accounts",
+      ],
       Teams: ["Platform", "devon (… – 2026-08-15)", "ana (secondary)"],
       Groups: ["Mobile", "area", "Core", "product", "acme/api"],
       Rules: [
@@ -469,7 +608,9 @@ describe("the report, served for an org not yet synced", () => {
   });
 
   it("offers only its setup", async () => {
-    const text = await until((t) => t.includes("Nothing synced yet") && t.includes("Platform"));
+    const text = await until(
+      (t) => t.includes("Nothing synced yet") && t.includes("Sync now") && t.includes("Sources"),
+    );
     expect(text).not.toMatch(BAD);
     expect(document.querySelector("nav.tabs")?.textContent).toBe("Setup");
   });

@@ -8,6 +8,8 @@ export type Actor = {
   login: string;
   /** The provider says this account is an app or bot. Config can name more bots. */
   bot: boolean;
+  /** The name the provider shows, where it gives one (Azure DevOps does; GitHub's isn't read). */
+  name?: string | null;
 };
 
 export type PrState = "open" | "merged" | "closed";

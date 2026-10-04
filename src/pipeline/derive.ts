@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import picomatch from "picomatch";
-import { asRule, type Config } from "../config/schema.ts";
+import { asRule, type Config, loginsOf } from "../config/schema.ts";
 import { DEFAULT_PROMOTION_BRANCHES, type DeriveRules, derivePr } from "../core/derive.ts";
 import { DERIVE_VERSION, type PrFact } from "../core/facts.ts";
 import { attribute, type Groups, NO_GROUPS, personOf } from "../core/groups.ts";
@@ -8,6 +8,8 @@ import type { PrModel } from "../core/model.ts";
 import { pathClassifier } from "../core/paths.ts";
 import { linkReverts, type RevertClues, revertClues } from "../core/reverts.ts";
 import { type Rule, RuleEngine } from "../core/rules.ts";
+import { normalizeAdoPr } from "../providers/ado/normalize.ts";
+import type { AdoPayload } from "../providers/ado/types.ts";
 import { type GhPayload, normalizePr } from "../providers/github/normalize.ts";
 import type { Store, StoredRepo } from "../store/store.ts";
 
@@ -64,7 +66,7 @@ export function deriveRepo(store: Store, repo: StoredRepo, rules: DeriveRules): 
   const clues: RevertClues[] = [];
   // One PR in memory at a time: only its facts and revert clues are kept.
   for (const version of store.latestPrs(repo.id)) {
-    const model = normalize(repo, version.payload);
+    const model = normalize(repo, version.payload, version.updatedAt);
     facts.set(model.id, derivePr(model, rules));
     clues.push(revertClues(model));
   }
@@ -102,7 +104,7 @@ export function groupsOf(config: Config, repos: readonly string[]): Groups {
     people: Object.entries(config.people).map(([key, person]) => ({
       key,
       name: person.name ?? null,
-      github: person.github ?? [key],
+      github: loginsOf(key, person),
       internal: person.internal ?? null,
       bot: person.bot ?? null,
     })),
@@ -237,10 +239,16 @@ export function rulesFor(
   };
 }
 
-function normalize(repo: StoredRepo, payload: unknown): PrModel {
+function normalize(repo: StoredRepo, payload: unknown, updatedAt: string): PrModel {
   switch (repo.provider) {
     case "github":
       return normalizePr(payload as GhPayload, { id: repo.id, fullName: repo.fullName });
+    case "ado":
+      return normalizeAdoPr(
+        payload as AdoPayload,
+        { id: repo.id, fullName: repo.fullName },
+        updatedAt,
+      );
     default:
       throw new Error(`No way to read ${repo.provider} pull requests (repo ${repo.fullName}).`);
   }

@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { readTemplate } from "../pipeline/report.ts";
 import { Registry } from "../server/registry.ts";
 import { Scheduler } from "../server/scheduler.ts";
@@ -6,7 +7,14 @@ import { status } from "./format.ts";
 import { Progress } from "./progress.ts";
 import { syncOrg } from "./sync.ts";
 
-export type ServeOptions = { config: string; port: string; host: string; schedule?: boolean };
+export type ServeOptions = {
+  config: string;
+  port: string;
+  host: string;
+  schedule?: boolean;
+  /** Open the page in the default browser once listening. */
+  open?: boolean;
+};
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
 
@@ -19,15 +27,26 @@ export async function serve(options: ServeOptions): Promise<void> {
   const registry = new Registry(options.config);
   const names = await registry.names();
   const local = LOOPBACK.has(options.host);
-  const scheduler =
-    options.schedule === false
-      ? undefined
-      : new Scheduler(registry, {
-          sync: (org, signal) => {
-            const print = (line = "") => console.log(line ? `[${org.name}] ${line}` : "");
-            return syncOrg(org, new Progress(), print, { signal });
-          },
-        });
+  // Always there, for "Sync now"; on the orgs' schedules only without --no-schedule.
+  const scheduler = new Scheduler(registry, {
+    sync: (org, signal, report) => {
+      const print = (line = "") => {
+        console.log(line ? `[${org.name}] ${line}` : "");
+        if (line) report(plain(line));
+      };
+      // Progress lines go to the web app rather than rewriting the terminal's last line.
+      const stream = {
+        isTTY: true,
+        columns: 200,
+        write: (text: string) => {
+          const line = plain(text);
+          if (line) report(line, true);
+          return true;
+        },
+      } as unknown as NodeJS.WriteStream;
+      return syncOrg(org, new Progress(stream), print, { signal });
+    },
+  });
   const server = createServer(registry, {
     template: readTemplate(),
     hosts: local ? ["localhost", "127.0.0.1", "[::1]"] : null,
@@ -39,13 +58,17 @@ export async function serve(options: ServeOptions): Promise<void> {
   });
   const address = server.address();
   const actual = typeof address === "object" && address ? address.port : port;
+  const url = `http://localhost:${actual}/`;
   console.log(
     status(
       "ok",
       "Serving",
-      `${names.length === 1 ? "1 org" : `${names.length} orgs`} at http://localhost:${actual}/`,
+      names.length === 0
+        ? `nothing yet: open ${url} to set up codeflow`
+        : `${names.length === 1 ? "1 org" : `${names.length} orgs`} at ${url}`,
     ),
   );
+  if (options.open) openBrowser(url);
   if (!local) {
     console.log(
       status(
@@ -55,7 +78,7 @@ export async function serve(options: ServeOptions): Promise<void> {
       ),
     );
   }
-  if (scheduler) {
+  if (options.schedule !== false) {
     const schedules = (await registry.workspace()).orgs.map(
       (org) =>
         `${org.name} ${org.config.sync_every === "off" ? "off" : `every ${org.config.sync_every}`}`,
@@ -74,4 +97,29 @@ export async function serve(options: ServeOptions): Promise<void> {
     server.closeAllConnections();
     void (scheduler?.stop() ?? Promise.resolve()).then(() => process.exit(0));
   });
+}
+
+/** Terminal colour and cursor codes: ESC, [, numbers, a letter. */
+const ESCAPES = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, "g");
+
+/** Text without terminal colours and line rewrites, for the web app. */
+function plain(text: string): string {
+  return text.replace(ESCAPES, "").replace(/\r/g, "").trim();
+}
+
+/** Opens a URL in the default browser; a missing browser only means the reader opens it. */
+function openBrowser(url: string): void {
+  const [command, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  try {
+    spawn(command, args, { stdio: "ignore", detached: true })
+      .on("error", () => {})
+      .unref();
+  } catch {
+    // Nothing to do: the address is printed above.
+  }
 }

@@ -1,6 +1,6 @@
 # codeflow
 
-Code flow metrics for GitHub: how pull requests move from first commit, through review, to merge.
+Code flow metrics for GitHub and Azure DevOps: how pull requests move from first commit, through review, to merge.
 Every number traces back to the pull requests behind it.
 
 > **Early development.** Phases 0–2 of the [roadmap](docs/roadmap.md) are done: sync, and every
@@ -26,18 +26,17 @@ You need Node.js 24 or later, git, and read access to the repos you want to meas
 ```bash
 git clone https://github.com/danielhill13/Code-Flow.git
 cd Code-Flow
-npm install
-npm run build
-gh auth login                                  # or: export GITHUB_TOKEN=...
-npm run codeflow -- init --owner your-org      # or: --repo your-org/api; --org names it
-npm run codeflow -- doctor                     # check the token and estimate the first sync
-npm run codeflow -- sync                       # fetch PRs; stop and resume any time
-npm run codeflow -- build                      # write codeflow-report.html
-open codeflow-report-your-org.html
+npm ci
+gh auth login        # GitHub; or export GITHUB_TOKEN=... (read-only is enough)
+az login             # Azure DevOps, if you use it; or export AZURE_DEVOPS_TOKEN=...
+npm start            # opens the first steps in your browser
 ```
 
-[docs/getting-started.md](docs/getting-started.md) walks through every step: token permissions,
-what each command does, keeping the report current, and what to do when something goes wrong.
+In the browser: connect to GitHub, Azure DevOps or both, choose organizations, projects or repos
+(one org can span both hosts, as one company), see what that measures, and start the first sync. Everything else (teams, products, branches, bots, rules, how often to sync)
+is in the Setup tab, saved to plain YAML files you can also edit by hand.
+[docs/getting-started.md](docs/getting-started.md) has the details, and the command line for those
+who prefer it.
 
 ## Commands
 
@@ -50,6 +49,7 @@ what each command does, keeping the report current, and what to do when somethin
 | `status` | what is stored, how the last sync went, and any branch that isn't measured but should be |
 | `summary` | every metric for a period (`--period 2026-Q3`, `--percentile 75`, `--json`, `--explain`) |
 | `pr` | how codeflow read one pull request, to check against GitHub |
+| `people` | the accounts in an org's PRs on GitHub and Azure DevOps, suggested matches, and `people merge` to make one person of them |
 | `rules` | an org's rules, where each came from and how many PRs it applies to; `rules test <file>` previews a draft |
 | `export` | an org's people, groups and rules as a bundle (YAML, JSON, or CSV for teams) |
 | `import` | a bundle or CSV into an org: checked as a whole first, `--dry-run` to preview, merge or replace |

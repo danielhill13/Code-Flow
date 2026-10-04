@@ -11,6 +11,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { brotliCompressSync, gzipSync, constants as zlibConstants } from "node:zlib";
+import { defaultSince } from "../cli/init.ts";
 import {
   applyImport,
   type Bundle,
@@ -26,12 +27,23 @@ import {
 } from "../config/bundle.ts";
 import { formatIssues } from "../config/load.ts";
 import { asRule, BUNDLE_VERSION, RulesFileSchema } from "../config/schema.ts";
-import type { OrgPart } from "../config/workspace.ts";
+import type { Org, OrgPart } from "../config/workspace.ts";
+import { unmeasuredBranches } from "../core/branches.ts";
+import { identitiesOf, type PersonRaw, suggestMerges } from "../core/identities.ts";
 import { ruleImpact } from "../core/preview.ts";
 import { ruleProblems } from "../core/rules.ts";
 import { CodeflowError } from "../errors.ts";
-import { deriveFacts, deriveWith } from "../pipeline/derive.ts";
+import { deriveFacts, deriveWith, measuredBranches } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
+import {
+  checkAdo,
+  checkGitHub,
+  convertWorkspace,
+  createOrg,
+  type NewOrg,
+  previewSources,
+  removeOrg,
+} from "./admin.ts";
 import { NotFound, partVersion, type Registry } from "./registry.ts";
 import type { Scheduler, SyncStatus } from "./scheduler.ts";
 
@@ -40,8 +52,19 @@ export const EDITABLE = {
   people: ["people"],
   groups: ["teams", "groups", "products"],
   rules: ["rules"],
-  /** org.yml's report settings; sources, dates and the older rule keys stay hand-edited. */
-  settings: ["sync_every", "stale_after_days", "people_views"],
+  /** Everything in org.yml but where its data lives: what to measure and how. */
+  settings: [
+    "sources",
+    "since",
+    "github",
+    "branches",
+    "promotions",
+    "bots",
+    "paths",
+    "sync_every",
+    "stale_after_days",
+    "people_views",
+  ],
 } as const satisfies Record<string, readonly string[]>;
 
 /** The file each editable part lives in. */
@@ -95,17 +118,22 @@ async function handle(
   }
   const path = url.pathname.split("/").filter(Boolean).map(decodeURIComponent);
 
-  // The page: one per org, at /orgs/<name>/, so a link or a bookmark names its org.
+  // The page: one per org, at /orgs/<name>/, so a link or a bookmark names its org; and the
+  // first steps at /welcome/, where a new workspace starts and more orgs are added.
   if (path.length === 0) {
     const [first] = await registry.names();
-    return redirect(res, first ? `/orgs/${encodeURIComponent(first)}/` : "/");
+    return redirect(res, first ? `/orgs/${encodeURIComponent(first)}/` : "/welcome/");
   }
-  if (path[0] === "orgs" && path.length === 2) {
-    await registry.org(path[1] ?? "");
+  if ((path[0] === "orgs" && path.length === 2) || (path[0] === "welcome" && path.length === 1)) {
+    if (path[0] === "orgs") await registry.org(path[1] ?? "");
     if (!url.pathname.endsWith("/")) return redirect(res, `${url.pathname}/`);
     return send(res, 200, options.template, "text/html; charset=utf-8");
   }
-  if (path[0] !== "api" || path[1] !== "orgs") throw new NotFound("Not found.");
+  if (path[0] !== "api") throw new NotFound("Not found.");
+  if (path[1] === "workspace" || path[1] === "github" || path[1] === "ado") {
+    return workspaceRoute(registry, `${req.method} ${path.slice(1).join("/")}`, req, res);
+  }
+  if (path[1] !== "orgs") throw new NotFound("Not found.");
   if (path.length === 2) return json(res, { orgs: await registry.names() });
 
   const name = path[2] ?? "";
@@ -122,6 +150,19 @@ async function handle(
   switch (`${req.method} ${route[0] ?? ""}`) {
     case "GET meta":
       return json(res, { meta: loaded.source ? await loaded.source.meta() : null });
+    case "POST sync": {
+      if (!options.scheduler) throw new NotFound("This server doesn't sync.");
+      await options.scheduler.syncNow(name);
+      return json(res, await options.scheduler.status(name));
+    }
+    case "POST remove":
+      await removeOrg(registry.path, name);
+      registry.forget(name);
+      return json(res, { removed: name });
+    case "GET repos":
+      return json(res, reposOf(org));
+    case "GET identities":
+      return json(res, await identitiesFor(org));
     case "GET status": {
       const meta = loaded.source ? await loaded.source.meta() : null;
       const status: SyncStatus = options.scheduler
@@ -131,7 +172,10 @@ async function handle(
             lastSync: meta?.asOf ?? null,
             nextSync: null,
             running: false,
+            queued: false,
             lastError: null,
+            log: [],
+            progress: null,
           };
       return json(res, status);
     }
@@ -177,18 +221,14 @@ async function handle(
           `${org.files[file]} changed since you opened it. Reload to see the change, then edit again.`,
         );
       }
-      // Settings merge into org.yml, key by key; the other parts replace what their file holds.
+      // Settings replace the org.yml keys the request names, and leave the rest; the other parts
+      // replace what their file holds.
       const bundle = (
         part === "settings"
           ? { codeflow: BUNDLE_VERSION, settings: pickSet(value, EDITABLE.settings) }
           : { codeflow: BUNDLE_VERSION, ...pick(value, EDITABLE[part]) }
       ) as Bundle;
-      const plan = await planImport(
-        org,
-        bundle,
-        [part as Part],
-        part === "settings" ? "merge" : "replace",
-      );
+      const plan = await planImport(org, bundle, [part as Part], "replace");
       if (plan.changes.length > 0) await applyImport(org, plan);
       registry.forget(name);
       return json(res, { version: partVersion(org, file), changes: describeChanges(plan.changes) });
@@ -267,6 +307,82 @@ function preview(org: Awaited<ReturnType<Registry["org"]>>["org"], input: unknow
       internal: first(impact.internal),
       external: first(impact.external),
       applied: impact.applied,
+    };
+  } finally {
+    store.close();
+  }
+}
+
+/** The routes that aren't about one org: the workspace, and GitHub before an org exists. */
+async function workspaceRoute(
+  registry: Registry,
+  route: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  switch (route) {
+    case "GET workspace": {
+      const workspace = await registry.workspace();
+      return json(res, {
+        exists: existsSync(registry.path),
+        single: workspace.single,
+        orgs: workspace.orgs.map((org) => ({ name: org.name, synced: existsSync(org.dbPath) })),
+        since: defaultSince(),
+      });
+    }
+    case "POST workspace/orgs": {
+      const name = await createOrg(registry.path, (await body(req)) as NewOrg);
+      return json(res, { name });
+    }
+    case "POST workspace/convert": {
+      const { name } = (await body(req)) as { name?: string };
+      if (!name) throw new CodeflowError("Name the org the config becomes.");
+      await convertWorkspace(registry.path, name);
+      return json(res, { name });
+    }
+    case "POST github/check":
+      return json(res, await checkGitHub((await body(req)) as Record<string, string>));
+    case "POST ado/check":
+      return json(res, await checkAdo((await body(req)) as Record<string, string>));
+    case "POST github/preview":
+      return json(res, await previewSources(await body(req)));
+    default:
+      throw new NotFound("Not found.");
+  }
+}
+
+/** Every account the org's PRs show, and which look like one person on both hosts (D42). */
+async function identitiesFor(org: Org) {
+  const people = ((await readRaw(org)).people ?? {}) as Record<string, PersonRaw>;
+  if (!existsSync(org.dbPath)) return { identities: [], suggestions: [] };
+  const store = Store.open(org.dbPath);
+  try {
+    deriveFacts(store, org.config);
+    const hosts = new Map(store.repos().map((repo) => [repo.id, repo.provider]));
+    const identities = identitiesOf(
+      store.facts(),
+      (repoId) => (hosts.get(repoId) === "ado" ? "ado" : "github"),
+      people,
+    );
+    return { identities, suggestions: suggestMerges(identities) };
+  } finally {
+    store.close();
+  }
+}
+
+/** The org's synced repos: each one's default branch, the branches measured, and advice. */
+function reposOf(org: Org) {
+  if (!existsSync(org.dbPath)) return { repos: [], advice: [] };
+  const store = Store.open(org.dbPath);
+  try {
+    const advice = unmeasuredBranches(store.facts(), new Date(store.dataThrough() ?? Date.now()));
+    return {
+      repos: store.repos().map((repo) => ({
+        fullName: repo.fullName,
+        defaultBranch: repo.defaultBranch,
+        measured: measuredBranches(org.config, repo),
+      })),
+      advice,
     };
   } finally {
     store.close();

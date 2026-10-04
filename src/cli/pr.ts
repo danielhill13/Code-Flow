@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import type { Org } from "../config/workspace.ts";
 import type { Exclusion, PrFact } from "../core/facts.ts";
-import { duration } from "../core/format.ts";
+import { duration, hostOf } from "../core/format.ts";
 import { isStale } from "../core/stale.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
@@ -9,7 +9,7 @@ import { Store } from "../store/store.ts";
 import { bold, dim, num, plural, status } from "./format.ts";
 import { type OrgOptions, orgsFor, type Print } from "./session.ts";
 
-export type PrOptions = OrgOptions;
+export type PrOptions = OrgOptions & { raw?: boolean };
 
 const EXCLUSIONS: Record<Exclusion, (pr: PrFact) => string> = {
   bot: () => "a bot opened it",
@@ -21,13 +21,26 @@ const EXCLUSIONS: Record<Exclusion, (pr: PrFact) => string> = {
 /** How codeflow reads one PR: every derived value next to the timestamps it came from. */
 export async function showPr(target: string, options: PrOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
-  // owner/name#123, #123, 123, or the PR's address on GitHub, as copied from the browser.
-  const match =
-    /^(?:([\w.-]+\/[\w.-]+))?#?(\d+)$/.exec(target.trim()) ??
-    /^https?:\/\/[^/]+\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)\b/.exec(target.trim());
+  // owner/name#123 (organization/project/repo#123 on Azure DevOps), #123, 123, or the PR's
+  // address on GitHub or Azure DevOps, as copied from the browser.
+  const text = target.trim();
+  const ado =
+    /^https?:\/\/[^/]+\/(?:tfs\/)?([^/]+)\/([^/]+)\/_git\/([^/]+)\/pullrequest\/(\d+)\b/i.exec(
+      text,
+    );
+  // The older address: https://<organization>.visualstudio.com/<project>/_git/<repo>/pullrequest/N
+  const legacy =
+    /^https?:\/\/([^./]+)\.visualstudio\.com\/(?:DefaultCollection\/)?([^/]+)\/_git\/([^/]+)\/pullrequest\/(\d+)\b/i.exec(
+      text,
+    );
+  const address = legacy ?? ado;
+  const match = address
+    ? ([text, address.slice(1, 4).map(decodeURIComponent).join("/"), address[4]] as const)
+    : (/^(?:([\w.-]+\/(?:[^/#]+\/)?[\w.-]+))?#?(\d+)$/.exec(text) ??
+      /^https?:\/\/[^/]+\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)\b/.exec(text));
   if (!match) {
     throw new CodeflowError(
-      `Expected a PR like owner/name#123, 123 or its GitHub address, got "${target}".`,
+      `Expected a PR like owner/name#123, 123, or its address on GitHub or Azure DevOps; got "${target}".`,
     );
   }
   const [, repo, number] = match;
@@ -51,7 +64,15 @@ export async function showPr(target: string, options: PrOptions): Promise<number
       );
     }
     const asOf = new Date(store.dataThrough() ?? Date.now());
-    printPr(found[0] as PrFact, print, { asOf, staleAfterDays: config.stale_after_days });
+    const fact = found[0] as PrFact;
+    if (options.raw) {
+      // Exactly what the host returned, as stored: to check what codeflow read against it.
+      for (const version of store.latestPrs(fact.repoId)) {
+        if (version.id === fact.id) console.log(JSON.stringify(version.payload, null, 2));
+      }
+      return 0;
+    }
+    printPr(fact, print, { asOf, staleAfterDays: config.stale_after_days });
     return 0;
   } finally {
     store.close();
@@ -88,7 +109,8 @@ function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays
   print(dim(`  ${pr.url}`));
   print();
 
-  const by = `${pr.author}${pr.authorIsBot ? " (bot)" : ""}`;
+  const account = pr.person.toLowerCase() === pr.author.toLowerCase() ? "" : ` (as ${pr.author})`;
+  const by = `${pr.person}${account}${pr.authorIsBot ? " (bot)" : ""}`;
   const association = pr.authorAssociation?.toLowerCase();
   const relation = [association !== "none" && association, pr.fromFork && "from a fork"]
     .filter(Boolean)
@@ -153,7 +175,7 @@ function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays
   }
 
   if (pr.linesByBucket === null) {
-    print(status("warn", "Size", "unknown: GitHub didn't list every changed file"));
+    print(status("warn", "Size", `unknown: ${hostOf(pr.url)} didn't give every file's lines`));
   } else {
     const other = Object.entries(pr.linesByBucket)
       .filter(([bucket, lines]) => bucket !== "product" && lines > 0)
@@ -190,7 +212,7 @@ function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays
   print(
     pr.truncated.length === 0
       ? status("ok", "Data", "complete")
-      : status("warn", "Data", `GitHub sent only part of: ${pr.truncated.join(", ")}`),
+      : status("warn", "Data", `${hostOf(pr.url)} sent only part of: ${pr.truncated.join(", ")}`),
   );
 }
 

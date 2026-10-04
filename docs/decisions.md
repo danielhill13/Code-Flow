@@ -266,3 +266,51 @@ however many PRs an org has; a test holds those budgets for a 3,000-PR org. The 
 still embeds every PR, since that is what lets it open offline, and `build` suggests `serve`
 when the file passes 2 MB.
 
+**D39 · 2026-10-04 · Set up in the browser; the files stay the source of truth.** Getting started
+is `npm start`: an empty folder opens on first steps (connect to GitHub, choose what to measure
+and preview it, create the org and watch its first sync), and every option in an org's files has
+a Setup section: repos, branches, bots, paths, people, teams, groups, rules, sync, settings,
+import and export. The web app writes the same YAML files as `init`, `migrate` and hand edits,
+through the same checks, sending only the keys a section changed, so defaults stay unwritten.
+Tokens are never typed into the web app: it says where codeflow looks (`GITHUB_TOKEN`, another
+variable, the GitHub CLI) and checks the connection, so no secret reaches a file or the page.
+Taking an org off the list keeps its files and data. Azure DevOps sources, next, join GitHub's in
+the same Repos section, so one org can span both as one company.
+
+**D40 · 2026-10-04 · Azure DevOps is a second provider; one org can span both hosts.** A source is
+on GitHub (`owner`, `repo`) or Azure DevOps (`ado`, with an optional `project` and repo-name
+patterns), and an org may hold any mix, so a company's GitHub organization and Azure DevOps
+project are measured as one, with one database and one report. Azure DevOps PRs are stored as
+fetched (the PR, its threads, pushes, commits and per-file line counts from its file-diff API)
+and mapped onto the same PR model, so every metric reads them unchanged: a vote is a review
+(approve, or wait-for-author and reject as a change request), a thread someone other than the
+author starts is a commented review, each push after the first is new commits, and reviewer
+additions are review requests. Its repos are named `organization/project/repo`. Azure DevOps
+can't list PRs by last change, so each sync re-reads open PRs and those closed since the last
+sync, after a first backfill by creation date. People may list Azure DevOps sign-ins beside
+their GitHub logins, so one person, and their team, spans both hosts. Everyone who can open a PR
+in an Azure DevOps organization belongs to it, so its authors count as internal. Tokens come
+from a variable, `AZURE_DEVOPS_EXT_PAT`, or the Azure CLI's sign-in, never from a file.
+
+**D41 · 2026-10-04 · Azure DevOps requests are paced.** Azure DevOps meters each user's use over a
+sliding five-minute window and throttles beyond it. Every call goes through `AdoClient`, which
+sends one request at a time with at least half a second between them, stretches the gap when the
+server's `X-RateLimit-Remaining` falls below a fifth of `X-RateLimit-Limit`, pauses as long as
+`X-RateLimit-Delay` asks, and on a 429 or 503 waits for `Retry-After` before trying again (five
+times at most). A PR's details are fetched one call after another, never in parallel. This keeps
+a sync well inside the limit at the cost of time (about five requests per PR), which the docs and
+`doctor` state. A server on this machine (a test's fake) isn't paced.
+
+**D42 · 2026-10-04 · One person across GitHub and Azure DevOps.** People at a company on both
+hosts have an account on each; their PRs on both should be theirs, and their team's. Facts now
+keep every account on a PR as the provider names it (author, reviewers, commenters, with Azure
+DevOps's display names), so codeflow can list every account the org's PRs show, by host, with
+its activity and person. It suggests GitHub and Azure DevOps accounts that look like one person:
+strongly when the part of an address before the @ is a GitHub login, possibly when the shown name,
+or its initials and surname, is one; an account matching more than one is flagged, and accounts
+already in different people aren't suggested, since merging two people is a bigger call. A merge
+writes `people.yml` (the accounts leave any other person, whose name carries over if it would be
+left with none), from Setup › People or `codeflow people merge`, through the same checks as any
+edit, and applies with no new sync. `github: []` now means "no GitHub account", so an Azure
+DevOps-only person's key doesn't claim a GitHub login.
+

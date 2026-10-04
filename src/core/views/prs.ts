@@ -166,7 +166,7 @@ function sortValue(key: PrColumn, pr: PrFact, asOf: Date): number | string | nul
     case "title":
       return pr.title;
     case "author":
-      return pr.author;
+      return pr.person;
     case "merged":
       return pr.mergedAt;
     case "closed":

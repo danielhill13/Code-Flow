@@ -9,7 +9,7 @@ const MARKS = {
   info: () => " ",
 } satisfies Record<Mark, () => string>;
 
-/** `✓ Token       danielhill13 via gh auth token`: a mark, a fixed-width label, the detail. */
+/** `✓ Token       your-login via gh auth token`: a mark, a fixed-width label, the detail. */
 export function status(mark: Mark, label: string, detail: string): string {
   return marked(mark, `${label.padEnd(11)} ${detail}`);
 }

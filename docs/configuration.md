@@ -1,5 +1,10 @@
 # Configuration
 
+Everything on this page can be set in the web app: `npm start`, then the first steps for a new
+org, and the **Setup** tab for everything else. The web app writes these same files, keeping
+their comments, so you can switch between the two whenever you like. This page is for those who
+prefer the files, and describes every option.
+
 ## Workspace and orgs
 
 A workspace, `codeflow.yml` by default (or any file passed with `--config`), lists the orgs
@@ -38,19 +43,30 @@ Changing anything except `sources`, `since` and `github` takes effect on the nex
 
 ## sources
 
-What to measure. Mix organizations, users and single repos; a repo selected twice counts once.
+What to measure, on GitHub, Azure DevOps or both: one org can span them, as one company, and
+every number covers all of its repos. Mix organizations, users, projects and single repos; a repo
+selected twice counts once.
 
 ```yaml
 sources:
-  - owner: your-org              # every repo an organization or user owns
+  - owner: your-org              # GitHub: every repo an organization or user owns
     include: ["*"]               # repo-name patterns, case-insensitive (default: all)
     exclude: ["sandbox-*"]       # applied after include
     archived: false              # also measure archived repos (default: no)
     forks: false                 # also measure forks (default: no)
-  - repo: other-org/tool         # one repo, even if archived or a fork
+  - repo: other-org/tool         # GitHub: one repo, even if archived or a fork
+  - ado: contoso                 # Azure DevOps: an organization (dev.azure.com/contoso)
+    project: Platform            # one project (default: every project the token can see)
+    include: ["billing", "portal-*"]
+    exclude: ["*-spike"]
+    forks: false
 ```
 
-`codeflow doctor --all` lists every repo a source sees, and why any were skipped.
+Azure DevOps repos are named `organization/project/repo` in the report, such as
+`contoso/Platform/billing`, so patterns elsewhere (branches, groups, paths) can match them like
+GitHub's: `contoso/Platform/*`. Disabled and empty Azure DevOps repos are always left out.
+
+`codeflow doctor --all` lists every repo a source sees, and why any were left out.
 
 ## since
 
@@ -72,8 +88,30 @@ github:
 ```
 
 codeflow reads the variable `token_env` names, then `GH_TOKEN`, then the GitHub CLI's login. See
-[getting-started.md](getting-started.md#3-give-codeflow-a-github-token) for the permissions a
+[getting-started.md](getting-started.md#2-let-codeflow-read-your-code) for the permissions a
 token needs.
+
+## azure_devops
+
+```yaml
+azure_devops:
+  url: https://dev.azure.com           # Azure DevOps Server: its address, https://HOST/tfs
+  token_env: AZURE_DEVOPS_TOKEN        # the variable to read a personal access token from
+```
+
+codeflow reads the variable `token_env` names, then `AZURE_DEVOPS_EXT_PAT` (what the Azure CLI's
+DevOps extension uses), then a sign-in with the Azure CLI (`az login`). A personal access token
+needs **Code (Read)** and nothing else.
+
+Azure DevOps can't list PRs by when they last changed, so each sync reads every open PR again,
+plus those closed since the last sync; the first sync reads every PR created since `since`. Each
+PR takes about five requests (its threads, pushes, commits, files and line counts). codeflow
+sends them one at a time, at most two a second, and slows down further when Azure DevOps's
+rate-limit headers say its budget is running low, or waits as long as it asks when it throttles.
+A repo with 1,000 PRs a year takes about 40 minutes the first time and a few minutes a day after.
+
+codeflow asks for API version 7.1. An older Azure DevOps Server that doesn't know it says so,
+and codeflow steps down to 7.0, then 6.0.
 
 ## data_dir
 
@@ -169,6 +207,7 @@ people:
   ana:
     name: Ana Ruiz                    # shown in the report
     github: [ana-r, ana-old-login]    # every login they use (default: the key)
+    ado: [ana@acme.com]               # their Azure DevOps sign-ins, usually an email address
   deploy:
     github: [deploy-svc]
     bot: true                         # a service account: PRs not counted, reviews not review
@@ -177,8 +216,30 @@ people:
 ```
 
 Teams, groups and the report then use the person, not the login: a review from Ana's old
-account counts as Ana's, and her own second account can't review her PRs. A login may belong to
-one person only.
+account counts as Ana's, and her own second account can't review her PRs. With `ado`, her Azure
+DevOps PRs are hers too, and count for her team like her GitHub ones. A login may belong to one
+person only. Someone with no GitHub account at all gets `github: []` and their `ado` sign-ins;
+otherwise their key would stand in as a GitHub login.
+
+### Merging accounts across GitHub and Azure DevOps
+
+People who work on both hosts have an account on each. You rarely need to type them in:
+
+- **In the web app**, Setup › People lists every account the PRs show, on both hosts, and
+  suggests which look like one person: the part of an address before the @ is a GitHub login
+  (likely the same), or the name Azure DevOps shows matches one (possibly). Merge a suggestion in
+  a click, or tick any accounts and merge them into one person. Separate undoes it.
+- **From the command line**, `codeflow people` lists accounts not yet in a person and the
+  suggestions, each with the command that merges it:
+
+```bash
+npm run codeflow -- people                                   # accounts and suggested merges
+npm run codeflow -- people merge ana ana@acme.com            # one person, both accounts
+npm run codeflow -- people merge dlee devon.lee@acme.com --as devon --name "Devon Lee"
+```
+
+Either way the merge is written to `people.yml`, checked like any other edit, and the report uses
+it at once, with no new sync.
 
 ## teams
 

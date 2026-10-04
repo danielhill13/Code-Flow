@@ -2,6 +2,7 @@ import { relative } from "node:path";
 import type { Config } from "../config/schema.ts";
 import { loadWorkspace, type Org, pickOrgs, type Workspace } from "../config/workspace.ts";
 import { CodeflowError } from "../errors.ts";
+import { AdoClient, type AdoToken, resolveAdoToken } from "../providers/ado/client.ts";
 import {
   hostFromApiUrl,
   isLoopback,
@@ -153,4 +154,114 @@ function unreachable(err: unknown): boolean {
       `${err.message} ${String((err as { cause?: unknown }).cause ?? "")}`,
     )
   );
+}
+
+/** What the web app shows about the connection to GitHub, before or after an org exists. */
+export type GitHubCheck =
+  | {
+      ok: true;
+      login: string;
+      /** Where the token came from: "$GITHUB_TOKEN", "gh auth token". */
+      source: string;
+      kind: string;
+      /** Scopes that could write; codeflow never uses them. Empty for fine-grained tokens. */
+      writeScopes: string[];
+      remaining: number;
+      limit: number;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Connects to GitHub as `github` says, quietly: a client to use and who it is, or a CodeflowError
+ * saying what to do. For `serve`, where nothing prints to a terminal.
+ */
+export async function openGitHub(github: { api_url: string; token_env: string }): Promise<{
+  client: GitHubClient;
+  check: Extract<GitHubCheck, { ok: true }>;
+}> {
+  const token = await resolveToken({
+    tokenEnv: github.token_env,
+    host: hostFromApiUrl(github.api_url),
+  });
+  const client = new GitHubClient({
+    token: token.value,
+    apiUrl: github.api_url,
+    pacing: !isLoopback(github.api_url),
+    userAgent: `codeflow/${VERSION}`,
+  });
+  let viewer: ViewerData;
+  try {
+    viewer = await client.graphql<ViewerData>(VIEWER);
+  } catch (err) {
+    if (unreachable(err)) {
+      throw new CodeflowError(
+        `Couldn't reach GitHub at ${github.api_url} (${(err as Error).message}). Check the network, or the API address.`,
+      );
+    }
+    if (httpStatus(err) === 401) {
+      throw new CodeflowError(
+        `GitHub rejected the token from ${token.source}: expired or revoked? Make a new one, or run: gh auth login`,
+      );
+    }
+    throw err;
+  }
+  const scopes = await client.scopes();
+  return {
+    client,
+    check: {
+      ok: true,
+      login: viewer.viewer.login,
+      source: token.source,
+      kind: TOKEN_KINDS[token.kind],
+      writeScopes: scopes?.filter((scope) => !scope.startsWith("read:")) ?? [],
+      remaining: viewer.rateLimit.remaining,
+      limit: viewer.rateLimit.limit,
+    },
+  };
+}
+
+/** A client for each Azure DevOps organization an org's sources name, sharing one token. */
+export type AdoConnection = {
+  token: AdoToken;
+  client(organization: string): AdoClient;
+};
+
+/**
+ * Finds the Azure DevOps token, as the config says or the Azure CLI's sign-in, and prints where
+ * it came from. Clients pace their own requests (decision D41).
+ */
+export async function connectAdo(
+  config: Config,
+  print: Print,
+  options: { quiet?: boolean } = {},
+): Promise<AdoConnection> {
+  const token = await resolveAdoToken({ tokenEnv: config.azure_devops.token_env });
+  if (!options.quiet) {
+    print(status("ok", "ADO token", `token from ${token.source} (${token.kind})`));
+  }
+  const clients = new Map<string, AdoClient>();
+  return {
+    token,
+    client(organization) {
+      let client = clients.get(organization.toLowerCase());
+      if (!client) {
+        client = new AdoClient({
+          url: config.azure_devops.url,
+          organization,
+          token,
+          onWait: (message) => print(status("warn", "Waiting", message)),
+        });
+        clients.set(organization.toLowerCase(), client);
+      }
+      return client;
+    },
+  };
+}
+
+/** Who Azure DevOps says the token belongs to, in one organization: a cheap check that it works. */
+export async function adoWhoAmI(client: AdoClient): Promise<string> {
+  const data = await client.get<{ authenticatedUser?: { providerDisplayName?: string } }>(
+    "/_apis/connectionData",
+  );
+  return data.authenticatedUser?.providerDisplayName ?? "someone";
 }

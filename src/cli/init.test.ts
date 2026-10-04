@@ -18,7 +18,10 @@ describe("renderConfig", () => {
 
   it("quotes names that YAML would otherwise read as booleans or numbers", () => {
     const text = renderConfig({ owners: ["true", "123"], repos: [], since: "2025-10-01" });
-    expect(parseConfig(text).sources.map((s) => s.owner)).toEqual(["true", "123"]);
+    expect(parseConfig(text).sources.map((s) => (s.kind === "owner" ? s.owner : ""))).toEqual([
+      "true",
+      "123",
+    ]);
   });
 });
 

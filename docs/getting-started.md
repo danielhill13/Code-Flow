@@ -1,260 +1,187 @@
 # Getting started
 
-From nothing to a report in your browser. Every step is a command you can copy. It takes about
-ten minutes of your time, plus however long the first sync runs (roughly 25 minutes for a repo
-with 2,500 pull requests a year; minutes for most).
+Four steps, about five minutes, then the first sync runs while you set up teams. Everything after
+step 2 happens in your browser.
 
-## 1. What you need
+## 1. Install
 
-- **Node.js 24 or later.** Check with `node --version`. Install it from
-  [nodejs.org](https://nodejs.org) or with a version manager such as `nvm install 24`.
-- **git**, to clone this repository.
-- **Read access to the repositories you want to measure**, and a way for codeflow to use it
-  (step 3).
-
-codeflow runs on macOS, Linux and Windows. It needs no database server: it keeps its data in a
-SQLite file next to your config, using Node's built-in SQLite.
-
-## 2. Install
-
-codeflow isn't on npm yet, so run it from a clone:
+You need [Node.js 24 or later](https://nodejs.org) (`node --version` to check) and git.
+codeflow runs on macOS, Linux and Windows and needs no database server.
 
 ```bash
 git clone https://github.com/danielhill13/Code-Flow.git
 cd Code-Flow
-npm install
-npm run build
+npm ci
 ```
 
-`npm run build` compiles the command-line tool and the report page into `dist/`. From the clone
-you can now run any command as `npm run codeflow -- <command>`, which is how the rest of this
-guide writes them.
+## 2. Let codeflow read your code
 
-To have a `codeflow` command available everywhere instead, link it once:
+codeflow only reads, from GitHub, Azure DevOps or both. One org can measure repos on each, as one
+company.
 
-```bash
-npm link
-```
-
-Then `codeflow sync` works from any folder; drop the `npm run codeflow --` prefix from the
-commands below. Run `npm run build` again after pulling new changes.
-
-## 3. Give codeflow a GitHub token
-
-codeflow only reads from GitHub. It looks for a token in this order:
-
-1. the environment variable `GITHUB_TOKEN` (or another name, set by `github.token_env` in the
-   config),
-2. the environment variable `GH_TOKEN`,
-3. the [GitHub CLI](https://cli.github.com)'s login, if you have run `gh auth login`.
-
-The easiest route, if you use the GitHub CLI already:
+**GitHub.** The easiest way, if you use the [GitHub CLI](https://cli.github.com):
 
 ```bash
 gh auth login
 ```
 
-Otherwise create a token and export it:
-
-- **Fine-grained token (recommended):** GitHub → Settings → Developer settings → Fine-grained
-  tokens. Choose the organization or account that owns the repos, select the repos (or all), and
-  grant read-only **Contents**, **Pull requests** and **Metadata**. Nothing else.
-- **Classic token:** `repo` scope for private repositories; for public ones, no scope at all.
+Or make a read-only token and put it in `GITHUB_TOKEN` before starting codeflow. On GitHub:
+Settings › Developer settings › Fine-grained tokens; choose the organization that owns the repos,
+and grant read-only **Contents**, **Pull requests** and **Metadata**. Nothing else.
 
 ```bash
 export GITHUB_TOKEN=github_pat_...
 ```
 
-To measure an organization's private repos, the token must belong to someone who can see them,
-and the organization may need to approve fine-grained tokens first.
-
-## 4. Say what to measure
-
-codeflow measures **orgs**. An org is yours to define: one GitHub organization, several, or a
-handful of repos, with its own teams, rules and data. Most people start with one.
-
-Create one. Measure a whole GitHub organization (or user) with `--owner`, single repos with
-`--repo`, or both; each can repeat:
+**Azure DevOps.** Make a personal access token (User settings › Personal access tokens) with
+**Code (Read)** only, and put it in `AZURE_DEVOPS_TOKEN` before starting codeflow. Or sign in
+with the [Azure CLI](https://learn.microsoft.com/cli/azure/): `az login`.
 
 ```bash
-npm run codeflow -- init --owner your-org
-npm run codeflow -- init --org web-team --repo your-org/api --repo your-org/web
+export AZURE_DEVOPS_TOKEN=...
 ```
 
-That writes a workspace, `codeflow.yml`, listing your orgs, and a folder for each org:
+codeflow never writes a token into its files. The token must belong to someone who can see the
+repos. codeflow paces its Azure DevOps requests (at most two a second, slower when Azure DevOps
+says so), so a sync never runs into its rate limits.
 
-```
-codeflow.yml              the workspace: which orgs exist
-orgs/your-org/org.yml     what the org measures, from a year back
-orgs/your-org/people.yml  people with several logins, bots, staff (commented out)
-orgs/your-org/groups.yml  its teams, products and areas (commented out, to fill in)
-orgs/your-org/rules.yml   its own rules: what counts, repo rules, people rules (commented out)
-```
-
-Run `init` again with another `--org` to add more orgs; nothing is shared between them.
-[configuration.md](configuration.md) covers every option. Three you will likely want:
-
-- `since`: how far back to measure. Further back means a longer first sync.
-- `teams` and `groups`: who works together, and what they work on (products, areas). The
-  report can then look at any team, group, repo or person, or any mix of them.
-- `rules`: anything particular to the org, such as leaving out chore PRs or a service
-  account, or measuring `develop` in a repo whose work merges there (step 6 tells you which).
-  `codeflow rules test draft.yml` shows what a draft would change before you save it.
-
-Setting up a second org like the first? `codeflow export --org first -o setup.yml` then
-`codeflow import setup.yml --org second` copies people, teams, groups and rules. Teams can
-also come from a spreadsheet: `codeflow import teams.csv --org your-org`.
-
-These files name your organization and people, so this repository keeps `codeflow.yml` and
-`orgs/` out of git. In a repository of your own, commit them if you want a history of changes.
-
-With several orgs, every command works on all of them, or on one with `--org your-org`.
-`summary` and `pr` need `--org` when there is more than one.
-
-## 5. Check, then sync
+## 3. Start it
 
 ```bash
-npm run codeflow -- doctor
+npm start
 ```
 
-`doctor` reads your config, checks the token, lists the repos it selects, and estimates how long
-the first sync will take and how much of GitHub's hourly rate limit it will use. It spends a few
-rate-limit points and writes nothing.
+Your browser opens codeflow's first steps. If it doesn't, open <http://localhost:4317>.
+
+1. **Connect to your code.** It shows whether codeflow can read GitHub and Azure DevOps, and how
+   to fix it if not. For GitHub Enterprise Server or Azure DevOps Server, open the link under
+   each and give its address.
+2. **Choose what to measure:** a GitHub organization or user, single GitHub repos, an Azure
+   DevOps organization or project, or any mix, and from which day. "Show what this measures"
+   lists the repos, the ones left out and why, and for GitHub how long the first sync will take.
+3. **Create the org and sync.** The first sync runs in the background; a repo with 2,500 PRs a
+   year takes about 25 minutes, most take a few.
+
+When it's done, open the report. Add more orgs from the org picker at the top (Add an org…).
+
+## 4. Set it up
+
+Everything an org can be told is in the **Setup** tab, saved to its config files:
+
+| Section | What it holds |
+| ------- | ------------- |
+| Repos | what the org measures, on GitHub and Azure DevOps, and from which day |
+| Branches | which branches count, with a one-click fix when a repo's work lands on `develop` |
+| Bots | service accounts, bots whose reviews count, boilerplate comments to ignore |
+| Paths | which files are tests, docs or generated, so PR size counts product code |
+| People | every account on both hosts, suggested matches to merge into one person, and staff GitHub doesn't show as staff |
+| Teams | who works together, with dates when someone moves |
+| Groups | products, areas or any grouping of repos, teams and people |
+| Rules | what counts: leave out chores, count a repo's `develop`, and more, with a live preview |
+| Sync | when it last synced and next will, and Sync now |
+| Settings | how often to sync, when a PR is stale, person-level views, the connections |
+| Import & export | copy a setup between orgs, or bring teams in from a spreadsheet |
+
+Teams are what make the report most useful: with them, every number can be looked at per team.
+
+## Check the first numbers
+
+After the first sync, check a few PRs you know against their host, especially on Azure DevOps,
+whose reviews codeflow reads from votes and comment threads:
 
 ```bash
-npm run codeflow -- sync
+npm run codeflow -- pr https://github.com/your-org/api/pull/123
+npm run codeflow -- pr https://dev.azure.com/your-org/Project/_git/repo/pullrequest/456
 ```
 
-`sync` fetches every pull request updated since `since`, plus older ones still open, into the
-org's own database, `.codeflow/<org>/codeflow.db`. You can stop it at any time with Ctrl-C; the next `sync` carries on
-where it stopped. If GitHub's rate limit runs out, sync waits for it to reset. After the first
-sync, each run fetches only what changed, usually in seconds.
+Each shows the timeline codeflow read (opened, first review, approval, merge), who reviewed, how
+many rounds, and whether the PR counts and why. The side panel in the report shows the same. If
+something looks wrong, `--raw` prints exactly what the host returned for that PR, which is what
+an issue report needs (it holds titles and names: look before sharing).
 
-## 6. Look at the numbers
+Then Setup › People: merge the GitHub and Azure DevOps accounts of people who use both, so their
+work counts as one person's, and put people into teams.
 
-```bash
-npm run codeflow -- status
-npm run codeflow -- summary
-```
+## Keeping it current
 
-- `status` shows what is stored and how the last sync went. If a repo's work lands on a branch
-  codeflow doesn't measure (say features merge into `develop`), it says so here and prints the
-  `branches:` line to add.
-- `summary` prints every metric for the last complete month. Try `--period 2026-Q3`,
-  `--percentile 75`, `--repo your-org/api` or `--explain`.
-- `npm run codeflow -- pr 123` (or `pr your-org/api#123`) shows how codeflow read one pull
-  request, to check against GitHub.
+While codeflow runs, it syncs every org once a day (Setup › Settings changes how often), and the
+page picks up new data by itself. Leave it running, or start it when you want fresh numbers.
 
-## 7. Build and open the report
-
-```bash
-npm run codeflow -- build
-```
-
-That writes one file per org, `codeflow-report-<org>.html`, holding the page and that org's data,
-and nothing of any other org. Open it in a browser by double-clicking it, or:
-
-```bash
-open codeflow-report-your-org.html        # macOS
-xdg-open codeflow-report-your-org.html    # Linux
-start codeflow-report-your-org.html       # Windows
-```
-
-It works offline and makes no network requests. Send the file to anyone who should see it; the
-view is in the URL, so a link can point at a tab, a team or a filtered list of PRs.
-
-## 8. Or run it as a web app
-
-```bash
-npm run build                    # once, and after pulling changes: builds the page serve uses
-npm run codeflow -- serve
-```
-
-Then open <http://localhost:4317>. It is the same report, answered live from each org's data.
-The page is about 40 KB; each view's numbers come from the server as you move around, a few KB
-at a time, however many PRs the org has. It adds:
-
-- **An org picker** at the top left. Each org is at its own address, `/orgs/<org>/`, and shows
-  nothing of any other.
-- **A Setup tab**, to edit the org's people, teams, groups, rules and settings, and to import and
-  export them. Saving writes the org's own files in `orgs/<org>/` (you can keep editing those by
-  hand too) and the report recomputes at once. While you write a rule, Setup shows how many PRs
-  it would change, and which.
-- **Fresh data, on a schedule.** While it runs, `serve` syncs each org daily (or as often as the
-  org's `sync_every` says), one org at a time. The header shows when the data runs through, how
-  long ago that was, and when the next sync is; it turns amber if a sync is overdue. A page
-  that's open picks up new data by itself. Start it with `--no-schedule` to sync only by hand.
-
-An org that hasn't synced yet shows only Setup, so you can set it up before its first sync.
-`serve` only listens on this machine (`--port` and `--host` change that); there is no sign-in
-yet, so don't expose it to a network. Stop it with Ctrl-C.
-
-## 9. Keep it current
-
-With `codeflow serve` running, there is nothing to do: it syncs every org daily by default. To
-change how often, set `sync_every` in the org's `org.yml` (`6h`, `24h`, `7d`, or `off`), or in
-Setup › Settings.
-
-Without `serve`, run `codeflow run` (sync, then build) from a scheduler. A daily cron job:
+To run it without a terminal open, a scheduler can start `npm start` at login, or run
+`npm run codeflow -- run` (sync, then build a report file) on a schedule:
 
 ```bash
 0 6 * * * cd /path/to/Code-Flow && npm run codeflow -- run >> codeflow.log 2>&1
 ```
 
-On Windows, Task Scheduler can run `npm run codeflow -- run` in the clone's folder the same way.
+codeflow listens only on this machine and has no sign-in yet, so don't put it on a shared
+network.
 
-Changing an org's config (teams, branches, bots, paths) needs no new sync: the next `summary` or
-`build` recomputes everything from the stored data, in about a second per few thousand PRs.
+## A report to send
+
+The web app is the light way to read the report: each view loads as you move around. To send
+someone a snapshot that opens offline, with no server, build one file per org:
+
+```bash
+npm run codeflow -- build
+```
+
+It writes `codeflow-report-<org>.html`. The file carries every PR, so for a large org it is a few
+megabytes.
+
+## Prefer the command line or the files?
+
+Everything the web app does, the command line and the files do too. The files are plain YAML:
+`codeflow.yml` lists the orgs, and `orgs/<org>/` holds `org.yml` (what to measure),
+`people.yml`, `groups.yml` and `rules.yml`. Edit them by hand whenever you like; the web app
+picks up the change. [configuration.md](configuration.md) describes every option.
+
+| Command | What it does |
+| ------- | ------------ |
+| `init --owner your-org` | adds an org that measures every repo of `your-org` (`--ado contoso/Platform` for Azure DevOps) |
+| `doctor` | checks the token and repos, and estimates the first sync |
+| `sync` | fetches PRs; stop and resume any time |
+| `summary` | every metric for the last complete month |
+| `pr 123` | how codeflow read one PR, to check it against GitHub |
+| `build` | the report as a file that opens offline |
+| `run` | `sync`, then `build` |
+| `serve` | the web app (`npm start` builds the page and opens it) |
+
+Run them as `npm run codeflow -- <command>`. With several orgs, add `--org <name>` to work on one.
+The README lists them all.
 
 ## Where things live
 
 | What | Where |
 | ---- | ----- |
-| The workspace | `codeflow.yml` (or `--config path/to/file.yml` on any command) |
+| The list of orgs | `codeflow.yml` |
 | Each org's config | `orgs/<org>/`: `org.yml`, `people.yml`, `groups.yml`, `rules.yml` |
 | Each org's data | `.codeflow/<org>/codeflow.db` |
-| Each org's report | `codeflow-report-<org>.html` (`build --org <org> --out file` moves it) |
 
-To start an org over, delete its `.codeflow/<org>/` folder. To remove codeflow entirely, delete the clone (and run
-`npm unlink -g codeflow` if you linked it).
+These name your organization and people, so this repository keeps them out of git. To start an
+org over, delete its `.codeflow/<org>/` folder. To remove codeflow, delete the clone.
 
-## Upgrading from a single config file
-
-Before workspaces, codeflow kept everything in one `codeflow.yml`. That still works, as one org
-with its data in `.codeflow/`. To turn it into a workspace, so you can add orgs:
-
-```bash
-npm run codeflow -- migrate --org your-org
-```
-
-That splits the file into `orgs/your-org/`, keeping its comments, moves the data to
-`.codeflow/your-org/`, and keeps the old file as `codeflow.yml.single.bak`.
+An older single-file `codeflow.yml` still works. The first steps offer to convert it, so you can
+add more orgs (or run `npm run codeflow -- migrate --org <name>`).
 
 ## When something goes wrong
 
-- **"No GitHub token found"**: step 3. Check with `echo $GITHUB_TOKEN` or `gh auth status`.
-- **A repo is missing from `doctor`**: the token can't see it, or the source's `include` /
-  `exclude` patterns skip it. `doctor --all` lists skipped repos with the reason.
-- **A metric shows "—"**: it has too few PRs to show honestly (a median needs 10), or the data
-  doesn't reach back that far. The reason is next to it.
+- **"No GitHub token found"**: step 2, then Check again. In a terminal, `gh auth status` or
+  `echo $GITHUB_TOKEN` shows what codeflow will find.
+- **A repo is missing**: the token can't see it, or the source leaves it out. "Show what this
+  measures" in Setup › Repos lists every repo left out, and why.
+- **A metric shows "—"**: too few PRs to show honestly (a median needs 10), or the data doesn't
+  reach back that far. The reason is next to it.
 - **Staff show as outside contributors**: GitHub hides private organization memberships from
-  tokens outside the organization. List those people in a team and they count as internal.
-- **Numbers look too low for a repo**: run `status`; the repo's work may land on a branch that
-  isn't measured.
-- **`serve` says the page isn't built**: run `npm run build` first.
-- **Setup won't save: "changed since you opened it"**: someone (or an editor) changed the file
-  meanwhile. Reload the page to see their change, then make yours again.
-- **An unexpected error**: run the command again with `--debug` for the full stack trace, and
-  open an issue with it.
+  tokens outside the organization. Put them in a team, or mark them internal in Setup › People.
+- **A repo's numbers look too low**: its work may land on a branch that isn't measured. Setup ›
+  Branches says so and offers the fix.
+- **A save says "changed since you opened it"**: someone, or an editor, changed the file
+  meanwhile. Reload to see their change, then make yours again.
+- **An unexpected error**: run the command with `--debug` for the full stack trace, and open an
+  issue with it.
 
 ## Working on codeflow itself
 
-```bash
-npm run check        # typecheck, lint and every test, including a sweep of every report view
-npm run report:dev   # the report with live reload, on your synced data
-npm run fix          # format and apply safe lint fixes
-```
-
-[architecture.md](architecture.md) explains the design and the measurement rules,
-[decisions.md](decisions.md) why things are the way they are, and [roadmap.md](roadmap.md)
-what comes next.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) and [testing.md](testing.md). In short: `npm run check`
+before any change, `npm run verify` before a pull request.
