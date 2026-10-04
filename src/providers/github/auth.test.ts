@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hostFromApiUrl, resolveToken, tokenKind } from "./auth.ts";
+import { hostFromApiUrl, isLoopback, resolveToken, tokenKind } from "./auth.ts";
 
 const noGh = async () => undefined;
 
@@ -57,6 +57,15 @@ describe("tokenKind", () => {
   it("reads GitHub's token prefixes", () => {
     expect(tokenKind("ghu_x")).toBe("app-user");
     expect(tokenKind("something-else")).toBe("unknown");
+  });
+});
+
+describe("isLoopback", () => {
+  it("knows an API on this machine from GitHub's", () => {
+    expect(isLoopback("http://127.0.0.1:4000")).toBe(true);
+    expect(isLoopback("http://localhost:4000/api/v3")).toBe(true);
+    expect(isLoopback("https://api.github.com")).toBe(false);
+    expect(isLoopback("https://ghe.acme.com/api/v3")).toBe(false);
   });
 });
 

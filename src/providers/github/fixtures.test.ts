@@ -89,7 +89,7 @@ describe("real PRs from usebruno/bruno", () => {
     });
   });
 
-  it("ignores CodeRabbit's reviews, which are in these payloads", () => {
+  it("ignores CodeRabbit's reviews, which are in these payloads [rule 9]", () => {
     const rabbit = models
       .flatMap((model) => model.reviews)
       .filter((r) => r.author?.login === "coderabbitai");

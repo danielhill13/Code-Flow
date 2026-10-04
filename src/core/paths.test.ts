@@ -5,7 +5,7 @@ describe("pathClassifier", () => {
   const classify = pathClassifier();
   const bucket = (path: string) => classify("acme/api", path);
 
-  it("puts ordinary source in product", () => {
+  it("puts ordinary source in product [rule 3]", () => {
     expect(bucket("src/server.ts")).toBe("product");
     expect(bucket("packages/app/src/index.js")).toBe("product");
     expect(bucket("package.json")).toBe("product");
@@ -36,7 +36,7 @@ describe("pathClassifier", () => {
     expect(bucket("pkg/parse_test.go")).toBe("test");
   });
 
-  it("ignores case, since repos ship both Docs/ and docs/", () => {
+  it("ignores case, since repos ship both Docs/ and docs/ [rule 3]", () => {
     expect(bucket("Docs/Intro.MD")).toBe("docs");
     expect(bucket("Tests/x.js")).toBe("test");
   });
@@ -45,7 +45,7 @@ describe("pathClassifier", () => {
     expect(bucket("tests/fixtures/lib.min.js")).toBe("generated");
   });
 
-  it("checks configured rules first, optionally for some repos only", () => {
+  it("checks configured rules first, optionally for some repos only [rule 3]", () => {
     const custom = pathClassifier([
       { match: ["packages/*-tests/**"], bucket: "test" },
       { match: ["docs/**"], bucket: "product", repos: ["acme/website"] },

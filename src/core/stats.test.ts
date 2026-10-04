@@ -9,7 +9,7 @@ import {
 import { minObservations, percentile, percentileStat } from "./stats.ts";
 
 describe("minObservations", () => {
-  it("asks for five observations beyond the percentile, on whichever side is thinner", () => {
+  it("asks for five observations beyond the percentile, on whichever side is thinner [rule 6]", () => {
     expect([0.05, 0.25, 0.5, 0.75, 0.85, 0.9, 0.95].map(minObservations)).toEqual([
       100, 20, 10, 20, 34, 50, 100,
     ]);
@@ -25,7 +25,7 @@ describe("percentile", () => {
 });
 
 describe("percentileStat", () => {
-  it("hides a percentile with too few observations, counting values rather than PRs", () => {
+  it("hides a percentile with too few observations, counting values rather than PRs [rule 6]", () => {
     const tooFew = [1, 2, 3, 4, 5, 6, 7, 8, 9, null, null, null];
     expect(percentileStat(tooFew, 0.5)).toEqual({
       value: null,
@@ -55,7 +55,7 @@ describe("periods", () => {
     expect(parsePeriod("last month")).toBeNull();
   });
 
-  it("finds the last complete period before a date", () => {
+  it("finds the last complete period before a date [rule 7]", () => {
     const asOf = new Date("2026-10-02T18:39:00Z");
     expect(lastCompletePeriod("month", asOf).label).toBe("September 2026");
     expect(lastCompletePeriod("quarter", asOf).label).toBe("Q3 2026");

@@ -124,6 +124,15 @@ describe("breakdowns", () => {
     expect(defaultBreakdown(options, some({ team: ["Payments"] }))).toBe("repo");
   });
 
+  it("never breaks numbers down by author, even with people selected [rule 10]", () => {
+    const people = some({ person: ["ana", "visitor"] });
+    for (const selection of [EVERYTHING, people, some({ team: ["Payments"] })]) {
+      for (const by of breakdowns(options, selection)) {
+        expect(by === "team" || by === "repo" || by.startsWith("group:"), by).toBe(true);
+      }
+    }
+  });
+
   it("lists a kind's groups, and narrows one kind without dropping another", () => {
     expect(breakdownValues(options, "group:area", prs)).toEqual(["Mobile", "No area"]);
     expect(

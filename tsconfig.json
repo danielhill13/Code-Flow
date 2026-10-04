@@ -14,6 +14,13 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "scripts", "vite.report.config.ts"],
-  "exclude": ["src/report"]
+  "include": [
+    "src",
+    "scripts",
+    "test",
+    "vite.report.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ],
+  "exclude": ["src/report", "test/e2e"]
 }

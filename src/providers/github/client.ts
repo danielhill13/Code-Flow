@@ -52,7 +52,8 @@ export class GitHubClient {
     /**
      * Octokit's pacing, on by default. It sends GraphQL requests at most one per second, the
      * spacing GitHub asks for between writes. codeflow only reads, so this is conservative; it
-     * costs little because a page of PRs takes longer than that anyway. Tests turn it off.
+     * costs little because a page of PRs takes longer than that anyway. Tests turn it off, and
+     * so does an API on this machine (see isLoopback): there is no GitHub to be polite to.
      */
     pacing?: boolean;
   }) {

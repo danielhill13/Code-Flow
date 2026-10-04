@@ -1,12 +1,13 @@
 // The side panel: how codeflow read one PR, ready to check against GitHub. It shows what
 // `codeflow pr` shows.
 import { Fragment } from "preact";
-import { useEffect } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 import { PHASES } from "../core/aggregate.ts";
 import type { PrFact } from "../core/facts.ts";
 import { duration, names, num, PHASE_LABELS, waitingOnText } from "../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../core/metrics.ts";
 import { isCatchAll, isInternal } from "../core/selection.ts";
+import { isStale } from "../core/stale.ts";
 import { OPEN_STATE_LABELS } from "../core/views/prs.ts";
 import { capital } from "./ui.tsx";
 
@@ -24,27 +25,41 @@ const EXCLUSIONS = {
   promotion: "Not counted: it promotes work between long-lived branches.",
 } as const;
 
-export function Drawer(props: { pr: PrFact; asOf: Date; onClose: () => void }) {
+export function Drawer(props: {
+  pr: PrFact;
+  asOf: Date;
+  staleAfterDays: number;
+  onClose: () => void;
+}) {
   const { pr, asOf, onClose } = props;
+  const stale = isStale(pr, asOf, props.staleAfterDays);
   const internal = isInternal(pr);
   // Its team and groups, leaving out catch-alls such as "No product".
   const teams = [pr.team, ...pr.groups.filter((g) => !isCatchAll(g))].filter(
     (name): name is string => name !== null,
   );
-  useEffect(() => {
+  // Listening from the moment the panel shows, so an Escape pressed at once still closes it; and
+  // focus moves into the panel, so the keyboard and screen readers go where the eyes do.
+  const close = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
     addEventListener("keydown", onKey);
     return () => removeEventListener("keydown", onKey);
   }, [onClose]);
+  useLayoutEffect(() => {
+    close.current?.focus();
+  }, [pr.id]);
 
   const state =
     pr.state === "merged"
       ? "Merged"
       : pr.state === "closed"
         ? "Closed without merging"
-        : `Open · ${pr.openState ? OPEN_STATE_LABELS[pr.openState] : ""}`;
+        : stale
+          ? "Open · Stale"
+          : `Open · ${pr.openState ? OPEN_STATE_LABELS[pr.openState] : ""}`;
   const firstReviewer = pr.reviewLog[0]?.by;
   const events: { label: string; at: string | null; note?: string; color: string }[] = [
     { label: "First commit", at: pr.firstCommitAt, color: "var(--c-coding)" },
@@ -122,7 +137,7 @@ export function Drawer(props: { pr: PrFact; asOf: Date; onClose: () => void }) {
               #{pr.number}
             </span>
             <span class="pill">{state}</span>
-            <button type="button" class="close" aria-label="Close" onClick={onClose}>
+            <button type="button" class="close" aria-label="Close" onClick={onClose} ref={close}>
               ×
             </button>
           </div>
@@ -228,6 +243,16 @@ export function Drawer(props: { pr: PrFact; asOf: Date; onClose: () => void }) {
                 <span class="ring" />
                 <span class="soft">Now</span>
                 <span>waiting on {waitingOnText(pr, asOf)}</span>
+                {stale && pr.lastActivityAt && (
+                  <>
+                    <span class="ring" />
+                    <span class="soft">Stale</span>
+                    <span>
+                      no activity since {stamp(pr.lastActivityAt)}: more than{" "}
+                      {num(props.staleAfterDays)} days, so it isn't counted among open PRs
+                    </span>
+                  </>
+                )}
               </>
             )}
           </div>

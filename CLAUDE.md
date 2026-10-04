@@ -9,7 +9,9 @@ Open-source tool that measures code flow (first commit → review → merge) for
 ## Commands
 
 ```bash
-npm run check                # typecheck + lint + tests. Run before calling anything done.
+npm run check                # typecheck + lint + unit and scenario tests. Run before calling anything done.
+npm run verify               # check + build + browser tests (Playwright); what CI runs
+npm run test:unit            # just the tests beside the code; test:scenarios, test:e2e, coverage too
 npm run fix                  # Biome formatting and safe lint fixes
 npm run codeflow -- doctor   # read-only GitHub check; needs a codeflow.yml (gitignored)
 npm run codeflow -- sync     # fetch PRs into .codeflow/codeflow.db (gitignored); resumable
@@ -43,6 +45,9 @@ sets it up.
 - Node 24+, ESM. Node runs the TypeScript directly, so use erasable syntax only (no enums,
   namespaces or parameter properties), and import local files with their `.ts` extension.
 - Tests sit next to the code as `*.test.ts`. Shared test builders live in `src/testing/`.
+  Scenario tests (the real CLI against `src/testing/github-server.ts`) live in `test/scenarios/`,
+  browser tests in `test/e2e/`. A user-visible behaviour gets a `TC-` test and a row in the
+  catalog in docs/testing.md; a test proving a measurement rule ends its title with `[rule N]`.
 - Failures the user can fix throw `CodeflowError`, with a message saying what to do. The CLI
   prints it without a stack trace.
 - Every GitHub call goes through `GitHubClient`, which counts calls and points. Queries select

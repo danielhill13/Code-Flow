@@ -28,7 +28,7 @@ export function Flow(props: { model: FlowModel; state: ReportState; asOf: Date }
               ? "the data doesn't reach the window's start"
               : open.atStart === open.now
                 ? `same as on ${shortDate(start)}`
-                : `${open.now > open.atStart ? "↑" : "↓"} from ${num(open.atStart)} on ${shortDate(start)}`}
+                : `${open.now > open.atStart ? "increase" : "decrease"} from ${num(open.atStart)} on ${shortDate(start)}`}
           </div>
           <Spark
             points={open.series.map(({ bucket, count }) => ({
@@ -76,9 +76,36 @@ export function Flow(props: { model: FlowModel; state: ReportState; asOf: Date }
         />
       </div>
 
+      <Stale model={model} state={state} asOf={asOf} />
       <Ages model={model} state={state} />
       <Oldest model={model} state={state} asOf={asOf} />
     </>
+  );
+}
+
+/** Open PRs nobody has touched for a while: apart from the PRs open now, a click away. */
+function Stale(props: { model: FlowModel; state: ReportState; asOf: Date }) {
+  const { stale } = props.model;
+  const quiet =
+    stale.quietSince === null
+      ? ""
+      : ` · the quietest untouched for ${duration((props.asOf.getTime() - Date.parse(stale.quietSince)) / 3_600_000)}`;
+  return (
+    <section class="card stale-strip">
+      <div>
+        <h2>Stale</h2>
+        <p class="muted">
+          {stale.count === 0
+            ? `No open PR has gone more than ${num(stale.afterDays)} days without activity.`
+            : `${prs(stale.count)} open with no activity for more than ${num(stale.afterDays)} days, counted apart from the PRs open now${quiet}.`}
+        </p>
+      </div>
+      {stale.count > 0 && (
+        <a class="button" href={listHref(props.state, setList("stale", "Flow › Stale"))}>
+          List them
+        </a>
+      )}
+    </section>
   );
 }
 
@@ -89,7 +116,9 @@ function Ages({ model, state }: { model: FlowModel; state: ReportState }) {
     <section class="card">
       <div class="card-head">
         <h2>How old, and in what state</h2>
-        <span class="note">Open pull requests by age. Click a row to list them.</span>
+        <span class="note">
+          PRs open now, by age; stale ones aren't included. Click a row to list them.
+        </span>
         <span class="end legend" style={{ gap: "6px 14px" }}>
           {OPEN_STATES.map((s) => (
             <span key={s} class="soft" style={{ fontSize: "12px", gap: "6px" }}>

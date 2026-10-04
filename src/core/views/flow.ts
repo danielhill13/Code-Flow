@@ -40,6 +40,8 @@ export type FlowModel = {
   waiting: { count: number; oldestSince: string | null };
   approved: { count: number; oldestSince: string | null };
   abandoned: Tile;
+  /** Open PRs nobody has touched for longer than the org's stale window (decision D36). */
+  stale: { count: number; afterDays: number; quietSince: string | null };
   ages: { band: AgeBand; total: number; states: Record<OpenState, number> }[];
   /** The longest-open PRs. */
   oldest: PrFact[];
@@ -51,9 +53,10 @@ export function flow(ctx: ViewContext, q: ViewQuery): FlowModel {
   const window = windowView(ctx, q.window);
   const slice = new Slice(ctx, q.selection, q.contributors);
   const open = slice.open().sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const stale = slice.stale();
   const counted = slice.facts.filter((pr) => pr.counted);
   const openAt = (at: string) =>
-    covers(ctx.coveredFrom, { start: at }) ? openCount(counted, at) : null;
+    covers(ctx.coveredFrom, { start: at }) ? openCount(counted, at, ctx.staleAfterDays) : null;
   const inState = (state: OpenState) => open.filter((pr) => pr.openState === state);
   const oldestSince = (prs: readonly PrFact[]) =>
     prs.reduce<string | null>((min, pr) => {
@@ -75,6 +78,14 @@ export function flow(ctx: ViewContext, q: ViewQuery): FlowModel {
     waiting: { count: inState("waiting").length, oldestSince: oldestSince(inState("waiting")) },
     approved: { count: inState("approved").length, oldestSince: oldestSince(inState("approved")) },
     abandoned: slice.tile("abandoned", window, q.percentile),
+    stale: {
+      count: stale.length,
+      afterDays: ctx.staleAfterDays,
+      quietSince: stale.reduce<string | null>(
+        (min, pr) => (min === null || (pr.lastActivityAt ?? min) < min ? pr.lastActivityAt : min),
+        null,
+      ),
+    },
     ages: AGE_BANDS.map((band) => {
       const prs = open.filter((pr) => inAgeBand(band, (asOf - Date.parse(pr.createdAt)) / DAY_MS));
       const states = Object.fromEntries(
@@ -91,14 +102,25 @@ export function inAgeBand(band: AgeBand, days: number): boolean {
 }
 
 /**
- * Counted PRs open at an instant: opened by then, and not yet merged or closed. A PR that was
- * closed and reopened counts as open from its creation until its last close.
+ * Counted PRs open, and not stale, at an instant: opened by then, not yet merged or closed, and
+ * touched within `staleAfterDays` before it. A PR that was closed and reopened counts as open
+ * from its creation until its last close. Only a PR's latest activity is known, so a PR that
+ * was quiet for a while and then active again counts as active over the quiet stretch too.
  */
-export function openCount(facts: readonly PrFact[], at: string): number {
+export function openCount(
+  facts: readonly PrFact[],
+  at: string,
+  staleAfterDays = Number.POSITIVE_INFINITY,
+): number {
   let count = 0;
+  const instant = Date.parse(at);
   for (const pr of facts) {
     const ended = pr.mergedAt ?? (pr.state === "closed" ? pr.closedAt : null);
-    if (pr.createdAt <= at && (ended === null || ended > at)) count += 1;
+    if (pr.createdAt > at || (ended !== null && ended <= at)) continue;
+    const quietFrom =
+      pr.lastActivityAt !== null && pr.lastActivityAt <= at ? pr.lastActivityAt : null;
+    if (quietFrom !== null && (instant - Date.parse(quietFrom)) / DAY_MS > staleAfterDays) continue;
+    count += 1;
   }
   return count;
 }

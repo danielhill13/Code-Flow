@@ -1,6 +1,7 @@
 import type { PrFact } from "../../core/facts.ts";
 import { duration, num, waitingOnText } from "../../core/format.ts";
 import { isCatchAll, isInternal } from "../../core/selection.ts";
+import { quietDays } from "../../core/stale.ts";
 import { ageDays } from "../../core/views/flow.ts";
 import {
   COLUMNS,
@@ -33,6 +34,7 @@ const COLUMN: Record<PrColumn | "waiting", Omit<Column, "key">> = {
   size: { label: "Size", width: "64px" },
   reviews: { label: "Reviews", width: "64px" },
   state: { label: "State", width: "150px" },
+  quiet: { label: "Quiet for", width: "84px" },
   waiting: { label: "Waiting on", width: "minmax(190px,.7fr)" },
 };
 
@@ -51,6 +53,7 @@ function columnsOf(list: ListState): Column[] {
 const SETS: readonly { value: PrSet; label: string }[] = [
   { value: "merged", label: "Merged" },
   { value: "open", label: "Open" },
+  { value: "stale", label: "Stale" },
   { value: "abandoned", label: "Abandoned" },
 ];
 
@@ -206,6 +209,10 @@ function Cell(props: { column: PrColumn | "waiting"; pr: PrFact; sorted: boolean
       return plain(pr.mergedAt ? shortDate(pr.mergedAt, year) : "—");
     case "closed":
       return plain(pr.closedAt ? shortDate(pr.closedAt, year) : "—");
+    case "quiet": {
+      const quiet = quietDays(pr, asOf);
+      return plain(quiet === null ? "—" : duration(quiet * 24));
+    }
     case "age":
       return plain(
         pr.state === "open"

@@ -1,4 +1,5 @@
-import type { Config } from "../config/schema.ts";
+import { relative } from "node:path";
+import type { Org } from "../config/workspace.ts";
 import { branchesSnippet, unmeasuredBranches } from "../core/branches.ts";
 import { measuredBranches } from "../pipeline/derive.ts";
 import type { Store } from "../store/store.ts";
@@ -8,7 +9,8 @@ import { dim, num, status } from "./format.ts";
  * A warning for each repo whose recent work lands on a branch that isn't measured, with the
  * config that would measure it (rule 2). Empty when every repo looks right. Reads facts only.
  */
-export function branchWarnings(store: Store, config: Config, asOf = new Date()): string[] {
+export function branchWarnings(store: Store, org: Org, asOf = new Date()): string[] {
+  const { config } = org;
   const advice = unmeasuredBranches(store.facts(), asOf);
   if (advice.length === 0) return [];
   const repos = new Map(store.repos().map((repo) => [repo.fullName, repo]));
@@ -28,6 +30,8 @@ export function branchWarnings(store: Store, config: Config, asOf = new Date()):
     .split("\n")
     .map((line) => `    ${line}`)
     .join("\n");
-  lines.push(dim(`  If that is where work lands, measure it in codeflow.yml:\n${snippet}`));
+  // The file `branches:` belongs in: the org's org.yml, or a single-file config itself.
+  const file = relative(process.cwd(), org.files.org) || org.files.org;
+  lines.push(dim(`  If that is where work lands, measure it in ${file}:\n${snippet}`));
   return lines;
 }

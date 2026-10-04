@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PROMOTION_BRANCHES } from "../core/derive.ts";
 import { loadConfig, parseConfig } from "./load.ts";
+import { everyMs } from "./schema.ts";
 
 describe("codeflow.example.yml", () => {
   it("stays a valid config as the schema changes", async () => {
@@ -46,6 +47,9 @@ since: 2025-10-01
       promotions: [...DEFAULT_PROMOTION_BRANCHES],
       bots: { accounts: [], reviewers: [], include_prs: false, ignore_bodies: [] },
       paths: [],
+      sync_every: "24h",
+      stale_after_days: 90,
+      people_views: true,
       people: {},
       teams: {},
       groups: {},
@@ -222,6 +226,19 @@ github:
 
   it("rejects unknown keys rather than ignoring them", () => {
     expect(errorOf("sources:\n  - owner: a\nsince: 2025-10-01\nteamz: {}\n")).toMatch(/teamz/);
+  });
+
+  it("reads the sync schedule, the stale window and people views, refusing nonsense", () => {
+    const base = "sources:\n  - owner: acme\nsince: 2025-10-01\n";
+    const config = parseConfig(
+      `${base}sync_every: 6h\nstale_after_days: 30\npeople_views: false\n`,
+    );
+    expect(config).toMatchObject({ sync_every: "6h", stale_after_days: 30, people_views: false });
+    expect(everyMs("6h")).toBe(6 * 3_600_000);
+    expect(everyMs("off")).toBe(Number.POSITIVE_INFINITY);
+    expect(() => parseConfig(`${base}sync_every: daily\n`)).toThrow(/like 24h, 6h/);
+    expect(() => parseConfig(`${base}sync_every: 5m\n`)).toThrow(/15m or longer/);
+    expect(() => parseConfig(`${base}stale_after_days: 0\n`)).toThrow(/stale_after_days/);
   });
 
   it("rejects impossible dates", () => {

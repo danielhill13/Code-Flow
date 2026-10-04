@@ -170,15 +170,20 @@ npm run build                    # once, and after pulling changes: builds the p
 npm run codeflow -- serve
 ```
 
-Then open <http://localhost:4317>. It is the same report, answered live from each org's data,
-with two additions:
+Then open <http://localhost:4317>. It is the same report, answered live from each org's data.
+The page is about 40 KB; each view's numbers come from the server as you move around, a few KB
+at a time, however many PRs the org has. It adds:
 
 - **An org picker** at the top left. Each org is at its own address, `/orgs/<org>/`, and shows
   nothing of any other.
-- **A Setup tab**, to edit the org's people, teams, groups and rules, and to import and export
-  them. Saving writes the org's own files in `orgs/<org>/` (you can keep editing those by hand
-  too) and the report recomputes at once. While you write a rule, Setup shows how many PRs it
-  would change, and which.
+- **A Setup tab**, to edit the org's people, teams, groups, rules and settings, and to import and
+  export them. Saving writes the org's own files in `orgs/<org>/` (you can keep editing those by
+  hand too) and the report recomputes at once. While you write a rule, Setup shows how many PRs
+  it would change, and which.
+- **Fresh data, on a schedule.** While it runs, `serve` syncs each org daily (or as often as the
+  org's `sync_every` says), one org at a time. The header shows when the data runs through, how
+  long ago that was, and when the next sync is; it turns amber if a sync is overdue. A page
+  that's open picks up new data by itself. Start it with `--no-schedule` to sync only by hand.
 
 An org that hasn't synced yet shows only Setup, so you can set it up before its first sync.
 `serve` only listens on this machine (`--port` and `--host` change that); there is no sign-in
@@ -186,11 +191,17 @@ yet, so don't expose it to a network. Stop it with Ctrl-C.
 
 ## 9. Keep it current
 
-Run `sync` and then `build` whenever you want fresh numbers, for example from a daily cron job:
+With `codeflow serve` running, there is nothing to do: it syncs every org daily by default. To
+change how often, set `sync_every` in the org's `org.yml` (`6h`, `24h`, `7d`, or `off`), or in
+Setup › Settings.
+
+Without `serve`, run `codeflow run` (sync, then build) from a scheduler. A daily cron job:
 
 ```bash
-cd /path/to/Code-Flow && npm run codeflow -- sync && npm run codeflow -- build
+0 6 * * * cd /path/to/Code-Flow && npm run codeflow -- run >> codeflow.log 2>&1
 ```
+
+On Windows, Task Scheduler can run `npm run codeflow -- run` in the clone's folder the same way.
 
 Changing an org's config (teams, branches, bots, paths) needs no new sync: the next `summary` or
 `build` recomputes everything from the stored data, in about a second per few thousand PRs.

@@ -31,6 +31,12 @@ export function hostFromApiUrl(apiUrl: string): string {
   return hostname === "api.github.com" ? "github.com" : hostname;
 }
 
+/** Whether an API URL is on this machine: a test's fake GitHub, never GitHub itself. */
+export function isLoopback(apiUrl: string): boolean {
+  const { hostname } = new URL(apiUrl);
+  return ["localhost", "127.0.0.1", "[::1]"].includes(hostname);
+}
+
 /**
  * Finds a token without the user pasting one anywhere: the configured environment variable,
  * then GH_TOKEN, then the GitHub CLI's stored login.

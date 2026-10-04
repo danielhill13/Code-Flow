@@ -64,13 +64,14 @@ export async function summary(options: SummaryOptions): Promise<number> {
     const result = measure(facts, period, {
       asOf,
       percentile: parsePercentile(options.percentile),
+      staleAfterDays: config.stale_after_days,
     });
 
-    const warnings = branchWarnings(store, config, asOf);
+    const warnings = branchWarnings(store, org, asOf);
     if (options.json) {
       print(JSON.stringify(toJson(result, repos), null, 2));
     } else {
-      printSummary(result, repos, isComplete(period, asOf), print);
+      printSummary(result, repos, isComplete(period, asOf), print, config.stale_after_days);
       if (warnings.length > 0) print();
       for (const line of warnings) print(line);
       if (options.explain) printDefinitions(print);
@@ -81,7 +82,13 @@ export async function summary(options: SummaryOptions): Promise<number> {
   }
 }
 
-function printSummary(result: Measurement, repos: string[], complete: boolean, print: Print): void {
+function printSummary(
+  result: Measurement,
+  repos: string[],
+  complete: boolean,
+  print: Print,
+  staleAfterDays: number,
+): void {
   const scope = repos.length <= 3 ? repos.join(", ") : `${plural(repos.length, "repo")}`;
   print(
     status(
@@ -125,9 +132,14 @@ function printSummary(result: Measurement, repos: string[], complete: boolean, p
       }
     }
   }
-  const { count, drafts, medianAgeDays } = result.open;
+  const { count, drafts, medianAgeDays, stale } = result.open;
   const age = medianAgeDays === null ? "" : `, median age ${Math.round(medianAgeDays)} days`;
   print(`Open now: ${plural(count, "PR")} (${num(drafts)} drafts)${age}`);
+  if (stale > 0) {
+    print(
+      `Stale: ${plural(stale, "open PR")} with no activity for more than ${staleAfterDays} days`,
+    );
+  }
 
   const excluded = [
     result.excluded.base &&

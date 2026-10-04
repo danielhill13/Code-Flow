@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs";
+import type { Org } from "../config/workspace.ts";
 import type { Exclusion, PrFact } from "../core/facts.ts";
 import { duration } from "../core/format.ts";
+import { isStale } from "../core/stale.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
@@ -19,16 +21,19 @@ const EXCLUSIONS: Record<Exclusion, (pr: PrFact) => string> = {
 /** How codeflow reads one PR: every derived value next to the timestamps it came from. */
 export async function showPr(target: string, options: PrOptions): Promise<number> {
   const print: Print = (line = "") => console.log(line);
-  const {
-    orgs: [org],
-  } = await orgsFor(options, true);
-  if (!org) throw new CodeflowError("No org to read.");
+  // owner/name#123, #123, 123, or the PR's address on GitHub, as copied from the browser.
+  const match =
+    /^(?:([\w.-]+\/[\w.-]+))?#?(\d+)$/.exec(target.trim()) ??
+    /^https?:\/\/[^/]+\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)\b/.exec(target.trim());
+  if (!match) {
+    throw new CodeflowError(
+      `Expected a PR like owner/name#123, 123 or its GitHub address, got "${target}".`,
+    );
+  }
+  const [, repo, number] = match;
+  const org = await orgOf(options, repo);
   const { config, dbPath } = org;
   if (!existsSync(dbPath)) throw new CodeflowError("Nothing synced yet. Run: codeflow sync");
-
-  const match = /^(?:([\w.-]+\/[\w.-]+))?#?(\d+)$/.exec(target.trim());
-  if (!match) throw new CodeflowError(`Expected a PR like owner/name#123 or 123, got "${target}".`);
-  const [, repo, number] = match;
 
   const store = Store.open(dbPath);
   try {
@@ -45,20 +50,47 @@ export async function showPr(target: string, options: PrOptions): Promise<number
         `#${number} is in several repos; say which: ${found.map((pr) => `${pr.repo}#${number}`).join(", ")}`,
       );
     }
-    printPr(found[0] as PrFact, print);
+    const asOf = new Date(store.dataThrough() ?? Date.now());
+    printPr(found[0] as PrFact, print, { asOf, staleAfterDays: config.stale_after_days });
     return 0;
   } finally {
     store.close();
   }
 }
 
-function printPr(pr: PrFact, print: Print): void {
+/**
+ * The org a PR belongs to: the one named with --org, the only one, or, among several, the one
+ * whose synced data holds the PR's repo.
+ */
+async function orgOf(options: PrOptions, repo: string | undefined): Promise<Org> {
+  const { orgs } = await orgsFor(options, options.org !== undefined || !repo);
+  if (orgs.length === 1 && orgs[0]) return orgs[0];
+  const holding = orgs.filter((org) => {
+    if (!existsSync(org.dbPath)) return false;
+    const store = Store.open(org.dbPath);
+    try {
+      return store.repos().some((r) => r.fullName.toLowerCase() === repo?.toLowerCase());
+    } finally {
+      store.close();
+    }
+  });
+  if (holding.length === 1 && holding[0]) return holding[0];
+  const names = (holding.length > 0 ? holding : orgs).map((org) => org.name).join(", ");
+  throw new CodeflowError(
+    holding.length === 0
+      ? `No org has ${repo} in its synced data. Orgs: ${names}.`
+      : `${repo} is in several orgs: say which with --org (${names}).`,
+  );
+}
+
+function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays: number }): void {
   print(`${bold(`${pr.repo}#${pr.number}`)}  ${pr.title}`);
   print(dim(`  ${pr.url}`));
   print();
 
   const by = `${pr.author}${pr.authorIsBot ? " (bot)" : ""}`;
-  const relation = [pr.authorAssociation?.toLowerCase(), pr.fromFork && "from a fork"]
+  const association = pr.authorAssociation?.toLowerCase();
+  const relation = [association !== "none" && association, pr.fromFork && "from a fork"]
     .filter(Boolean)
     .join(", ");
   const state =
@@ -68,6 +100,15 @@ function printPr(pr: PrFact, print: Print): void {
         ? "closed without merging"
         : `open${pr.draft ? ", a draft" : ""}, into ${pr.baseBranch}`;
   print(status("info", "State", `${state} · opened by ${by}${relation ? ` (${relation})` : ""}`));
+  if (isStale(pr, context.asOf, context.staleAfterDays) && pr.lastActivityAt) {
+    print(
+      status(
+        "warn",
+        "Stale",
+        `no activity since ${pr.lastActivityAt.slice(0, 10)}, more than ${context.staleAfterDays} days: listed apart from open PRs`,
+      ),
+    );
+  }
   print(
     pr.counted
       ? status("ok", "Counted", "yes")

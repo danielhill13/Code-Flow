@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { DEFAULT_PROMOTION_BRANCHES } from "../core/derive.ts";
+import { everyMs } from "../core/every.ts";
+
+export { everyMs };
+
 import { groupProblems, type Member, NO_TEAM, noGroup } from "../core/groups.ts";
 import { BUCKETS } from "../core/paths.ts";
 import { type Rule, ruleProblems } from "../core/rules.ts";
@@ -327,6 +331,22 @@ const settingsShape = {
   bots: BotsSchema.prefault({}),
   /** Path rules checked before the built-in ones. */
   paths: z.array(PathRuleSchema).default([]),
+  /**
+   * How often `codeflow serve` syncs the org on its own: a number and a unit (m, h, d), such as
+   * 24h or 6h, or off. Daily by default (decision D37).
+   */
+  sync_every: z
+    .string()
+    .regex(/^(off|\d+[mhd])$/, "must be like 24h, 6h, 30m, 7d, or off")
+    .refine((text) => text === "off" || everyMs(text) >= 15 * 60_000, "must be 15m or longer")
+    .default("24h"),
+  /**
+   * An open PR with no activity by a person for this many days is stale: shown and listed apart
+   * from the PRs open now (decision D36).
+   */
+  stale_after_days: z.int().min(1).max(3650).default(90),
+  /** Whether the report offers one person's numbers: picking people, reviewers by name. */
+  people_views: z.boolean().default(true),
 };
 
 /** What people.yml, groups.yml and rules.yml hold. */

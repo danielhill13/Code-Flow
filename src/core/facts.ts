@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 5;
+export const DERIVE_VERSION = 6;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -145,6 +145,11 @@ export type PrFact = {
   waitingOn: WaitingOn | null;
   /** When the current wait began: the ready, review, request or push that handed it over. */
   waitingSince: string | null;
+  /**
+   * An open PR's newest activity by a person (not a bot): pushes, reviews, comments, requests.
+   * An open PR quiet for longer than the org's `stale_after_days` is stale (decision D36).
+   */
+  lastActivityAt: string | null;
 
   // Reverts, linked across the repo. Only merged PRs revert, and only merged PRs are reverted.
   /** Numbers of the PRs this one reverts. */

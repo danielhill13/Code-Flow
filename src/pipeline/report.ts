@@ -37,6 +37,7 @@ export function reportData(
     repos,
     groups: groupsOf(config, repos),
     facts: store.facts(),
+    settings: { staleAfterDays: config.stale_after_days, peopleViews: config.people_views },
   };
 }
 

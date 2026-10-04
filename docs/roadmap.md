@@ -77,9 +77,20 @@ export. It writes the same files, and its answers match the static report's (a c
 test compares them). Phase 4 still needs sign-in, a scheduler and a Docker image before serve
 can be hosted.
 
+`codeflow serve` keeps data fresh by itself: each org syncs on its `sync_every`, daily by default
+(D37), and `codeflow run` (sync, then build) serves cron. The served page stays about 40 KB
+compressed and asks the server for each view, a few KB at a time, whatever the org's size
+(D38). Changes read as a neutral increase or decrease, in one unit (D35). Open PRs quiet for
+longer than the org's `stale_after_days` are stale, counted apart from the PRs open now (D36),
+and an org can turn person-level views off.
+
+Tests run in four layers, all offline (D34): unit tests, a sweep of every report view, scenario
+tests running the real CLI against a fake GitHub, and browser tests of the report and `serve` in
+Chromium. `npm run check` runs the first three; `npm run verify` adds the browser. Every
+measurement rule and every catalogued behaviour in [testing.md](testing.md) has a test.
+
 **Still to do in phase 3:**
 
-- `codeflow run`: sync, then build.
 - Print: check each tab on paper, and that Compare fits on one page.
 - The scope menus could show each team's merged count, as the design does.
 - Report size: 3.8 MB for bruno's 2,575 PRs. Facts could drop what no view reads.

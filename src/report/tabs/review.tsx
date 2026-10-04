@@ -1,4 +1,3 @@
-import { change, changeArrow } from "../../core/compare.ts";
 import { duration, formatValue, num, percent, prs, statLabel } from "../../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../../core/metrics.ts";
 import { isEverything } from "../../core/selection.ts";
@@ -9,6 +8,7 @@ import {
   type BreakdownChoice,
   BreakdownControl,
   breakdownLabel,
+  ChangeArrow,
   MetricTile,
   SingleBreakdown,
 } from "../ui.tsx";
@@ -166,11 +166,10 @@ function Paired({
     previous: Parameters<typeof formatValue>[0] | null;
   };
 }) {
-  const arrow = changeArrow(change(value.value, value.previous));
   return (
     <span title={value.value.hidden}>
       {formatValue(value.value)}
-      {arrow && <span class="arrow">{arrow}</span>}
+      <ChangeArrow value={value.value} previous={value.previous} />
     </span>
   );
 }
@@ -235,7 +234,9 @@ function ReviewerLoad({ model, state }: { model: ReviewModel; state: ReportState
           ))}
           {model.others && (
             <div class="row dense" style={{ "--cols": cols }}>
-              <span class="soft">{num(model.others.count)} others</span>
+              <span class="soft">
+                {num(model.others.count)} {model.reviewers.length > 0 ? "others" : "reviewers"}
+              </span>
               <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <span class="track">
                   <i

@@ -41,7 +41,7 @@ describe("measure", () => {
     expect(result.excluded).toEqual({ bot: 1, base: 1, promotion: 0, rule: 0 });
   });
 
-  it("hides a median resting on fewer than 10 PRs", () => {
+  it("hides a median resting on fewer than 10 PRs [rule 6]", () => {
     expect(metricOf(many(9), "cycle")).toMatchObject({
       value: null,
       n: 9,
@@ -58,7 +58,7 @@ describe("measure", () => {
     expect(p75).toMatchObject({ value: 72, n: 20 });
   });
 
-  it("counts a share only over the PRs it applies to", () => {
+  it("counts a share only over the PRs it applies to [rule 4]", () => {
     const reviewed = {
       reviews: [{ author: bob, state: "approved" as const, at: at("03-03 10:00"), body: "" }],
     };
@@ -86,7 +86,7 @@ describe("measure", () => {
     expect(metricOf(facts, "abandoned")).toMatchObject({ value: 0.25, n: 4 });
   });
 
-  it("splits cycle hours into phases that add up, naming a PR that dominates one", () => {
+  it("splits cycle hours into phases that add up, naming a PR that dominates one [rule 5]", () => {
     const facts = [
       ...many(3),
       fact({
@@ -115,6 +115,18 @@ describe("measure", () => {
       createdAt: at("04-05 00:00"),
     };
     const result = measure([fact(open), fact({ ...open, draft: true })], march, { asOf });
-    expect(result.open).toEqual({ count: 2, drafts: 1, medianAgeDays: 10 });
+    expect(result.open).toEqual({ count: 2, drafts: 1, medianAgeDays: 10, stale: 0 });
+  });
+
+  it("counts open PRs nobody has touched for longer than the window apart, as stale", () => {
+    const open = { state: "open" as const, mergedAt: null, closedAt: null };
+    const quiet = fact({ ...open, createdAt: at("01-05 00:00"), commits: [] });
+    const busy = fact({ ...open, createdAt: at("04-05 00:00") });
+    const result = measure([quiet, busy], march, { asOf, staleAfterDays: 30 });
+    expect(result.open).toMatchObject({ count: 1, stale: 1 });
+    expect(measure([quiet, busy], march, { asOf, staleAfterDays: 365 }).open).toMatchObject({
+      count: 2,
+      stale: 0,
+    });
   });
 });

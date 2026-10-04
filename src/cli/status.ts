@@ -95,7 +95,7 @@ function orgStatus(org: Org, print: Print): number {
       }
     }
     deriveFacts(store, config);
-    notes.push(...branchWarnings(store, config));
+    notes.push(...branchWarnings(store, org));
     if (notes.length > 0) print();
     for (const note of notes) print(note);
     return 0;

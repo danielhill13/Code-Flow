@@ -5,7 +5,7 @@ import { bucketsOf, covers, grainOf, shiftBack, windowOf } from "./windows.ts";
 const asOf = new Date("2026-10-03T00:12:08.928Z");
 
 describe("windowOf", () => {
-  it("ends a rolling window when the data does, to the second, and compares the same length", () => {
+  it("ends a rolling window when the data does, to the second, and compares the same length [rule 7]", () => {
     expect(windowOf("30d", asOf)).toEqual({
       key: "30d",
       current: {
@@ -21,7 +21,7 @@ describe("windowOf", () => {
     });
   });
 
-  it("compares year to date with the same span a year earlier", () => {
+  it("compares year to date with the same span a year earlier [rule 7]", () => {
     const { current, previous } = windowOf("ytd", asOf);
     expect(current).toMatchObject({ start: "2026-01-01T00:00:00Z", end: "2026-10-03T00:12:08Z" });
     expect(previous).toEqual({

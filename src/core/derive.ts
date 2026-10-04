@@ -175,6 +175,7 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     reviewLog: log,
     responses: responses(log, requests, readyAt ?? pr.createdAt),
     ...standing(pr, log, requests, readyAt),
+    lastActivityAt: lastActivity(pr, rules.isBot),
     reverts: [],
     revertedBy: null,
     revertedAt: null,
@@ -432,6 +433,22 @@ function unique(names: readonly string[]): string[] {
   const seen = new Map<string, string>();
   for (const name of names) if (!seen.has(name.toLowerCase())) seen.set(name.toLowerCase(), name);
   return [...seen.values()];
+}
+
+/**
+ * An open PR's newest sign of life from a person: a push, a review, a comment, a request, a
+ * draft flip. Bots don't count: a stale-bot's nudge doesn't make a PR active. Null once ended.
+ */
+function lastActivity(pr: PrModel, isBot: (actor: Actor) => boolean): string | null {
+  if (pr.state !== "open") return null;
+  const person = (actor: Actor | null) => actor !== null && !isBot(actor);
+  return latest([
+    pr.createdAt,
+    ...pr.commits.map((commit) => commit.committedAt),
+    ...pr.reviews.flatMap((review) => (person(review.author) && review.at ? [review.at] : [])),
+    ...pr.comments.flatMap((comment) => (person(comment.author) ? [comment.at] : [])),
+    ...pr.events.map((event) => event.at),
+  ]);
 }
 
 function latest(times: readonly string[]): string | null {

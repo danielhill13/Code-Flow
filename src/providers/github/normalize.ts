@@ -10,7 +10,7 @@ import type {
   Truncatable,
 } from "../../core/model.ts";
 
-type GhActor = { __typename: string; login: string } | null;
+export type GhActor = { __typename: string; login: string } | null;
 
 type GhConnection<T> = {
   totalCount: number;

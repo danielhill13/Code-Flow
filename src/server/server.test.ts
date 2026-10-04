@@ -228,7 +228,7 @@ describe("serve", () => {
 
   it("refuses writes without its header, and requests addressed to another host", async () => {
     expect((await send("PUT", "/api/orgs/acme/config/rules", {}, false)).status).toBe(403);
-    const guarded = createServer(new Registry(config), { template: "", hosts: ["localhost:1"] });
+    const guarded = createServer(new Registry(config), { template: "", hosts: ["localhost"] });
     await new Promise<void>((resolve) => guarded.listen(0, "127.0.0.1", resolve));
     const address = guarded.address();
     const port = typeof address === "object" && address ? address.port : 0;
@@ -240,5 +240,92 @@ describe("serve", () => {
     });
     guarded.close();
     expect(status).toBe(403);
+  });
+});
+
+describe("serve, for a large org", () => {
+  let large: Server;
+  let url: string;
+  beforeAll(async () => {
+    const dir = await mkdtemp(join(tmpdir(), "codeflow-serve-large-"));
+    const file = join(dir, "codeflow.yml");
+    await init({ config: file, org: "big", repo: ["big-co/mono"], since: "2026-01-01" });
+    const [big] = (await loadWorkspace(file)).orgs;
+    if (!big) throw new Error("no org");
+    seed(big.dbPath, "big-co/mono", "Big", 3000);
+    const page = `<html>${"x".repeat(150_000)}</html>`;
+    large = createServer(new Registry(file), { template: page, hosts: null });
+    await new Promise<void>((resolve) => large.listen(0, "127.0.0.1", resolve));
+    const address = large.address();
+    url = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
+  });
+  afterAll(() => large.close());
+
+  /** Bytes on the wire, as a browser that accepts brotli receives them. */
+  const wire = async (path: string, init: RequestInit = {}) => {
+    const response = await new Promise<{ bytes: number; headers: Record<string, unknown> }>(
+      (resolve) => {
+        const req = httpRequest(
+          `${url}${path}`,
+          {
+            method: init.method ?? "GET",
+            headers: {
+              "accept-encoding": "br, gzip",
+              "content-type": "application/json",
+              "x-codeflow": "1",
+              ...(init.headers as Record<string, string>),
+            },
+          },
+          (res) => {
+            let bytes = 0;
+            res.on("data", (chunk: Buffer) => {
+              bytes += chunk.length;
+            });
+            res.on("end", () => resolve({ bytes, headers: res.headers }));
+          },
+        );
+        if (init.body) req.write(init.body);
+        req.end();
+      },
+    );
+    return response;
+  };
+
+  it("sends a compressed page once, then only what changed, and each view in a few KB", async () => {
+    const page = await wire("/orgs/big/");
+    expect(page.headers["content-encoding"]).toBe("br");
+    expect(page.bytes).toBeLessThan(2_000);
+    const again = await wire("/orgs/big/", {
+      headers: { "if-none-match": String(page.headers.etag) },
+    });
+    expect(again.bytes).toBe(0);
+
+    const meta = await wire("/api/orgs/big/meta");
+    expect(meta.bytes).toBeLessThan(10_000);
+    for (const view of ["overview", "speed", "review", "flow"]) {
+      const answer = await wire(`/api/orgs/big/views/${view}`, {
+        method: "POST",
+        body: JSON.stringify(query),
+      });
+      expect(answer.bytes, view).toBeLessThan(15_000);
+    }
+    const list = await wire("/api/orgs/big/views/prs", {
+      method: "POST",
+      body: JSON.stringify({
+        selection: EVERYTHING,
+        contributors: "all",
+        set: "merged",
+        filters: [],
+        sort: { key: "merged", dir: "desc" },
+        limit: 50,
+      }),
+    });
+    expect(list.bytes).toBeLessThan(25_000);
+  });
+
+  it("never sends the org's PRs wholesale: the page asks for each view as the reader moves", async () => {
+    const meta = await (await fetch(`${url}/api/orgs/big/meta`)).text();
+    expect(meta).not.toContain("Big change");
+    expect(JSON.parse(meta).meta.facts).toBeUndefined();
   });
 });

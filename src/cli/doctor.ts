@@ -104,7 +104,7 @@ async function doctorOrg(org: Org, options: DoctorOptions, print: Print): Promis
     const store = Store.open(session.dbPath);
     try {
       deriveFacts(store, config);
-      for (const line of branchWarnings(store, config)) print(line);
+      for (const line of branchWarnings(store, org)) print(line);
     } finally {
       store.close();
     }

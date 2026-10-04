@@ -24,6 +24,21 @@ export function duration(hours: number): string {
   return `${num(Math.round(hours / 24))} d`;
 }
 
+/**
+ * Hours written in the unit `like` would be written in, so two values compare at a glance:
+ * 31.6 hours next to 3.1 days reads "1.3 d". Minutes and hours stay as duration() writes them.
+ */
+export function durationLike(hours: number, like: number): string {
+  if (like < 1 && hours < 48) return `${Math.round(hours * 60)} min`;
+  if (like < 48 && hours >= 1 / 60 && hours < 2400) {
+    return hours < 1 ? `${Math.round(hours * 60)} min` : `${hours.toFixed(1)} h`;
+  }
+  if (like >= 48) {
+    return hours >= 2400 ? `${num(Math.round(hours / 24))} d` : `${(hours / 24).toFixed(1)} d`;
+  }
+  return duration(hours);
+}
+
 /** "78%", or one decimal under 10%: "1.2%". */
 export const percent = (share: number) =>
   share > 0 && share < 0.1 ? `${(share * 100).toFixed(1)}%` : `${Math.round(share * 100)}%`;

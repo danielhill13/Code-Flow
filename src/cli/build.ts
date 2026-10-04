@@ -11,6 +11,9 @@ import { type OrgOptions, orgsFor } from "./session.ts";
 
 export type BuildOptions = OrgOptions & { out?: string; dataOnly?: boolean };
 
+/** Above this, a static report is slow to open: `build` suggests `serve` instead. */
+const HEAVY_BYTES = 2 * 1024 * 1024;
+
 /**
  * Writes the report: one HTML file per org with that org's PRs inside, viewable offline. A file
  * never holds, or names, another org.
@@ -55,6 +58,16 @@ export async function build(options: BuildOptions): Promise<number> {
         `${out} (${megabytes} MB): ${plural(data.facts.length, "PR")} from ${data.repos.join(", ")}`,
       ),
     );
+    if (!options.dataOnly && statSync(out).size > HEAVY_BYTES) {
+      console.log(
+        status(
+          "info",
+          "",
+          "This file carries every PR so it can open offline, which makes it large. For a page " +
+            "of about 40 KB that loads each view as you move around, run: codeflow serve",
+        ),
+      );
+    }
     built += 1;
   }
   return built > 0 ? 0 : 1;

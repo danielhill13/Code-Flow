@@ -21,6 +21,7 @@ import {
   type Selection,
   selects,
 } from "../selection.ts";
+import { isStale } from "../stale.ts";
 import {
   type Bucket,
   bucketsOf,
@@ -40,6 +41,10 @@ export type ViewContext = {
   asOf: Date;
   /** The first day the data fully covers, YYYY-MM-DD. */
   coveredFrom: string;
+  /** An open PR quiet for longer than this is stale (decision D36). */
+  staleAfterDays: number;
+  /** Whether views may name one person's numbers, such as reviewers by name. */
+  peopleViews: boolean;
 };
 
 /** What a tab is asked for: which PRs, broken down how, over which window, with which statistic. */
@@ -190,9 +195,19 @@ export class Slice {
     };
   }
 
-  /** Counted PRs open now. */
+  /** Counted PRs open now: open, and not stale. */
   open(): PrFact[] {
-    return this.facts.filter((pr) => pr.counted && pr.state === "open");
+    return this.facts.filter(
+      (pr) =>
+        pr.counted && pr.state === "open" && !isStale(pr, this.ctx.asOf, this.ctx.staleAfterDays),
+    );
+  }
+
+  /** Counted PRs open but stale: nobody has touched them for longer than the org allows. */
+  stale(): PrFact[] {
+    return this.facts.filter(
+      (pr) => pr.counted && isStale(pr, this.ctx.asOf, this.ctx.staleAfterDays),
+    );
   }
 }
 

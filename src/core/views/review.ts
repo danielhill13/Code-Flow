@@ -98,8 +98,10 @@ export function review(ctx: ViewContext, q: ViewQuery): ReviewModel {
       .sort(
         (a, b) => b.reviews - a.reviews || b.waiting - a.waiting || a.login.localeCompare(b.login),
       );
-    reviewers = rows.slice(0, REVIEWER_ROWS);
-    const rest = rows.slice(REVIEWER_ROWS);
+    // With people views off, reviewers aren't named: they all count among the others.
+    const named = ctx.peopleViews ? REVIEWER_ROWS : 0;
+    reviewers = rows.slice(0, named);
+    const rest = rows.slice(named);
     if (rest.length > 0) {
       const reviews = sum(rest.map((r) => r.reviews));
       others = {

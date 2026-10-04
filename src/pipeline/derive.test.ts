@@ -66,7 +66,7 @@ describe("deriveFacts", () => {
     expect(store.facts().every((fact) => fact.counted)).toBe(true);
   });
 
-  it("keeps counting PRs into a default branch that has since been renamed", () => {
+  it("keeps counting PRs into a default branch that has since been renamed [rule 2]", () => {
     const { store, save, fact } = setup(["master", "main"]);
     save(ghPayload({ id: "PR_1", number: 1, baseRefName: "master" }));
     deriveFacts(store, config());

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
+import { everyMs } from "../core/every.ts";
 import { statLabel } from "../core/format.ts";
 import {
   type Breakdown,
@@ -13,7 +14,7 @@ import type { DataSource, Meta } from "../core/source.ts";
 import type { ViewQuery } from "../core/views/context.ts";
 import { DEFAULT_SORT, type PrSet } from "../core/views/prs.ts";
 import { grainOf, type WindowKey, windowOf } from "../core/windows.ts";
-import type { AdminApi } from "./admin/api.ts";
+import type { AdminApi, SyncStatus } from "./admin/api.ts";
 import { Setup } from "./admin/setup.tsx";
 import { Drawer } from "./drawer.tsx";
 import { tabHref } from "./links.ts";
@@ -68,13 +69,21 @@ export function App(props: { source: DataSource; admin?: AdminApi; orgs?: readon
     `meta:${revision}`,
   );
   const shell = { admin, orgs: props.orgs, onSaved: () => setRevision((r) => r + 1) };
+  // Served, the data can change under the page: a scheduled sync. Check every minute, and when
+  // a sync has finished, read the report again, so the view in front of the reader is current.
+  const status = useSyncStatus(admin, () => setRevision((r) => r + 1));
   if (loaded === undefined) return <p class="wrap">Loading…</p>;
-  if (loaded === null && admin) return <Unsynced {...shell} admin={admin} />;
+  if (loaded === null && admin) return <Unsynced {...shell} admin={admin} status={status} />;
   if (loaded === null) return null;
-  return <Report source={source} meta={loaded} revision={revision} {...shell} />;
+  return <Report source={source} meta={loaded} revision={revision} status={status} {...shell} />;
 }
 
-type Shell = { admin?: AdminApi; orgs?: readonly string[]; onSaved: () => void };
+type Shell = {
+  admin?: AdminApi;
+  orgs?: readonly string[];
+  onSaved: () => void;
+  status?: SyncStatus | null;
+};
 
 function Report({
   source,
@@ -83,6 +92,7 @@ function Report({
   admin,
   orgs,
   onSaved,
+  status,
 }: Shell & { source: DataSource; meta: Meta; revision: number }) {
   const [state, setState] = useHashState(meta.choices, admin !== undefined);
   const [theme, setTheme] = useTheme();
@@ -188,7 +198,7 @@ function Report({
           <span class="divider" />
           {state.tab !== "setup" && <SelectionBar choices={meta.choices} state={state} />}
           <div class="header-right">
-            <span class="through">Data through {when(meta.asOf)}</span>
+            <Freshness asOf={meta.asOf} status={status ?? null} />
             <Segmented
               label="Theme"
               hideLabel
@@ -315,7 +325,14 @@ function Report({
         )}
       </main>
 
-      {state.pr && drawer && <Drawer pr={drawer} asOf={asOf} onClose={closeDrawer} />}
+      {state.pr && drawer && (
+        <Drawer
+          pr={drawer}
+          asOf={asOf}
+          staleAfterDays={meta.settings.staleAfterDays}
+          onClose={closeDrawer}
+        />
+      )}
     </>
   );
 }
@@ -378,7 +395,7 @@ function Body(props: {
 }
 
 /** An org that hasn't synced yet, under `codeflow serve`: only its setup, to get it ready. */
-function Unsynced({ admin, orgs, onSaved }: Shell & { admin: AdminApi }) {
+function Unsynced({ admin, orgs, onSaved, status }: Shell & { admin: AdminApi }) {
   useTheme();
   return (
     <>
@@ -386,6 +403,9 @@ function Unsynced({ admin, orgs, onSaved }: Shell & { admin: AdminApi }) {
         <div class="wrap bar-row">
           <span class="logo">codeflow</span>
           <OrgPicker current={admin.org} orgs={orgs ?? [admin.org]} />
+          <div class="header-right">
+            {status?.running && <span class="through">Syncing now…</span>}
+          </div>
         </div>
         <nav class="wrap tabs" aria-label="Tabs">
           <a href="#tab=setup" class="current" aria-current="page">
@@ -406,6 +426,83 @@ function Unsynced({ admin, orgs, onSaved }: Shell & { admin: AdminApi }) {
       </main>
     </>
   );
+}
+
+/**
+ * How fresh the data is (rule 12): when it runs through, how long ago that was, and served,
+ * when the server syncs next. Amber once the data is older than its schedule allows.
+ */
+function Freshness({ asOf, status }: { asOf: string; status: SyncStatus | null }) {
+  const now = Date.now();
+  const synced = status?.lastSync ?? asOf;
+  const age = now - Date.parse(synced);
+  const every = status ? everyMs(status.every) : Number.POSITIVE_INFINITY;
+  // Late: two schedules missed, or two days old with no schedule to say otherwise.
+  const late = age > (Number.isFinite(every) ? 2 * every : 2 * 86_400_000);
+  const next = status?.running
+    ? "syncing now…"
+    : status?.nextSync
+      ? `next sync ${relative(Date.parse(status.nextSync) - now)}`
+      : status
+        ? "no sync scheduled"
+        : "";
+  return (
+    <span
+      class={`through${late ? " late" : ""}`}
+      title={`Data through ${when(asOf)}${status?.lastError ? ` · last sync failed: ${status.lastError}` : ""}`}
+    >
+      Data through {when(asOf)} · {ago(age)}
+      {next && ` · ${next}`}
+    </span>
+  );
+}
+
+/** "3 h ago", "just now", "2 d ago". */
+function ago(ms: number): string {
+  if (ms < 60_000) return "just now";
+  return `${span(ms)} ago`;
+}
+
+/** "in 21 h", "now". */
+function relative(ms: number): string {
+  return ms <= 60_000 ? "due now" : `in ${span(ms)}`;
+}
+
+function span(ms: number): string {
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `${hours} h` : `${Math.round(hours / 24)} d`;
+}
+
+/**
+ * The served org's sync status, checked every minute; calls `onSynced` when a sync has finished
+ * since the page last looked. Null for the static report, which has no server to ask.
+ */
+function useSyncStatus(admin: AdminApi | undefined, onSynced: () => void): SyncStatus | null {
+  const [status, setStatus] = useState<SyncStatus | null>(null);
+  useEffect(() => {
+    if (!admin) return;
+    let last: string | null | undefined;
+    let live = true;
+    const check = () =>
+      admin.status().then(
+        (next) => {
+          if (!live) return;
+          if (last !== undefined && next.lastSync !== last) onSynced();
+          last = next.lastSync;
+          setStatus(next);
+        },
+        () => {},
+      );
+    check();
+    const timer = setInterval(check, 60_000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+    };
+  }, [admin]);
+  return status;
 }
 
 /** Which org is shown. Switching loads the other org's page afresh: nothing carries over. */

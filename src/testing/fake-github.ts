@@ -38,6 +38,16 @@ export class FakeGitHub {
     });
   }
 
+  /** Adds a whole PR as GitHub would return it, or replaces one with the same number. */
+  put(pr: GhPullRequest): void {
+    this.#prs.set(pr.number, structuredClone(pr));
+  }
+
+  /** Every PR, as stored. */
+  all(): GhPullRequest[] {
+    return [...this.#prs.values()];
+  }
+
   /** What discovery would report as the repo's last PR activity. */
   get lastPrActivity(): string | null {
     const times = [...this.#prs.values()].map((pr) => pr.updatedAt).sort();
@@ -52,7 +62,7 @@ export class FakeGitHub {
       .map((pr) => `${pr.number}@${pr.updatedAt}`);
   }
 
-  readonly fetchPage = async (request: PageRequest): Promise<Page> => {
+  readonly fetchPage = async (request: PageRequest, size = this.pageSize): Promise<Page> => {
     this.requests.push(request);
     const sign = request.direction === "DESC" ? -1 : 1;
     const compare = (a: Key, b: Key) =>
@@ -64,7 +74,7 @@ export class FakeGitHub {
     const remaining = cursor
       ? listed.filter((pr) => compare(pr, { updatedAt: cursor[0], id: cursor[1] }) > 0)
       : listed;
-    const prs = remaining.slice(0, this.pageSize);
+    const prs = remaining.slice(0, size);
     const last = prs.at(-1);
     return {
       prs: structuredClone(prs),

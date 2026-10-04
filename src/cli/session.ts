@@ -1,7 +1,13 @@
 import { relative } from "node:path";
 import type { Config } from "../config/schema.ts";
 import { loadWorkspace, type Org, pickOrgs, type Workspace } from "../config/workspace.ts";
-import { hostFromApiUrl, resolveToken, type TokenKind } from "../providers/github/auth.ts";
+import { CodeflowError } from "../errors.ts";
+import {
+  hostFromApiUrl,
+  isLoopback,
+  resolveToken,
+  type TokenKind,
+} from "../providers/github/auth.ts";
 import { GitHubClient, type GraphqlBudget, httpStatus } from "../providers/github/client.ts";
 import { VIEWER } from "../providers/github/queries.ts";
 import { VERSION } from "../version.ts";
@@ -75,6 +81,7 @@ export async function connect(
   const client = new GitHubClient({
     token: token.value,
     apiUrl: config.github.api_url,
+    pacing: !isLoopback(config.github.api_url),
     userAgent: `codeflow/${VERSION}`,
     onWait: (message) => print(status("warn", "Waiting", message)),
   });
@@ -83,6 +90,12 @@ export async function connect(
   try {
     viewer = await client.graphql<ViewerData>(VIEWER);
   } catch (err) {
+    if (unreachable(err)) {
+      throw new CodeflowError(
+        `Couldn't reach GitHub at ${config.github.api_url} (${(err as Error).message}). ` +
+          `Check the network, or github.api_url in ${relative(process.cwd(), org.files.org) || org.files.org}.`,
+      );
+    }
     if (httpStatus(err) !== 401) throw err;
     print(
       status(
@@ -131,3 +144,13 @@ type ViewerData = {
 
 export const clock = (date: Date) =>
   date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+/** A request that never got an answer: no network, a wrong address, a refused connection. */
+function unreachable(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|ECONNRESET|EHOSTUNREACH|fetch failed|bad port/i.test(
+      `${err.message} ${String((err as { cause?: unknown }).cause ?? "")}`,
+    )
+  );
+}

@@ -170,7 +170,7 @@ export function CompareControls(props: {
           ))}
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           {(["a", "b"] as const).map((which) => {
             const index = which === "a" ? pick.aIndex : pick.bIndex;
             return (
@@ -303,7 +303,10 @@ function CompareRow(props: {
         {formatValue(row.b)}
       </a>
       <span class="soft">
-        {changeShort(change(row.b, model.a.covered ? row.a : null, model.b.complete))}
+        {changeShort(
+          change(row.b, model.a.covered ? row.a : null, model.b.complete),
+          model.a.covered ? row.a : null,
+        )}
       </span>
       <span class="muted" style={{ fontSize: "12.5px" }}>
         {n}

@@ -1,6 +1,7 @@
 import type { PrFact } from "./facts.ts";
 import type { Groups } from "./groups.ts";
 import { type Choices, choices } from "./selection.ts";
+import { DEFAULT_STALE_DAYS } from "./stale.ts";
 import { type CompareModel, type CompareQuery, compare } from "./views/compare.ts";
 import type { ViewContext, ViewQuery } from "./views/context.ts";
 import { type FlowModel, flow } from "./views/flow.ts";
@@ -22,9 +23,27 @@ export type ReportData = {
   /** Teams and products as config defines them, product repo patterns matched to repo names. */
   groups: Groups;
   facts: PrFact[];
+  /** How the org reads its report. Absent in data written before these settings existed. */
+  settings?: ReportSettings;
 };
 
-export type Meta = Omit<ReportData, "facts" | "groups"> & { choices: Choices };
+/** The org's report settings, from org.yml. */
+export type ReportSettings = {
+  /** An open PR quiet for longer than this is stale: shown apart from open ones (D36). */
+  staleAfterDays: number;
+  /** Whether the report offers one person's numbers: picking people, reviewers by name. */
+  peopleViews: boolean;
+};
+
+export const DEFAULT_SETTINGS: ReportSettings = {
+  staleAfterDays: DEFAULT_STALE_DAYS,
+  peopleViews: true,
+};
+
+export type Meta = Omit<ReportData, "facts" | "groups" | "settings"> & {
+  choices: Choices;
+  settings: ReportSettings;
+};
 
 /**
  * Everything the report asks for, behind one interface. The static report answers from data
@@ -47,14 +66,18 @@ export class EmbeddedSource implements DataSource {
   readonly #ctx: ViewContext;
 
   constructor(data: ReportData) {
-    const { facts, groups, ...meta } = data;
-    const options = choices(groups, data.repos, facts);
-    this.#meta = { ...meta, choices: options };
+    const { facts, groups, settings = DEFAULT_SETTINGS, ...meta } = data;
+    const all = choices(groups, data.repos, facts);
+    // With people views off, nobody can be picked, so no view can narrow to one person.
+    const options = settings.peopleViews ? all : { ...all, people: [] };
+    this.#meta = { ...meta, choices: options, settings };
     this.#ctx = {
       facts,
       choices: options,
       asOf: new Date(data.asOf),
       coveredFrom: data.coveredFrom,
+      staleAfterDays: settings.staleAfterDays,
+      peopleViews: settings.peopleViews,
     };
   }
 

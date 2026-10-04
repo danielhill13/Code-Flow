@@ -1,6 +1,7 @@
 import type { Exclusion, PrFact } from "./facts.ts";
 import { METRICS, type Metric, type MetricContext, type Population } from "./metrics.ts";
 import { inPeriod, type Span } from "./periods.ts";
+import { DEFAULT_STALE_DAYS, isStale } from "./stale.ts";
 import { percentile, percentileStat } from "./stats.ts";
 
 /**
@@ -43,8 +44,11 @@ export type Measurement = {
   excluded: Record<Exclusion, number>;
   /** Counted PRs merged in the period whose data GitHub cut short, by number. */
   truncated: number[];
-  /** A snapshot as of `asOf`, whatever the period. */
-  open: { count: number; drafts: number; medianAgeDays: number | null };
+  /**
+   * A snapshot as of `asOf`, whatever the period: PRs open now, and apart from them those
+   * stale, with no activity for longer than `staleAfterDays` (decision D36).
+   */
+  open: { count: number; drafts: number; medianAgeDays: number | null; stale: number };
 };
 
 /** A phase holding this share of its hours in one PR deserves a warning: one PR moved it. */
@@ -63,13 +67,16 @@ const DAY_MS = 86_400_000;
 export function measure(
   facts: readonly PrFact[],
   period: Span,
-  options: { asOf: Date; percentile?: number },
+  options: { asOf: Date; percentile?: number; staleAfterDays?: number },
 ): Measurement {
   const p = options.percentile ?? 0.5;
   const ctx: MetricContext = { asOf: options.asOf };
   const groups = populations(facts, period);
   const merged = groups.merged;
-  const open = facts.filter((pr) => pr.counted && pr.state === "open");
+  const staleDays = options.staleAfterDays ?? DEFAULT_STALE_DAYS;
+  const allOpen = facts.filter((pr) => pr.counted && pr.state === "open");
+  const stale = allOpen.filter((pr) => isStale(pr, options.asOf, staleDays));
+  const open = allOpen.filter((pr) => !isStale(pr, options.asOf, staleDays));
   const ages = open
     .map((pr) => (options.asOf.getTime() - Date.parse(pr.createdAt)) / DAY_MS)
     .sort((a, b) => a - b);
@@ -86,6 +93,7 @@ export function measure(
       count: open.length,
       drafts: open.filter((pr) => pr.draft).length,
       medianAgeDays: ages.length > 0 ? percentile(ages, 0.5) : null,
+      stale: stale.length,
     },
   };
 }

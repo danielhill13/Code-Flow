@@ -3,7 +3,7 @@
 // file, or another tab) is never overwritten unseen.
 import { call } from "../../core/http-source.ts";
 
-export type ConfigPart = "people" | "groups" | "rules";
+export type ConfigPart = "people" | "groups" | "rules" | "settings";
 
 /** A part as its files hold it: plain YAML values, before defaults and shorthand. */
 export type PartValue = Record<string, unknown>;
@@ -26,8 +26,18 @@ export type Changed = {
   examples: { id: string; repo: string; number: number; title: string }[];
 };
 
+/** How fresh the org's data is, and when the server syncs it next (server/scheduler.ts). */
+export type SyncStatus = {
+  every: string;
+  lastSync: string | null;
+  nextSync: string | null;
+  running: boolean;
+  lastError: string | null;
+};
+
 export interface AdminApi {
   readonly org: string;
+  status(): Promise<SyncStatus>;
   open(part: ConfigPart): Promise<Opened>;
   save(
     part: ConfigPart,
@@ -49,6 +59,10 @@ export class ServerAdmin implements AdminApi {
   constructor(org: string) {
     this.org = org;
     this.#base = `/api/orgs/${encodeURIComponent(org)}`;
+  }
+
+  status(): Promise<SyncStatus> {
+    return call(this.#base, "/status");
   }
 
   open(part: ConfigPart): Promise<Opened> {

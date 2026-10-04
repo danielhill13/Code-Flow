@@ -105,6 +105,8 @@ const ctx: ViewContext = {
   choices: choices(groups, repos, facts),
   asOf,
   coveredFrom: "2026-01-01",
+  staleAfterDays: 90,
+  peopleViews: true,
 };
 const query = (
   selection: Selection = EVERYTHING,
@@ -201,7 +203,7 @@ describe("overview", () => {
     expect(external.notes.map((n) => n.kind)).not.toContain("outside");
   });
 
-  it("shows no number for a window the data doesn't reach", () => {
+  it("shows no number for a window the data doesn't reach [rule 4]", () => {
     const late = overview({ ...ctx, coveredFrom: "2026-09-20" }, query());
     expect(late.tiles[0]?.value).toMatchObject({
       value: null,
@@ -211,7 +213,7 @@ describe("overview", () => {
   });
 });
 
-describe("every number opens its PRs", () => {
+describe("every number opens its PRs [rule 8]", () => {
   // Rule 8: the list behind a value holds exactly the PRs the value rests on.
   const window = overview(ctx, query()).window;
   const list = (scope: Selection, filters: PrFilter[]) =>
@@ -256,7 +258,7 @@ describe("speed", () => {
 });
 
 describe("review", () => {
-  it("names nobody at the top level: one row per team instead", () => {
+  it("names nobody at the top level: one row per team instead [rule 10]", () => {
     const model = review(ctx, query());
     expect(model.reviewers).toEqual([]);
     expect(model.teams.map((t) => [t.name, t.reviews, t.reviewers, t.topTwo])).toEqual([

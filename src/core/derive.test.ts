@@ -144,7 +144,7 @@ describe("derivePr: the timeline", () => {
 });
 
 describe("derivePr: who counts as a reviewer", () => {
-  it("ignores the author's own replies, bots, reviews after merge and boilerplate", () => {
+  it("ignores the author's own replies, bots, reviews after merge and boilerplate [rule 9]", () => {
     const fact = derive(
       {
         reviews: [
@@ -173,7 +173,7 @@ describe("derivePr: who counts as a reviewer", () => {
     expect(fact).toMatchObject({ reviewed: false, reviews: 0, comments: 1, pickupHours: null });
   });
 
-  it("counts a bot's reviews when config names it a reviewer", () => {
+  it("counts a bot's reviews when config names it a reviewer [rule 9]", () => {
     const fact = derive(
       { reviews: [review(rabbit, "03-02 10:05")] },
       deriveRules({ isBotReviewer: (actor) => actor.login === "coderabbitai" }),
@@ -204,7 +204,7 @@ describe("derivePr: who counts as a reviewer", () => {
 });
 
 describe("derivePr: size", () => {
-  it("measures product code, keeping the other buckets", () => {
+  it("measures product code, keeping the other buckets [rule 3]", () => {
     const fact = derive({
       files: [
         { path: "src/a.ts", additions: 10, deletions: 2 },
@@ -222,7 +222,7 @@ describe("derivePr: size", () => {
     });
   });
 
-  it("leaves size unknown when the file list was cut short, rather than guessing", () => {
+  it("leaves size unknown when the file list was cut short, rather than guessing [rule 4]", () => {
     const fact = derive({
       files: [{ path: "src/a.ts", additions: 1, deletions: 0 }],
       truncated: ["files"],
@@ -267,7 +267,7 @@ describe("derivePr: what counts", () => {
     expect(derive()).toMatchObject({ counted: true, exclusion: null });
   });
 
-  it("leaves out bot PRs unless config includes them", () => {
+  it("leaves out bot PRs unless config includes them [rule 9]", () => {
     expect(derive({ author: { login: "dependabot", bot: true } })).toMatchObject({
       counted: false,
       exclusion: "bot",
@@ -298,14 +298,14 @@ describe("derivePr: what counts", () => {
     expect(derive({}, rules).internal).toBe(false);
   });
 
-  it("leaves out PRs into other branches, such as stacked feature branches", () => {
+  it("leaves out PRs into other branches, such as stacked feature branches [rule 1]", () => {
     expect(derive({ baseBranch: "feature/big-thing" })).toMatchObject({
       counted: false,
       exclusion: "base",
     });
   });
 
-  it("leaves out promotions from the repo's own long-lived branches, but not from forks", () => {
+  it("leaves out promotions from the repo's own long-lived branches, but not from forks [rule 1]", () => {
     expect(derive({ headBranch: "develop" })).toMatchObject({
       counted: false,
       exclusion: "promotion",

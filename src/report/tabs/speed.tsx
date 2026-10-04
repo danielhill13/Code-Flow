@@ -128,7 +128,7 @@ function Predictability({ model }: { model: SpeedModel }) {
       ? ""
       : Math.abs(spread - previousSpread) < 0.1
         ? "about the same as before"
-        : `${spread < previousSpread ? "↓ narrower" : "↑ wider"}, from ${previousSpread.toFixed(1)}×`;
+        : `${spread < previousSpread ? "narrower" : "wider"}, from ${previousSpread.toFixed(1)}×`;
   return (
     <section class="card">
       <h2 style={{ fontSize: "14px", fontWeight: 600 }}>Predictability</h2>

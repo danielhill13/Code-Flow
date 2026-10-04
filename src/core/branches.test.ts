@@ -8,7 +8,7 @@ const into = (base: string, count: number, repo = "acme/api") =>
   Array.from({ length: count }, () => prFact({ repo, baseBranch: base }));
 
 describe("unmeasuredBranches", () => {
-  it("flags a repo whose recent work lands on a branch that isn't measured", () => {
+  it("flags a repo whose recent work lands on a branch that isn't measured [rule 2]", () => {
     const facts = [
       ...into("develop", 12),
       ...into("main", 2),

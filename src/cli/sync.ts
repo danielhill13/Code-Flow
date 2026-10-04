@@ -40,8 +40,16 @@ export async function sync(options: SyncOptions): Promise<number> {
   return code;
 }
 
-/** Syncs one org into its own database. */
-async function syncOrg(org: Org, progress: Progress, print: Print): Promise<number> {
+/**
+ * Syncs one org into its own database. Run from the command line, Ctrl-C stops it after the page
+ * in flight; run by `serve`'s scheduler, `signal` does instead.
+ */
+export async function syncOrg(
+  org: Org,
+  progress: Progress,
+  print: Print,
+  options: { signal?: AbortSignal } = {},
+): Promise<number> {
   const session = await connect(org, print);
   if (!session) return 1;
   const { config, client, dbPath } = session;
@@ -68,7 +76,10 @@ async function syncOrg(org: Org, progress: Progress, print: Print): Promise<numb
       print(status("warn", "Stopping", "after the current page (Ctrl-C again to quit now)"));
       abort.abort();
     };
-    process.on("SIGINT", onInterrupt);
+    const external = options.signal;
+    const onStop = () => abort.abort();
+    if (external) external.addEventListener("abort", onStop);
+    else process.on("SIGINT", onInterrupt);
 
     let sources: SourceResult[] = [];
     let outcomes: RepoOutcome[] = [];
@@ -107,7 +118,8 @@ async function syncOrg(org: Org, progress: Progress, print: Print): Promise<numb
     } catch (err) {
       failure = err;
     } finally {
-      process.off("SIGINT", onInterrupt);
+      if (external) external.removeEventListener("abort", onStop);
+      else process.off("SIGINT", onInterrupt);
       progress.clear();
     }
 

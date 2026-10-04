@@ -5,16 +5,17 @@
 import { useEffect, useState } from "preact/hooks";
 import type { Meta } from "../../core/source.ts";
 import { Segmented } from "../ui.tsx";
-import type { AdminApi, ConfigPart, Opened, PartValue, Preview } from "./api.ts";
+import type { AdminApi, ConfigPart, Opened, PartValue, Preview, SyncStatus } from "./api.ts";
 import { Choice, Field, List, Problem, Text, Ticks } from "./fields.tsx";
 
-type Section = "people" | "teams" | "groups" | "rules" | "transfer";
+type Section = "people" | "teams" | "groups" | "rules" | "settings" | "transfer";
 
 const SECTIONS: readonly { key: Section; label: string }[] = [
   { key: "people", label: "People" },
   { key: "teams", label: "Teams" },
   { key: "groups", label: "Groups" },
   { key: "rules", label: "Rules" },
+  { key: "settings", label: "Settings" },
   { key: "transfer", label: "Import & export" },
 ];
 
@@ -39,6 +40,7 @@ export function Setup(props: { api: AdminApi; meta: Meta | null; onSaved: () => 
       {section === "teams" && <Teams {...props} />}
       {section === "groups" && <GroupsSection {...props} />}
       {section === "rules" && <Rules {...props} />}
+      {section === "settings" && <Settings {...props} />}
       {section === "transfer" && <Transfer {...props} />}
     </>
   );
@@ -1111,6 +1113,92 @@ function PreviewBox({ preview }: { preview: { result?: Preview; problem?: string
         </ul>
       ))}
     </div>
+  );
+}
+
+// Settings -------------------------------------------------------------------------------------
+
+type SettingsRaw = { sync_every: string; stale_after_days: number; people_views: boolean };
+
+const SCHEDULES = ["6h", "12h", "24h", "7d", "off"];
+
+function Settings({ api, onSaved }: SectionProps) {
+  const part = usePart(api, "settings", onSaved);
+  const [draft, setDraft] = useState<SettingsRaw | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [status, setStatus] = useState<SyncStatus | null>(null);
+  useEffect(() => {
+    api.status().then(setStatus, () => setStatus(null));
+  }, [api]);
+  if (!part.opened) return <Waiting problem={part.problem} />;
+  const value = draft ?? (part.opened.value as SettingsRaw);
+  const set = (patch: Partial<SettingsRaw>) => {
+    setSaved(false);
+    setDraft({ ...value, ...patch });
+  };
+  const save = async () => {
+    if (await part.save(value)) {
+      setDraft(null);
+      setSaved(true);
+    }
+  };
+  return (
+    <>
+      <div class="card-head" style={{ padding: "0 2px" }}>
+        <h2>Settings</h2>
+        <span class="note">How this org's data is kept current and how its report reads it.</span>
+      </div>
+      <Form
+        title="Report settings"
+        problem={part.problem}
+        busy={part.busy}
+        onSave={save}
+        onCancel={() => {
+          setDraft(null);
+          setSaved(false);
+        }}
+      >
+        <Text
+          label="Sync every"
+          value={value.sync_every}
+          onChange={(sync_every) => set({ sync_every: sync_every.trim() })}
+          list="schedules"
+          hint={`While codeflow serve runs: a number and m, h or d, or off. 24h is daily.${
+            status?.lastSync ? ` Last synced ${new Date(status.lastSync).toLocaleString()}.` : ""
+          }${status?.nextSync ? ` Next: ${new Date(status.nextSync).toLocaleString()}.` : ""}`}
+        />
+        <datalist id="schedules">
+          {SCHEDULES.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+        <Field
+          label="Stale after (days)"
+          hint="An open PR with no activity by a person for longer is stale: listed apart from the PRs open now."
+        >
+          <input
+            type="number"
+            min={1}
+            max={3650}
+            value={value.stale_after_days}
+            onInput={(e) => set({ stale_after_days: Number(e.currentTarget.value) })}
+          />
+        </Field>
+        <Field
+          label="People views"
+          hint="On: the report can show one person's numbers and name reviewers. Off: teams, groups and repos only."
+        >
+          <select
+            value={value.people_views ? "on" : "off"}
+            onChange={(e) => set({ people_views: e.currentTarget.value === "on" })}
+          >
+            <option value="on">On</option>
+            <option value="off">Off</option>
+          </select>
+        </Field>
+        {saved && <p class="muted wide-field">Saved to org.yml.</p>}
+      </Form>
+    </>
   );
 }
 

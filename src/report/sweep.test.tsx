@@ -235,6 +235,12 @@ describe.each([
     }
   });
 
+  it("always says when its data runs through, on every tab [rule 12]", async () => {
+    for (const tab of TABS.map((t) => t.key).filter((t) => t !== "setup")) {
+      expect(await show({ tab }), tab).toMatch(/Data through \w{3} \d{1,2}, 2026/);
+    }
+  });
+
   it("shows core's own numbers: Compare's months match summary's", async () => {
     const text = await show({
       tab: "compare",
@@ -279,6 +285,10 @@ class FakeAdmin implements AdminApi {
       },
       version: 1,
     },
+    settings: {
+      value: { sync_every: "24h", stale_after_days: 90, people_views: true },
+      version: 1,
+    },
     rules: {
       value: {
         rules: [
@@ -299,6 +309,16 @@ class FakeAdmin implements AdminApi {
       version: 1,
     },
   };
+
+  async status() {
+    return {
+      every: "24h",
+      lastSync: asOf,
+      nextSync: new Date(Date.parse(asOf) + 86_400_000).toISOString(),
+      running: false,
+      lastError: null,
+    };
+  }
 
   async open(part: ConfigPart) {
     const { value, version } = this.parts[part];

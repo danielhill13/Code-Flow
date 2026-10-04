@@ -14,6 +14,7 @@
   --accent: oklch(0.55 0.15 255);
   --accent-soft: oklch(0.95 0.03 255);
   --problem: oklch(0.52 0.17 25);
+  --late: oklch(0.55 0.13 70);
   --bar: #a7afbc;
   --bar-strong: #2f3846;
   --c-coding: oklch(0.74 0.1 195);
@@ -39,6 +40,7 @@
     --accent: oklch(0.72 0.13 255);
     --accent-soft: oklch(0.3 0.06 255);
     --problem: oklch(0.72 0.14 25);
+    --late: oklch(0.78 0.13 75);
     --bar: #475062;
     --bar-strong: #cfd5de;
     --c-coding: oklch(0.72 0.1 195);
@@ -64,6 +66,7 @@
   --accent: oklch(0.72 0.13 255);
   --accent-soft: oklch(0.3 0.06 255);
   --problem: oklch(0.72 0.14 25);
+  --late: oklch(0.78 0.13 75);
   --bar: #475062;
   --bar-strong: #cfd5de;
   --c-coding: oklch(0.72 0.1 195);
@@ -287,6 +290,10 @@ h2 {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.through.late {
+  color: var(--late);
 }
 
 .through {
@@ -1251,7 +1258,31 @@ input[type="date"] {
     padding: 0 16px;
   }
 
+  /* The header wraps rather than scrolling sideways; the data-through date stays (rule 12). */
+  .bar-row {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 52px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    row-gap: 8px;
+  }
+
+  .header-right {
+    margin-left: 0;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 6px;
+  }
+
   .through {
+    white-space: normal;
+    min-width: 0;
+    flex: 1 1 200px;
+  }
+
+  .header-right .button {
     display: none;
   }
 
@@ -1451,6 +1482,13 @@ input[type="date"] {
   border: 0;
 }
 
+.field-control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
 .field-label {
   font-size: 12px;
   font-weight: 600;
@@ -1535,4 +1573,24 @@ input[type="date"] {
 .preview ul {
   margin: 6px 0 0;
   padding-left: 18px;
+}
+
+/* Flow's stale PRs: a line of their own, apart from the PRs open now. */
+.stale-strip {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.stale-strip h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.stale-strip p {
+  margin: 0;
+  font-size: 13px;
 }

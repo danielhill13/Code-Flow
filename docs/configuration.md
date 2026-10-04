@@ -122,6 +122,29 @@ bots:
 
 By default, bot PRs aren't counted, and bot reviews and comments don't count as review.
 
+## sync_every, stale_after_days and people_views
+
+How the org's data is kept current and how its report reads it. All three are also in the web
+app, under Setup › Settings.
+
+```yaml
+sync_every: 24h          # how often `codeflow serve` syncs: 30m, 6h, 24h, 7d … or off
+stale_after_days: 90     # an open PR with no activity for longer is stale
+people_views: true       # false: no picking people, no reviewers by name
+```
+
+- **`sync_every`** (default `24h`, at least `15m`) applies while `codeflow serve` runs: it syncs
+  each org when its last clean sync is that old, one org at a time, and tries a failed sync
+  again after half an hour. `off` leaves syncing to you (`codeflow sync`, or `codeflow run`
+  from cron).
+- **`stale_after_days`** (default 90): an open PR that nobody has pushed to, reviewed, commented
+  on or asked for review on for longer is **stale**. Bots don't count, so a stale-bot's nudge
+  doesn't revive a PR. Stale PRs are counted apart from the PRs open now: Flow shows them on a
+  line of their own, the PR list has a Stale set, and `summary` prints them separately.
+- **`people_views`** (default `true`): `false` removes people from the selection picker (a link
+  that names a person shows everyone instead), and review load counts reviewers without naming
+  them. Teams, groups and repos are unchanged, and the PR list still shows each PR's author.
+
 ## paths
 
 What counts as product code, for PR size and lines merged. Every changed file falls into one
@@ -312,11 +335,11 @@ npm run codeflow -- import teams.csv --org acme --mode replace     # teams from 
 ## Editing in the web app
 
 `codeflow serve` (see [getting-started](getting-started.md#8-or-run-it-as-a-web-app)) has a
-Setup tab with the same parts: People, Teams, Groups, Rules, and Import & export. It writes the
-files described above, so both ways of editing can be mixed. Each save is checked as a whole,
-as an import is, and refused with the reason if the org would be invalid, or if the file changed
-since the page read it. Settings in `org.yml` (sources, dates, the older rule keys) are edited
-by hand.
+Setup tab with the same parts: People, Teams, Groups, Rules, Settings (`sync_every`,
+`stale_after_days`, `people_views`), and Import & export. It writes the files described above,
+so both ways of editing can be mixed. Each save is checked as a whole, as an import is, and
+refused with the reason if the org would be invalid, or if the file changed since the page read
+it. The rest of `org.yml` (sources, dates, the older rule keys) is edited by hand.
 
 "No team", and "No" followed by a kind ("No product", "No area"), are reserved for the report's
 catch-alls.

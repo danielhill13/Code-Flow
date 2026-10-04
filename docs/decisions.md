@@ -219,3 +219,50 @@ org loads alone, from its own files and database, so nothing crosses between org
 picker loads the other org's page afresh. The server binds to 127.0.0.1, refuses requests
 addressed to any other host (DNS rebinding) and writes without its `x-codeflow` header (another
 site's form). Sign-in arrives with the hosted track; until then, serve is for one machine.
+
+**D34 · 2026-10-04 · Four layers of tests, all offline, with a catalog kept true by a test.**
+Unit tests stay beside the code. Scenario tests run the real CLI as its own process against a
+fake GitHub server (`src/testing/github-server.ts`) that answers codeflow's GraphQL and pages
+as GitHub does, serving a made-up org dated relative to today, so every window has data
+whenever the tests run. Browser tests drive the built report and `codeflow serve` in Chromium
+with Playwright. This adds two development dependencies, `@playwright/test` and
+`@vitest/coverage-v8`, an exception to keeping dependencies few: only a real browser shows
+layout, downloads, file uploads and navigation as people meet them, and neither ships with
+codeflow. `npm run check` stays fast and needs no browser; `npm run verify` and CI add it. Each
+user-visible behaviour has a `TC-` ID in docs/testing.md, each measurement rule a `[rule N]`
+tag, and a guard test fails when either drifts from the tests. codeflow doesn't pace requests
+to an API on this machine, so a sync against the fake takes a second rather than a minute.
+
+**D35 · 2026-10-04 · Changes are an increase or a decrease, in one unit.** The report states
+direction, never judgement: "135% increase from 1.3 d", not "slower" or a red arrow, since
+whether more review time is bad depends on why. Both values are in the current value's unit, so
+3.1 d is compared with 1.3 d, not with 31.6 h. A base under an hour, or a count under five,
+moves by an absolute amount ("6 min increase from 1 min"), because a percentage of a tiny base
+makes noise look like news. Dense tables keep an arrow, with "increase" or "decrease" as its
+accessible name.
+
+**D36 · 2026-10-04 · Stale open PRs are counted apart.** An open PR with no activity by a person
+(push, review, comment, review request, draft flip) for longer than the org's
+`stale_after_days`, 90 by default, is stale. Bots don't count, or a stale-bot would keep every PR
+alive. Stale PRs stay visible (a line on Flow, a Stale set in the PR list, a line in `summary`,
+the side panel saying so) but are not in "Open now", the age chart or the waiting counts, where
+a years-old backlog would bury what is waiting today. Facts record each open PR's last activity
+(`lastActivityAt`); only the latest is known, so a PR quiet for a while and then active again
+counts as active over its quiet stretch in the open-PR trend.
+
+**D37 · 2026-10-04 · `serve` syncs each org on a schedule, daily by default.** Fresh data
+shouldn't depend on someone setting up cron. While `serve` runs, each org syncs when its last
+clean sync is older than its `sync_every` (24h by default, at least 15m, or off), one org at a
+time, through the same code as `codeflow sync` and its lock, so a sync started by hand and a
+scheduled one never overlap. A failed sync waits half an hour before trying again. The schedule
+is read from the org's files on each check, so an edit applies without a restart. The page asks
+for the sync status every minute and reloads its view when a sync has finished. Without
+`serve`, `codeflow run` (sync, then build) is the one command a scheduler needs.
+
+**D38 · 2026-10-04 · The served page is light; the static file carries the data.** Served, the
+page is the report's code alone, about 40 KB with brotli, revalidated by ETag. Each view is
+computed on the server and sent as JSON, a few KB compressed, so the page stays the same size
+however many PRs an org has; a test holds those budgets for a 3,000-PR org. The static report
+still embeds every PR, since that is what lets it open offline, and `build` suggests `serve`
+when the file passes 2 MB.
+

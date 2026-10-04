@@ -54,7 +54,8 @@ what each command does, keeping the report current, and what to do when somethin
 | `export` | an org's people, groups and rules as a bundle (YAML, JSON, or CSV for teams) |
 | `import` | a bundle or CSV into an org: checked as a whole first, `--dry-run` to preview, merge or replace |
 | `build` | the report: one HTML file per org, with its data inside, that opens offline |
-| `serve` | the report as a web app on this machine, with an org picker and a Setup tab to edit people, teams, groups and rules |
+| `run` | `sync`, then `build`: one command for cron or another scheduler |
+| `serve` | the report as a web app on this machine: a light page that loads each view as you go, an org picker, a Setup tab, and a daily sync of every org |
 
 Every command takes `--org` to work on one org of several.
 
@@ -91,10 +92,14 @@ every metric follows.
 ## Development
 
 ```bash
-npm run check        # typecheck, lint, tests (including a sweep of every report view)
+npm run check        # typecheck, lint, unit and scenario tests; offline, about 40 seconds
+npm run verify       # check, build and the browser tests: what CI runs
 npm run report:dev   # the report with live reload, on the data your last sync stored
-npm run build        # compile to dist/, only needed for publishing
+npm run build        # compile to dist/, needed by serve and for publishing
 ```
+
+[CONTRIBUTING.md](CONTRIBUTING.md) and [docs/testing.md](docs/testing.md) explain the test layers,
+the test-case catalog, and how to run or debug one test.
 
 ## License
 

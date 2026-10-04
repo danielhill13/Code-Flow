@@ -2,14 +2,17 @@
 // typed as text, comma- or line-separated, so pasting from a spreadsheet works.
 import type { ComponentChildren } from "preact";
 
+/** A labelled control. The hint sits outside the label, so the control's name is just its label. */
 export function Field(props: { label: string; hint?: string; children: ComponentChildren }) {
   return (
-    // biome-ignore lint/a11y/noLabelWithoutControl: the control is the child passed in
-    <label class="field">
-      <span class="field-label">{props.label}</span>
-      {props.children}
+    <div class="field">
+      {/* biome-ignore lint/a11y/noLabelWithoutControl: the control is the child passed in */}
+      <label class="field-control">
+        <span class="field-label">{props.label}</span>
+        {props.children}
+      </label>
       {props.hint && <span class="field-hint">{props.hint}</span>}
-    </label>
+    </div>
   );
 }
 

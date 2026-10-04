@@ -1,5 +1,4 @@
 import type { MetricValue } from "../../core/aggregate.ts";
-import { change, changeArrow } from "../../core/compare.ts";
 import { formatValue, num, PHASE_LABELS, percent, prs, statLabel } from "../../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../../core/metrics.ts";
 import type { Note, OverviewModel, PhaseSplit } from "../../core/views/overview.ts";
@@ -11,6 +10,7 @@ import {
   breakdownLabel,
   breakdownPlural,
   Card,
+  ChangeArrow,
   capital,
   MetricTile,
   SingleBreakdown,
@@ -185,11 +185,10 @@ function ScopeTable({
 }
 
 function Cell({ pair }: { pair: { value: MetricValue; previous: MetricValue | null } }) {
-  const arrow = changeArrow(change(pair.value, pair.previous));
   return (
     <span title={pair.value.hidden}>
       {formatValue(pair.value)}
-      {arrow && <span class="arrow">{arrow}</span>}
+      <ChangeArrow value={pair.value} previous={pair.previous} />
     </span>
   );
 }

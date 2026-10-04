@@ -199,6 +199,21 @@
             ],
             "additionalProperties": false
           }
+        },
+        "sync_every": {
+          "default": "24h",
+          "type": "string",
+          "pattern": "^(off|\\d+[mhd])$"
+        },
+        "stale_after_days": {
+          "default": 90,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650
+        },
+        "people_views": {
+          "default": true,
+          "type": "boolean"
         }
       },
       "additionalProperties": false

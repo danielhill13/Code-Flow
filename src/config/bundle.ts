@@ -38,6 +38,9 @@ const SETTINGS = [
   "promotions",
   "bots",
   "paths",
+  "sync_every",
+  "stale_after_days",
+  "people_views",
 ];
 
 const KEYS: Record<Part, readonly string[]> = {

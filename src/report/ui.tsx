@@ -2,7 +2,7 @@
 // number reads the same here as in the CLI (rule 11).
 import type { ComponentChildren } from "preact";
 import type { MetricValue } from "../core/aggregate.ts";
-import { change, changeText } from "../core/compare.ts";
+import { change, changeArrow, changeText, changeWord } from "../core/compare.ts";
 import { formatValue, prs } from "../core/format.ts";
 import type { Breakdown } from "../core/selection.ts";
 import type { Point, Tile as TileModel } from "../core/views/context.ts";
@@ -89,10 +89,23 @@ export function seriesPoints(series: readonly Point[]): SparkPoint[] {
   }));
 }
 
-/** "↑ 8% from 319", or why the value is missing. */
+/** "8% increase from 319", or why the value is missing. */
 export function changeLine(value: MetricValue, previous: MetricValue | null): string {
   if (value.value === null) return value.hidden ?? (value.n === 0 ? "no PRs" : "");
-  return changeText(change(value, previous), previous);
+  return changeText(change(value, previous), previous, value);
+}
+
+/** An increase or decrease as an arrow, for dense tables, with its word for screen readers. */
+export function ChangeArrow(props: { value: MetricValue; previous: MetricValue | null }) {
+  const moved = change(props.value, props.previous);
+  const arrow = changeArrow(moved);
+  if (!arrow) return null;
+  const word = changeWord(moved);
+  return (
+    <span class="arrow" title={word} aria-label={word} role="img">
+      {arrow}
+    </span>
+  );
 }
 
 export function MetricTile(props: {

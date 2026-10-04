@@ -2,6 +2,7 @@
 // (decision D33). Node's own http module, no framework. Every API path names its org, and each
 // org is loaded on its own, so no response can hold another org's data.
 
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   createServer as createHttpServer,
@@ -9,6 +10,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import { brotliCompressSync, gzipSync, constants as zlibConstants } from "node:zlib";
 import {
   applyImport,
   type Bundle,
@@ -31,12 +33,23 @@ import { CodeflowError } from "../errors.ts";
 import { deriveFacts, deriveWith } from "../pipeline/derive.ts";
 import { Store } from "../store/store.ts";
 import { NotFound, partVersion, type Registry } from "./registry.ts";
+import type { Scheduler, SyncStatus } from "./scheduler.ts";
 
 /** The parts of an org's config the app edits, and the keys each holds. */
-export const EDITABLE: Record<Exclude<OrgPart, "org">, readonly string[]> = {
+export const EDITABLE = {
   people: ["people"],
   groups: ["teams", "groups", "products"],
   rules: ["rules"],
+  /** org.yml's report settings; sources, dates and the older rule keys stay hand-edited. */
+  settings: ["sync_every", "stale_after_days", "people_views"],
+} as const satisfies Record<string, readonly string[]>;
+
+/** The file each editable part lives in. */
+const FILE_OF: Record<keyof typeof EDITABLE, OrgPart> = {
+  people: "people",
+  groups: "groups",
+  rules: "rules",
+  settings: "org",
 };
 
 /** Requests that change anything carry this header, which a page on another site can't send. */
@@ -45,8 +58,13 @@ export const WRITE_HEADER = "x-codeflow";
 export type ServeOptions = {
   /** The report page, built without data. */
   template: string;
-  /** Only requests addressed to these hosts are answered (DNS rebinding); null for any. */
+  /**
+   * Only requests addressed to these host names, on the port the server listens on, are
+   * answered (DNS rebinding); null for any.
+   */
   hosts: readonly string[] | null;
+  /** Keeps the orgs' data fresh; absent when serve runs without a schedule. */
+  scheduler?: Scheduler;
 };
 
 class Conflict extends Error {}
@@ -66,8 +84,11 @@ async function handle(
 ): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   const host = (req.headers.host ?? "").toLowerCase();
-  if (options.hosts && !options.hosts.includes(host)) {
-    throw new Forbidden(`This server answers only on ${options.hosts.join(", ")}.`);
+  if (options.hosts) {
+    const allowed = options.hosts.map((name) => `${name}:${req.socket.localPort}`);
+    if (!allowed.includes(host)) {
+      throw new Forbidden(`This server answers only on ${allowed.join(", ")}.`);
+    }
   }
   if (req.method !== "GET" && req.headers[WRITE_HEADER] !== "1") {
     throw new Forbidden(`Requests that change anything need the ${WRITE_HEADER} header.`);
@@ -101,6 +122,19 @@ async function handle(
   switch (`${req.method} ${route[0] ?? ""}`) {
     case "GET meta":
       return json(res, { meta: loaded.source ? await loaded.source.meta() : null });
+    case "GET status": {
+      const meta = loaded.source ? await loaded.source.meta() : null;
+      const status: SyncStatus = options.scheduler
+        ? await options.scheduler.status(name)
+        : {
+            every: "off",
+            lastSync: meta?.asOf ?? null,
+            nextSync: null,
+            running: false,
+            lastError: null,
+          };
+      return json(res, status);
+    }
     case "POST views": {
       const query = (await body(req)) as never;
       const s = source();
@@ -121,10 +155,15 @@ async function handle(
     case "GET config": {
       const part = editable(route[1]);
       const raw = await readRaw(org);
+      // Settings show their effective values, defaults included; the rest, what the file holds.
+      const config = org.config as unknown as Record<string, unknown>;
       const value = Object.fromEntries(
-        EDITABLE[part].map((key) => [key, raw[key] ?? emptyOf(key)]),
+        EDITABLE[part].map((key) => [
+          key,
+          part === "settings" ? (raw[key] ?? config[key]) : (raw[key] ?? emptyOf(key)),
+        ]),
       );
-      return json(res, { value, version: partVersion(org, part) });
+      return json(res, { value, version: partVersion(org, FILE_OF[part]) });
     }
     case "PUT config": {
       const part = editable(route[1]);
@@ -132,16 +171,27 @@ async function handle(
         value: Record<string, unknown>;
         version: string;
       };
-      if (version !== partVersion(org, part)) {
+      const file = FILE_OF[part];
+      if (version !== partVersion(org, file)) {
         throw new Conflict(
-          `${org.files[part]} changed since you opened it. Reload to see the change, then edit again.`,
+          `${org.files[file]} changed since you opened it. Reload to see the change, then edit again.`,
         );
       }
-      const bundle = { codeflow: BUNDLE_VERSION, ...pick(value, EDITABLE[part]) } as Bundle;
-      const plan = await planImport(org, bundle, [part as Part], "replace");
+      // Settings merge into org.yml, key by key; the other parts replace what their file holds.
+      const bundle = (
+        part === "settings"
+          ? { codeflow: BUNDLE_VERSION, settings: pickSet(value, EDITABLE.settings) }
+          : { codeflow: BUNDLE_VERSION, ...pick(value, EDITABLE[part]) }
+      ) as Bundle;
+      const plan = await planImport(
+        org,
+        bundle,
+        [part as Part],
+        part === "settings" ? "merge" : "replace",
+      );
       if (plan.changes.length > 0) await applyImport(org, plan);
       registry.forget(name);
-      return json(res, { version: partVersion(org, part), changes: describeChanges(plan.changes) });
+      return json(res, { version: partVersion(org, file), changes: describeChanges(plan.changes) });
     }
     case "POST rules":
       if (route[1] !== "preview") throw new NotFound("Not found.");
@@ -224,8 +274,17 @@ function preview(org: Awaited<ReturnType<Registry["org"]>>["org"], input: unknow
 }
 
 function editable(part: string | undefined): keyof typeof EDITABLE {
-  if (part === "people" || part === "groups" || part === "rules") return part;
-  throw new NotFound(`No config part called "${part}". Parts: people, groups, rules.`);
+  if (part && part in EDITABLE) return part as keyof typeof EDITABLE;
+  throw new NotFound(
+    `No config part called "${part}". Parts: ${Object.keys(EDITABLE).join(", ")}.`,
+  );
+}
+
+/** The keys of `value` that are set, leaving the rest as the file has them. */
+function pickSet(value: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+  return Object.fromEntries(
+    keys.filter((key) => value[key] !== undefined).map((k) => [k, value[k]]),
+  );
 }
 
 const emptyOf = (key: string) => (key === "rules" ? [] : {});
@@ -256,12 +315,59 @@ function json(res: ServerResponse, value: unknown): void {
   send(res, 200, JSON.stringify(value), "application/json");
 }
 
+/**
+ * Sends text, compressed when the browser accepts it: the page and every answer stay small on
+ * the wire (decision D38). The page itself is revalidated by its ETag rather than sent again;
+ * answers about data are never cached, since a sync can change them at any time.
+ */
 function send(res: ServerResponse, status: number, text: string, type: string): void {
+  const page = type.startsWith("text/html");
   res.statusCode = status;
   res.setHeader("content-type", type);
-  res.setHeader("cache-control", "no-store");
+  res.setHeader("cache-control", page ? "no-cache" : "no-store");
   res.setHeader("x-content-type-options", "nosniff");
-  res.end(text);
+  res.setHeader("vary", "accept-encoding");
+  const accepts = String(res.req?.headers["accept-encoding"] ?? "");
+  if (page) {
+    const etag = `"${createHash("sha256").update(text).digest("base64url").slice(0, 22)}"`;
+    res.setHeader("etag", etag);
+    if (res.req?.headers["if-none-match"] === etag) {
+      res.statusCode = 304;
+      res.end();
+      return;
+    }
+  }
+  if (text.length < COMPRESS_FROM) {
+    res.end(text);
+    return;
+  }
+  const encoding = /\bbr\b/.test(accepts) ? "br" : /\bgzip\b/.test(accepts) ? "gzip" : null;
+  if (!encoding) {
+    res.end(text);
+    return;
+  }
+  res.setHeader("content-encoding", encoding);
+  res.end(compressed(text, encoding, page));
+}
+
+/** Smaller than this, compressing costs more than it saves. */
+const COMPRESS_FROM = 1024;
+
+/** The page is the same for every request: compress it once, as hard as it goes. */
+const pageCache = new Map<string, Buffer>();
+
+function compressed(text: string, encoding: "br" | "gzip", page: boolean): Buffer {
+  const key = `${encoding}:${text.length}:${text.slice(0, 64)}`;
+  const cached = page ? pageCache.get(key) : undefined;
+  if (cached) return cached;
+  const result =
+    encoding === "br"
+      ? brotliCompressSync(text, {
+          params: { [zlibConstants.BROTLI_PARAM_QUALITY]: page ? 11 : 4 },
+        })
+      : gzipSync(text, { level: page ? 9 : 6 });
+  if (page) pageCache.set(key, result);
+  return result;
 }
 
 function redirect(res: ServerResponse, location: string): void {

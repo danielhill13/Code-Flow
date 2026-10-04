@@ -245,6 +245,11 @@ through the app, a hand edit or a sync running beside it. Writes go through the 
 to 127.0.0.1, checks the Host header against DNS rebinding and requires an `x-codeflow` header
 on writes, which a form on another site can't send (D33).
 
+A scheduler (`server/scheduler.ts`, D37) syncs each org on its `sync_every` while `serve` runs,
+and `GET /api/orgs/<org>/status` says when it last did and when it will next. Responses are
+compressed with brotli or gzip; the page is revalidated by its ETag, and answers about data are
+never cached (D38).
+
 ## Measurement rules
 
 These hold everywhere. Each gets a test as it is built.

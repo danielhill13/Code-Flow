@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MetricValue } from "./aggregate.ts";
-import { change, changeArrow, changeShort, changeText } from "./compare.ts";
+import { change, changeArrow, changeShort, changeText, changeWord } from "./compare.ts";
 
 const v = (key: string, value: number | null): MetricValue => ({
   key,
@@ -10,19 +10,26 @@ const v = (key: string, value: number | null): MetricValue => ({
 });
 const text = (key: string, now: number | null, before: number | null, complete = true) => {
   const previous = before === null ? null : v(key, before);
-  return changeText(change(v(key, now), previous, complete), previous);
+  return changeText(change(v(key, now), previous, complete), previous, v(key, now));
 };
 
 describe("change", () => {
-  it("writes a relative move with its direction and baseline", () => {
-    expect(text("cycle", 70, 31)).toBe("↑ 126% from 31.0 h");
-    expect(text("merged", 343, 319)).toBe("↑ 8% from 319");
-    expect(text("pickup", 8.3, 8.9)).toBe("↓ 7% from 8.9 h");
+  it("says increase or decrease, never better or worse, with both values in one unit", () => {
+    expect(text("cycle", 74.4, 31.6)).toBe("135% increase from 1.3 d");
+    expect(text("merged", 343, 319)).toBe("8% increase from 319");
+    expect(text("pickup", 8.3, 8.9)).toBe("7% decrease from 8.9 h");
+    expect(text("merged", 97, 118)).toBe("18% decrease from 118");
+  });
+
+  it("moves a small base by an absolute amount, not a percentage", () => {
+    expect(text("mergeWait", 7 / 60, 1 / 60)).toBe("6 min increase from 1 min");
+    expect(text("review", 4.7, 49 / 60)).toBe("3.9 h increase from 49 min");
+    expect(text("merged", 5, 2)).toBe("3 increase from 2");
   });
 
   it("moves shares in percentage points, with a decimal under ten", () => {
-    expect(text("repushed", 0.46, 0.5)).toBe("↓ 4.0 pts from 50%");
-    expect(text("abandoned", 0.32, 0.22)).toBe("↑ 10 pts from 22%");
+    expect(text("repushed", 0.46, 0.5)).toBe("4.0 pts decrease from 50%");
+    expect(text("abandoned", 0.32, 0.22)).toBe("10 pts increase from 22%");
   });
 
   it("calls a move too small to mean anything the same", () => {
@@ -35,14 +42,15 @@ describe("change", () => {
     expect(text("merged", 40, 120, false)).toBe("period not over");
     expect(text("cycle", 30, null)).toBe("no earlier data");
     expect(text("cycle", null, 30)).toBe("");
-    expect(text("merged", 3, 0)).toBe("↑ from 0");
+    expect(text("merged", 3, 0)).toBe("increase from 0");
   });
 
-  it("shortens for a table column, or to just the arrow", () => {
-    expect(changeShort(change(v("cycle", 2.9), v("cycle", 4.1)))).toBe("↓ 29%");
-    expect(changeShort(change(v("repushed", 0.56), v("repushed", 0.46)))).toBe("↑ 10 pts");
+  it("shortens for a table column, or to an arrow with its word", () => {
+    expect(changeShort(change(v("cycle", 2.9), v("cycle", 4.1)))).toBe("29% decrease");
+    expect(changeShort(change(v("repushed", 0.56), v("repushed", 0.46)))).toBe("10 pts increase");
     expect(changeShort(change(v("cycle", 2.9), v("cycle", 2.9)))).toBe("same");
-    expect(changeArrow(change(v("merged", 64), v("merged", 50)))).toBe("↑");
+    const up = change(v("merged", 64), v("merged", 50));
+    expect([changeArrow(up), changeWord(up)]).toEqual(["↑", "increase"]);
     expect(changeArrow(change(v("merged", 50), v("merged", 50)))).toBe("");
   });
 });

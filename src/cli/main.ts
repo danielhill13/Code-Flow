@@ -58,6 +58,22 @@ program
   });
 
 program
+  .command("run")
+  .description("sync, then build the report: one command for a scheduler such as cron")
+  .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
+  .option("--org <name>", "only this org (default: every org)")
+  .action(async (options: SyncOptions) => {
+    // A sync that stopped partway still stored what it fetched: the report shows that much.
+    const synced = await sync(options);
+    if (synced === 130) {
+      process.exitCode = synced;
+      return;
+    }
+    console.log();
+    process.exitCode = Math.max(synced, await build(options));
+  });
+
+program
   .command("status")
   .description("show what is synced locally and how the last sync went (no network)")
   .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
@@ -158,6 +174,7 @@ program
     "address to listen on; anything but this machine has no sign-in yet",
     "127.0.0.1",
   )
+  .option("--no-schedule", "don't sync on the orgs' schedules (sync_every, daily by default)")
   .action((options: ServeOptions) => serve(options));
 
 program

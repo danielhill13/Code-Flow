@@ -6,14 +6,18 @@ import type { OpenState, PrFact } from "../facts.ts";
 import { metricOf } from "../metrics.ts";
 import { inPeriod } from "../periods.ts";
 import { byContributors, type Contributors, type Selection, selects } from "../selection.ts";
+import { isStale, quietDays } from "../stale.ts";
 import type { ViewContext } from "./context.ts";
 import { AGE_BANDS, ageDays, inAgeBand, OPEN_STATES } from "./flow.ts";
 import { inBand, SIZE_BANDS, type SizeBand } from "./speed.ts";
 
-/** Which PRs a list holds: merged, still open, or closed without merging. */
-export type PrSet = "merged" | "open" | "abandoned";
+/**
+ * Which PRs a list holds: merged, open now, stale (open, but nobody has touched them for longer
+ * than the org's window), or closed without merging.
+ */
+export type PrSet = "merged" | "open" | "stale" | "abandoned";
 
-export const PR_SETS: readonly PrSet[] = ["merged", "open", "abandoned"];
+export const PR_SETS: readonly PrSet[] = ["merged", "open", "stale", "abandoned"];
 
 /** One narrowing of a list. Each is shown as a chip the reader can remove. */
 export type PrFilter =
@@ -44,7 +48,8 @@ export type PrColumn =
   | "timeToApproval"
   | "size"
   | "reviews"
-  | "state";
+  | "state"
+  | "quiet";
 
 export type PrSort = { key: PrColumn; dir: "asc" | "desc" };
 
@@ -76,6 +81,7 @@ export const COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "reviews",
   ],
   open: ["number", "title", "author", "age", "state", "size", "reviews"],
+  stale: ["number", "title", "author", "age", "quiet", "state", "reviews"],
   abandoned: ["number", "title", "author", "closed", "age", "size", "reviews"],
 };
 
@@ -83,6 +89,7 @@ export const COLUMNS: Record<PrSet, readonly PrColumn[]> = {
 export const DEFAULT_SORT: Record<PrSet, PrSort> = {
   merged: { key: "merged", dir: "desc" },
   open: { key: "age", dir: "desc" },
+  stale: { key: "quiet", dir: "desc" },
   abandoned: { key: "closed", dir: "desc" },
 };
 
@@ -109,11 +116,13 @@ export function prTest(
   const scoped = selects(q.selection, ctx.choices);
   const kept = byContributors(q.contributors);
   const tests = q.filters.map((filter) => filterTest(ctx, q.set, filter));
-  return (pr) =>
-    pr.counted && pr.state === STATE[q.set] && scoped(pr) && kept(pr) && tests.every((t) => t(pr));
+  const stale = (pr: PrFact) => isStale(pr, ctx.asOf, ctx.staleAfterDays);
+  const inSet = (pr: PrFact) =>
+    pr.state === STATE[q.set] && (q.set === "stale" ? stale(pr) : !stale(pr));
+  return (pr) => pr.counted && inSet(pr) && scoped(pr) && kept(pr) && tests.every((t) => t(pr));
 }
 
-const STATE = { merged: "merged", open: "open", abandoned: "closed" } as const;
+const STATE = { merged: "merged", open: "open", stale: "open", abandoned: "closed" } as const;
 
 function filterTest(ctx: ViewContext, set: PrSet, filter: PrFilter): (pr: PrFact) => boolean {
   const metricCtx = { asOf: ctx.asOf };
@@ -122,7 +131,7 @@ function filterTest(ctx: ViewContext, set: PrSet, filter: PrFilter): (pr: PrFact
       return (pr) =>
         inPeriod(
           filter,
-          set === "merged" ? pr.mergedAt : set === "open" ? pr.createdAt : pr.closedAt,
+          set === "merged" ? pr.mergedAt : set === "abandoned" ? pr.closedAt : pr.createdAt,
         );
     case "applies": {
       const metric = metricOf(filter.metric);
@@ -186,6 +195,8 @@ function sortValue(key: PrColumn, pr: PrFact, asOf: Date): number | string | nul
       return pr.reviews;
     case "state":
       return pr.openState === null ? null : OPEN_STATES.indexOf(pr.openState);
+    case "quiet":
+      return quietDays(pr, asOf);
   }
 }
 
@@ -193,7 +204,7 @@ function sortValue(key: PrColumn, pr: PrFact, asOf: Date): number | string | nul
 export function filterLabel(filter: PrFilter, set: PrSet): string {
   switch (filter.kind) {
     case "span":
-      return `${set === "merged" ? "Merged" : set === "open" ? "Opened" : "Closed"} · ${filter.label}`;
+      return `${set === "merged" ? "Merged" : set === "abandoned" ? "Closed" : "Opened"} · ${filter.label}`;
     case "applies": {
       const metric = metricOf(filter.metric);
       return metric.subset ?? metric.label;
