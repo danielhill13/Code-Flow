@@ -25,6 +25,9 @@ export type AdoRepoOutcome = {
   error?: string;
 };
 
+/** PRs fetched between saves: progress shows, and a stop keeps, every few PRs. */
+const SAVE_EVERY = 5;
+
 /** Seconds of overlap with the last sync, so a PR closing as it started isn't missed. */
 const OVERLAP_MS = 60 * 60 * 1000;
 
@@ -84,13 +87,31 @@ export async function syncAdoRepo(options: {
       );
       options.onProgress?.(walk);
     };
-    const details = async (prs: readonly AdoPullRequest[]) => {
-      const payloads: AdoPayload[] = [];
+    /**
+     * Fetches each PR's details, storing them every few PRs so progress shows (and survives a
+     * stop) long before a page of 100 is done; the page's cursor is saved with its last batch.
+     * Returns how many were fetched, or null when stopped.
+     */
+    const details = async (
+      walk: AdoWalk,
+      prs: readonly AdoPullRequest[],
+      next: Parameters<Store["savePage"]>[3],
+    ): Promise<number | null> => {
+      let batch: AdoPayload[] = [];
       for (const pr of prs) {
-        if (signal?.aborted) return null;
-        payloads.push(await fetchPr(client, repo, pr));
+        if (signal?.aborted) {
+          if (batch.length > 0) store_(walk, batch, {});
+          return null;
+        }
+        batch.push(await fetchPr(client, repo, pr));
+        walk.prs += 1;
+        if (batch.length === SAVE_EVERY) {
+          store_(walk, batch, {});
+          batch = [];
+        }
       }
-      return payloads;
+      store_(walk, batch, next);
+      return prs.length;
     };
 
     // 1. Backfill to `since`: PRs newest-created first, so it stops at the first one older.
@@ -108,18 +129,16 @@ export async function syncAdoRepo(options: {
             // Extending further back: what's newer is stored already.
             (!extending || pr.creationDate.slice(0, 10) < (state.coveredSince ?? "")),
         );
-        const payloads = await details(wanted);
-        if (payloads === null) return { ...outcome, interrupted: true };
-        walk.prs += payloads.length;
         const oldest = page.prs.at(-1)?.creationDate.slice(0, 10);
         const done = page.next === null || (oldest !== undefined && oldest < since);
-        store_(
+        const fetched = await details(
           walk,
-          payloads,
+          wanted,
           done
             ? { coveredSince: since, tailCursor: null }
             : { tailCursor: String(page.next ?? skip) },
         );
+        if (fetched === null) return { ...outcome, interrupted: true };
         if (done) break;
         skip = page.next ?? skip;
       }
@@ -133,10 +152,7 @@ export async function syncAdoRepo(options: {
       while (skip !== null) {
         const page = await listPrs(client, repo, { status: "active", skip });
         walk.pages += 1;
-        const payloads = await details(page.prs);
-        if (payloads === null) return { ...outcome, interrupted: true };
-        walk.prs += payloads.length;
-        store_(walk, payloads, {});
+        if ((await details(walk, page.prs, {})) === null) return { ...outcome, interrupted: true };
         skip = page.next;
       }
     }
@@ -152,10 +168,8 @@ export async function syncAdoRepo(options: {
           const page = await listPrs(client, repo, { status, skip, closedSince: from });
           walk.pages += 1;
           // Checked here too: a server that ignores the date filter mustn't cost every PR's details.
-          const payloads = await details(page.prs.filter((pr) => (pr.closedDate ?? "") >= from));
-          if (payloads === null) return { ...outcome, interrupted: true };
-          walk.prs += payloads.length;
-          store_(walk, payloads, {});
+          const closed = page.prs.filter((pr) => (pr.closedDate ?? "") >= from);
+          if ((await details(walk, closed, {})) === null) return { ...outcome, interrupted: true };
           skip = page.next;
         }
       }

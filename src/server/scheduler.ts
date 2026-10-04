@@ -145,11 +145,19 @@ export class Scheduler {
       );
       const log: string[] = [];
       this.#logs.set(org.name, log);
+      // The terminal hears it too: every result, and how far it has got at most every 30 s, so
+      // a long first sync never looks stuck.
+      let heard = this.#now();
       const report = (line: string, transient = false) => {
         if (transient) {
           this.#progress.set(org.name, line);
+          if (this.#now() - heard >= PROGRESS_EVERY_MS) {
+            heard = this.#now();
+            this.#log(`  ${org.name}: ${line}`);
+          }
           return;
         }
+        this.#log(`  ${org.name}: ${line}`);
         log.push(line);
         if (log.length > LOG_LINES) log.splice(0, log.length - LOG_LINES);
       };
@@ -168,6 +176,9 @@ export class Scheduler {
     }
   }
 }
+
+/** How often a running sync's progress is printed to the terminal. */
+const PROGRESS_EVERY_MS = 30_000;
 
 /** When the org's newest clean sync started; null if it has never synced cleanly. */
 function lastSyncOf(org: Org): string | null {
