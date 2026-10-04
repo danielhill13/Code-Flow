@@ -141,7 +141,9 @@ describe("the Azure DevOps client [D41]", () => {
     expect(fromAz).toMatchObject({ authorization: "Bearer jwt", kind: "Microsoft Entra token" });
     await expect(
       resolveAdoToken({ tokenEnv: "ADO_PAT", env: {}, azToken: async () => undefined }),
-    ).rejects.toThrow(/Set ADO_PAT .* Code \(Read\), or sign in with the Azure CLI/);
+    ).rejects.toThrow(
+      /Set ADO_PAT .* Code \(Read\) and Project and Team \(Read\), or sign in with the Azure CLI/,
+    );
   });
 });
 
