@@ -129,7 +129,7 @@ export interface AdminApi {
   /** Takes the org off the workspace's list; its files and data stay. */
   remove(): Promise<void>;
   checkGitHub(github: GitHubSettings): Promise<GitHubCheck>;
-  checkAdo(settings: AdoSettings & { organization?: string }): Promise<AdoCheck>;
+  checkAdo(settings: AdoSettings & { organization?: string; project?: string }): Promise<AdoCheck>;
   previewSources(draft: SourcesDraft): Promise<SourcesPreview>;
   open(part: ConfigPart): Promise<Opened>;
   save(
@@ -178,7 +178,7 @@ export class ServerAdmin implements AdminApi {
     return workspaceApi.checkGitHub(github);
   }
 
-  checkAdo(settings: AdoSettings & { organization?: string }): Promise<AdoCheck> {
+  checkAdo(settings: AdoSettings & { organization?: string; project?: string }): Promise<AdoCheck> {
     return workspaceApi.checkAdo(settings);
   }
 
@@ -236,13 +236,22 @@ export type WorkspaceInfo = {
   since: string;
 };
 
+const failed = (err: unknown): { ok: false; error: string } => ({
+  ok: false,
+  error: `codeflow couldn't check: ${err instanceof Error ? err.message : String(err)}`,
+});
+
 /** The calls about the workspace as a whole, before or besides any one org. */
 export const workspaceApi = {
   info: (): Promise<WorkspaceInfo> => call("/api/workspace", ""),
+  // The checks never throw: a request that fails is a failed check, with its reason, so the page
+  // never waits on one that will not answer.
   checkGitHub: (github: GitHubSettings): Promise<GitHubCheck> =>
-    call("/api/github", "/check", { method: "POST", body: github }),
-  checkAdo: (settings: AdoSettings & { organization?: string }): Promise<AdoCheck> =>
-    call("/api/ado", "/check", { method: "POST", body: settings }),
+    call<GitHubCheck>("/api/github", "/check", { method: "POST", body: github }).catch(failed),
+  checkAdo: (
+    settings: AdoSettings & { organization?: string; project?: string },
+  ): Promise<AdoCheck> =>
+    call<AdoCheck>("/api/ado", "/check", { method: "POST", body: settings }).catch(failed),
   previewSources: (draft: SourcesDraft): Promise<SourcesPreview> =>
     call("/api/github", "/preview", { method: "POST", body: draft }),
   createOrg: (input: {

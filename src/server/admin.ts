@@ -12,6 +12,7 @@ import { formatIssues, parseConfig } from "../config/load.ts";
 import { type AdoSource, type Config, isGitHub, SourcesDraftSchema } from "../config/schema.ts";
 import { ORG_FILES } from "../config/workspace.ts";
 import { CodeflowError } from "../errors.ts";
+import { type AdoClient, AdoError } from "../providers/ado/client.ts";
 import { discoverAdo } from "../providers/ado/discover.ts";
 import { discoverRepos, sourceName } from "../providers/github/discover.ts";
 import { countPrsToSync, estimateBackfill, prPageCost } from "../providers/github/estimate.ts";
@@ -25,16 +26,19 @@ export type AdoCheck =
 
 /**
  * Whether codeflow can read an Azure DevOps organization with the token it finds, and as whom;
- * never throws. Without an organization, only whether a token is there.
+ * never throws. Without an organization, only whether a token is there. With one, it also lists
+ * what a sync starts from (the organization's projects, or the project's repos), since a token can
+ * sign in and still lack the scope for that.
  */
 export async function checkAdo(
-  settings: Partial<typeof DEFAULT_ADO> & { organization?: string },
+  settings: Partial<typeof DEFAULT_ADO> & { organization?: string; project?: string },
 ): Promise<AdoCheck> {
-  const { organization, ...rest } = settings;
+  const { organization, project, ...rest } = settings;
   const config = { azure_devops: { ...DEFAULT_ADO, ...clean(rest) } } as Config;
   try {
     const ado = await connectAdo(config, () => {}, { quiet: true });
-    if (!organization?.trim()) {
+    const name = organization?.trim() ?? "";
+    if (!name) {
       return {
         ok: true,
         who: "",
@@ -43,10 +47,36 @@ export async function checkAdo(
         organization: "",
       };
     }
-    const who = await adoWhoAmI(ado.client(organization.trim()));
-    return { ok: true, who, source: ado.token.source, kind: ado.token.kind, organization };
+    const client = ado.client(name);
+    const who = await adoWhoAmI(client);
+    const listing = await canList(client, project?.trim() || null);
+    if (listing) return { ok: false, error: `Signed in to ${name} as ${who}, but ${listing}` };
+    return { ok: true, who, source: ado.token.source, kind: ado.token.kind, organization: name };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Why the token can't list what a sync reads first, or null when it can. */
+async function canList(client: AdoClient, project: string | null): Promise<string | null> {
+  try {
+    if (project) {
+      await client.get(`/${encodeURIComponent(project)}/_apis/git/repositories`);
+    } else {
+      await client.get("/_apis/projects", { $top: 1 });
+    }
+    return null;
+  } catch (err) {
+    const status = err instanceof AdoError ? err.status : 0;
+    if (project && status === 404) {
+      return `it has no project called ${project}, or the token can't see it.`;
+    }
+    if (status === 401 || status === 403) {
+      return project
+        ? `the token can't read the repos of ${project}: give it Code (Read).`
+        : "the token can't list the organization's projects: give it Project and Team (Read) as well as Code (Read), or name one project in the source.";
+    }
+    return err instanceof Error ? err.message : String(err);
   }
 }
 

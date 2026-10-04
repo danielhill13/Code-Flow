@@ -123,9 +123,9 @@ function SourceFields({
         <Text
           label="Azure DevOps organization"
           value={source.ado}
-          onChange={(ado) => onChange({ ...source, ado: ado.trim() })}
+          onChange={(ado) => onChange({ ...source, ...adoAddress(ado) })}
           placeholder="contoso"
-          hint="As in dev.azure.com/contoso."
+          hint="As in dev.azure.com/contoso. Pasting the address fills both."
         />
         <Text
           label="Project"
@@ -166,6 +166,25 @@ function SourceFields({
       </div>
     </>
   );
+}
+
+/**
+ * What's typed or pasted as the Azure DevOps organization: a name, or an address
+ * (https://dev.azure.com/contoso/Platform, contoso.visualstudio.com/Platform), which gives the
+ * project too.
+ */
+export function adoAddress(text: string): { ado: string; project?: string } {
+  const value = text.trim();
+  const address =
+    /^(?:https?:\/\/)?(?:[^@/]+@)?dev\.azure\.com\/([^/?#]+)(?:\/([^/?#]+))?/i.exec(value) ??
+    /^(?:https?:\/\/)?([^./]+)\.visualstudio\.com(?:\/(?!DefaultCollection\b)([^/?#]+))?/i.exec(
+      value,
+    );
+  if (!address) return { ado: value };
+  const project = address[2] ? decodeURIComponent(address[2]) : undefined;
+  return project && !project.startsWith("_")
+    ? { ado: address[1] ?? "", project }
+    : { ado: address[1] ?? "" };
 }
 
 /** Sources a form can't save yet: a kind with its name left blank. */

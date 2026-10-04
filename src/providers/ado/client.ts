@@ -3,7 +3,7 @@
 // limits (decision D41): one request at a time, at most two a second, slower when the server's
 // rate-limit headers say so, and a full stop for as long as it asks when it throttles. It turns a
 // refusal into a message that says what to do.
-import { execFile } from "node:child_process";
+import { exec } from "node:child_process";
 import { promisify } from "node:util";
 import { CodeflowError } from "../../errors.ts";
 import { isLoopback } from "../github/auth.ts";
@@ -57,31 +57,26 @@ export async function resolveAdoToken(options: {
   }
   throw new CodeflowError(
     `No Azure DevOps token found. Set ${options.tokenEnv} to a personal access token with ` +
-      "Code (Read), or sign in with the Azure CLI: az login",
+      "Code (Read) and Project and Team (Read), or sign in with the Azure CLI: az login",
   );
 }
 
 async function readAzToken(): Promise<string | undefined> {
   try {
-    const { stdout } = await promisify(execFile)(
-      "az",
-      [
-        "account",
-        "get-access-token",
-        "--resource",
-        ADO_RESOURCE,
-        "--query",
-        "accessToken",
-        "-o",
-        "tsv",
-      ],
-      { timeout: 15_000 },
+    // Through the shell, because on Windows the Azure CLI is az.cmd, which only a shell runs. The
+    // command is fixed: nothing from config or the user goes into it.
+    const { stdout } = await promisify(exec)(
+      `az account get-access-token --resource ${ADO_RESOURCE} --query accessToken -o tsv`,
+      { timeout: 15_000, windowsHide: true },
     );
     return stdout.trim() || undefined;
   } catch {
     return undefined; // the Azure CLI is not installed, or not signed in
   }
 }
+
+/** How long one request may take before codeflow stops waiting for it. */
+const TIMEOUT_MS = 60_000;
 
 type Query = Record<string, string | number | undefined>;
 
@@ -247,10 +242,17 @@ export class AdoClient {
           },
           ...(body !== undefined && { body: JSON.stringify(body) }),
           redirect: "manual",
+          signal: AbortSignal.timeout(TIMEOUT_MS),
         });
       } catch (err) {
+        const cause = (err as Error & { cause?: { code?: string } }).cause?.code;
+        const why =
+          (err as Error).name === "TimeoutError"
+            ? `no answer in ${TIMEOUT_MS / 1000}s`
+            : [(err as Error).message, cause].filter(Boolean).join(": ");
         throw new CodeflowError(
-          `Couldn't reach Azure DevOps at ${this.base} (${(err as Error).message}). Check the network, or the server address.`,
+          `Couldn't reach Azure DevOps at ${this.base} (${why}). Check the network and the server address. ` +
+            "On a network that needs a proxy, start codeflow with HTTPS_PROXY set and NODE_USE_ENV_PROXY=1.",
         );
       }
       this.#heed(response);
@@ -270,7 +272,9 @@ export class AdoClient {
       ) {
         throw new AdoError(
           401,
-          `Azure DevOps (${this.organization}) refused the token: expired, revoked, or without Code (Read)?`,
+          `Azure DevOps (${this.organization}) refused the token. A personal access token must be ` +
+            `made in ${this.organization} (or for all accessible organizations), not expired, ` +
+            "with Code (Read), and Project and Team (Read) to list projects.",
         );
       }
       if (!response.ok) {

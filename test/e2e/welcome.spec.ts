@@ -175,3 +175,39 @@ test("TC-612 an Azure DevOps project becomes an org the same way, beside the Git
   await page.getByRole("link", { name: "Pull requests", exact: true }).click();
   expect(await ready(page)).toContain("contoso/Platform/billing");
 });
+
+test("TC-614 a source codeflow can't read says why, and can be left out to start without it", async ({
+  page,
+}) => {
+  await page.goto(`${url}/welcome/`);
+  const githubStatus = page.locator(".github-status").first();
+  const adoStatus = page.locator(".github-status").nth(1);
+  await page.getByText("GitHub Enterprise, or a token in another variable").click();
+  await page.getByLabel("API address").fill(GITHUB);
+  await page.getByLabel("Token variable", { exact: true }).fill(TOKEN_ENV);
+  await githubStatus.getByRole("button", { name: "Check again" }).click();
+  await expect(githubStatus).toContainText("Connected as codeflow-tester");
+  await page.getByLabel("Organization or user", { exact: true }).fill("acme-co");
+
+  // An Azure DevOps source, pasted as its address, with no Azure DevOps token anywhere.
+  await page.getByRole("button", { name: "+ Add a source" }).click();
+  await page
+    .getByRole("combobox", { name: "Kind" })
+    .nth(1)
+    .selectOption({ label: "Azure DevOps: an organization's or a project's repos" });
+  await page.getByLabel("Azure DevOps organization").fill("https://dev.azure.com/contoso/Platform");
+  await expect(page.getByLabel("Azure DevOps organization")).toHaveValue("contoso");
+  await expect(page.getByLabel("Project", { exact: true })).toHaveValue("Platform");
+  await expect(adoStatus).toContainText("No Azure DevOps token found");
+  await expect(adoStatus).toContainText("start it again");
+  await expect(page.getByText("codeflow can't read Azure DevOps yet")).toContainText(
+    "To start with GitHub alone, remove the Azure DevOps source",
+  );
+  await expect(page.getByRole("button", { name: "Show what this measures" })).toBeDisabled();
+
+  // Left out, GitHub alone goes ahead.
+  await page.getByRole("button", { name: "Remove" }).nth(1).click();
+  await expect(page.getByText("codeflow can't read Azure DevOps yet")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show what this measures" }).click();
+  await expect(page.locator(".preview-repos")).toContainText("acme-co (organization): 3 repos");
+});

@@ -21,10 +21,16 @@ export class AdoServer {
   /** Every request, as METHOD /path. */
   readonly calls: string[] = [];
   readonly #repos: FakeAdoRepo[];
+  /** A token without Project and Team (Read): listing projects is refused, as Azure DevOps does. */
+  readonly #noProjectScope: boolean;
   #server: Server | null = null;
 
-  constructor(repos: readonly FakeAdoRepo[], options: { token?: string } = {}) {
+  constructor(
+    repos: readonly FakeAdoRepo[],
+    options: { token?: string; noProjectScope?: boolean } = {},
+  ) {
     this.token = options.token ?? "codeflow-ado-test-token";
+    this.#noProjectScope = options.noProjectScope ?? false;
     this.#repos = repos.map((repo) => ({ ...repo, prs: [...repo.prs] }));
   }
 
@@ -89,6 +95,9 @@ export class AdoServer {
       };
     }
     if (path === "_apis/projects") {
+      if (this.#noProjectScope) {
+        return { status: 401, body: { message: "TF400813: not authorized for this scope" } };
+      }
       const projects = [...new Set(inOrg.map((r) => r.project))];
       return {
         status: 200,
@@ -100,6 +109,12 @@ export class AdoServer {
       return { status: 404, body: { message: `fake ADO doesn't answer ${path}` } };
     }
     const inProject = inOrg.filter((r) => r.project === project);
+    if (inProject.length === 0) {
+      return {
+        status: 404,
+        body: { message: `TF200016: The following project does not exist: ${project}.` },
+      };
+    }
     if (!repoId) {
       return {
         status: 200,

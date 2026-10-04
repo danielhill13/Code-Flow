@@ -101,7 +101,9 @@ azure_devops:
 
 codeflow reads the variable `token_env` names, then `AZURE_DEVOPS_EXT_PAT` (what the Azure CLI's
 DevOps extension uses), then a sign-in with the Azure CLI (`az login`). A personal access token
-needs **Code (Read)** and nothing else.
+needs **Code (Read)**, and **Project and Team (Read)** for a source that names no `project`
+(listing an organization's projects needs it). Make it in the organization you measure, or for
+all accessible organizations.
 
 Azure DevOps can't list PRs by when they last changed, so each sync reads every open PR again,
 plus those closed since the last sync; the first sync reads every PR created since `since`. Each

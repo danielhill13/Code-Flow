@@ -2,7 +2,7 @@
 // Azure DevOps or both, say what to measure and see what that means, then create the org and
 // watch its first sync. Everything
 // lands in the same files `codeflow init` writes; nothing here needs a terminal.
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { duration, num } from "../core/format.ts";
 import {
   type AdminApi,
@@ -107,7 +107,10 @@ function Steps({ info }: { info: WorkspaceInfo }) {
   const [since, setSince] = useState(info.since);
   const [preview, setPreview] = useState<SourcesPreview | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"check" | "ado" | "preview" | "create" | null>(null);
+  const [previewProblem, setPreviewProblem] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [adoChecking, setAdoChecking] = useState(false);
+  const [busy, setBusy] = useState<"preview" | "create" | null>(null);
   const [created, setCreated] = useState<string | null>(null);
 
   const filled = sources.filter((source) => !blank(source));
@@ -130,30 +133,51 @@ function Steps({ info }: { info: WorkspaceInfo }) {
   const taken = info.orgs.some((org) => org.name === orgName);
 
   const runCheck = async () => {
-    setBusy("check");
+    setChecking(true);
     setCheck(await workspaceApi.checkGitHub(github));
-    setBusy(null);
+    setChecking(false);
   };
+  // The Azure DevOps check follows the source being typed: it names the organization (and the
+  // project) to check, so "connected" means codeflow can read what step 2 asks for. Only the
+  // latest check's answer is shown.
+  const adoSource = filled.find((s): s is { ado: string; project?: string } => "ado" in s);
+  const adoTarget = [
+    adoSource?.ado ?? "",
+    adoSource?.project ?? "",
+    ado.url ?? "",
+    ado.token_env ?? "",
+  ];
+  const latest = useRef(0);
   const runAdoCheck = async () => {
-    setBusy("ado");
-    const organization = filled.find((s): s is { ado: string } => "ado" in s)?.ado;
-    setAdoCheck(await workspaceApi.checkAdo({ ...ado, organization }));
-    setBusy(null);
+    const mine = ++latest.current;
+    setAdoChecking(true);
+    const result = await workspaceApi.checkAdo({
+      ...ado,
+      organization: adoSource?.ado,
+      project: adoSource?.project,
+    });
+    if (mine !== latest.current) return;
+    setAdoCheck(result);
+    setAdoChecking(false);
   };
   useEffect(() => {
-    runCheck().then(runAdoCheck);
+    runCheck();
   }, []);
+  useEffect(() => {
+    const timer = setTimeout(runAdoCheck, adoCheck === null ? 0 : 700);
+    return () => clearTimeout(timer);
+  }, adoTarget);
 
   const runPreview = async () => {
     setBusy("preview");
-    setProblem(null);
+    setPreviewProblem(null);
     try {
       setPreview(
         await workspaceApi.previewSources({ sources: filled, since, github, azure_devops: ado }),
       );
     } catch (err) {
       setPreview(null);
-      setProblem(message(err));
+      setPreviewProblem(message(err));
     } finally {
       setBusy(null);
     }
@@ -184,7 +208,11 @@ function Steps({ info }: { info: WorkspaceInfo }) {
   };
 
   const found = preview?.sources.reduce((n, s) => n + s.repos.length, 0) ?? 0;
-  const ready = (!onGitHub || check?.ok) && (!onAdo || adoCheck?.ok);
+  const unread = preview?.sources.filter((s) => s.error).map((s) => s.name) ?? [];
+  const githubReady = !onGitHub || check?.ok === true;
+  const adoReady = !onAdo || adoCheck?.ok === true;
+  const ready = githubReady && adoReady;
+  const checks = checking || adoChecking;
   return (
     <div class="steps">
       <section class="card setup-step" aria-labelledby="step-connect">
@@ -196,7 +224,7 @@ function Steps({ info }: { info: WorkspaceInfo }) {
           the ones you use.
         </p>
         <h3 class="form-section">GitHub</h3>
-        <GitHubStatus check={check} busy={busy === "check"} onCheck={runCheck} />
+        <GitHubStatus check={check} busy={checking} onCheck={runCheck} />
         <details class="advanced">
           <summary>GitHub Enterprise, or a token in another variable</summary>
           <div class="form">
@@ -217,7 +245,7 @@ function Steps({ info }: { info: WorkspaceInfo }) {
           </div>
         </details>
         <h3 class="form-section">Azure DevOps</h3>
-        <AdoStatus check={adoCheck} busy={busy === "ado"} onCheck={runAdoCheck} />
+        <AdoStatus check={adoCheck} busy={adoChecking} onCheck={runAdoCheck} />
         <details class="advanced">
           <summary>Azure DevOps Server, or a token in another variable</summary>
           <div class="form">
@@ -276,17 +304,25 @@ function Steps({ info }: { info: WorkspaceInfo }) {
           <button
             type="button"
             class="button"
-            disabled={filled.length === 0 || busy !== null || !ready}
+            disabled={filled.length === 0 || busy !== null || checks || !ready}
             onClick={runPreview}
           >
             {busy === "preview" ? "Asking…" : "Show what this measures"}
           </button>
-          {filled.length > 0 && !ready && (
-            <span class="muted">
-              Connect to {onGitHub && !check?.ok ? "GitHub" : "Azure DevOps"} first.
-            </span>
-          )}
+          {filled.length === 0 && <span class="muted">Name something to measure first.</span>}
+          {filled.length > 0 && checks && <span class="muted">Checking the connection…</span>}
         </div>
+        {filled.length > 0 && !checks && !ready && (
+          <p class="problem">
+            {!githubReady
+              ? "codeflow can't read GitHub yet: step 1 says why."
+              : "codeflow can't read Azure DevOps yet: step 1 says why."}{" "}
+            {onGitHub && onAdo
+              ? `To start with ${githubReady ? "GitHub" : "Azure DevOps"} alone, remove the ${githubReady ? "Azure DevOps" : "GitHub"} source; add it later in Setup › Repos.`
+              : ""}
+          </p>
+        )}
+        <Problem text={previewProblem} />
         {preview && <PreviewTable preview={preview} />}
       </section>
 
@@ -304,10 +340,21 @@ function Steps({ info }: { info: WorkspaceInfo }) {
                 : "Show what it measures first, so there are no surprises."}
             </p>
             {taken && <p class="problem">There is already an org called {orgName}.</p>}
+            {unread.length > 0 && (
+              <p class="problem">
+                {unread.join(", ")} couldn't be read (above). Fix it, or remove it to start without
+                it and add it later in Setup › Repos.
+              </p>
+            )}
+            {preview && found === 0 && unread.length === 0 && (
+              <p class="problem">These sources hold no repos codeflow can measure.</p>
+            )}
             <button
               type="button"
               class="button primary"
-              disabled={!preview || found === 0 || busy !== null || taken || !orgName}
+              disabled={
+                !preview || found === 0 || unread.length > 0 || busy !== null || taken || !orgName
+              }
               onClick={create}
             >
               {busy === "create" ? "Creating…" : `Create ${orgName || "the org"} and start syncing`}
@@ -335,7 +382,9 @@ export function AdoStatus(props: { check: AdoCheck | null; busy: boolean; onChec
             : "A token is ready"}
           , from <code>{check.source}</code> ({check.kind}).{" "}
           <span class="muted">
-            codeflow paces its requests to stay inside Azure DevOps's limits.
+            {check.organization
+              ? "codeflow paces its requests to stay inside Azure DevOps's limits."
+              : "It's tried on your organization once you name one in step 2."}
           </span>
         </p>
       ) : (
@@ -343,9 +392,12 @@ export function AdoStatus(props: { check: AdoCheck | null; busy: boolean; onChec
           <p class="problem">{check.error}</p>
           <p class="muted">
             Make a personal access token in Azure DevOps (User settings › Personal access tokens)
-            with <b>Code (Read)</b> only, and start codeflow with it in{" "}
-            <code>AZURE_DEVOPS_TOKEN</code>. Or sign in with the Azure CLI: <code>az login</code>.
-            codeflow never stores tokens in its files.
+            for your organization, with <b>Code (Read)</b> and <b>Project and Team (Read)</b>. Set
+            it in <code>AZURE_DEVOPS_TOKEN</code> in the terminal you start codeflow from, then stop
+            codeflow (Ctrl-C) and start it again: a running codeflow can't see a variable set after
+            it started. In PowerShell: <code>$env:AZURE_DEVOPS_TOKEN = "…"</code>; in bash or zsh:{" "}
+            <code>export AZURE_DEVOPS_TOKEN=…</code>. Or sign in with the Azure CLI (
+            <code>az login</code>) and check again. codeflow never stores tokens in its files.
           </p>
         </div>
       )}

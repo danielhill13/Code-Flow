@@ -208,6 +208,40 @@ describe("setting up Azure DevOps from the web app", () => {
     // on a laptop, it might hand over its real sign-in.
   });
 
+  it("says which project a check can't find", async () => {
+    const result = (await (
+      await post("/api/ado/check", { ...settings(), organization: ADO_ORG, project: "Nope" })
+    ).json()) as { ok: boolean; error?: string };
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/Signed in to contoso as Codeflow Tester, but .*Nope/);
+  });
+
+  it("says when a token signs in but can't list the organization's projects", async () => {
+    const narrow = new AdoServer(contosoRepos(), { noProjectScope: true });
+    const url = await narrow.start();
+    try {
+      const whole = (await (
+        await post("/api/ado/check", { url, token_env: ADO_TOKEN_ENV, organization: ADO_ORG })
+      ).json()) as { ok: boolean; error?: string };
+      expect(whole.ok).toBe(false);
+      expect(whole.error).toMatch(
+        /can't list the organization's projects.*Project and Team \(Read\)/,
+      );
+      // Naming the project needs no project listing: the same token is enough.
+      const one = await (
+        await post("/api/ado/check", {
+          url,
+          token_env: ADO_TOKEN_ENV,
+          organization: ADO_ORG,
+          project: ADO_PROJECT,
+        })
+      ).json();
+      expect(one).toMatchObject({ ok: true, organization: ADO_ORG });
+    } finally {
+      await narrow.stop();
+    }
+  });
+
   it("previews an Azure DevOps project beside a GitHub org, and creates the org with both", async () => {
     const preview = (await (
       await post("/api/github/preview", {

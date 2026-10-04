@@ -105,7 +105,7 @@ const GitHubSchema = z.strictObject({
 const AzureDevOpsSchema = z.strictObject({
   /** https://dev.azure.com, or an Azure DevOps Server's address, such as https://tfs.acme.com/tfs */
   url: z.url().default("https://dev.azure.com"),
-  /** The variable holding a personal access token with Code (Read). */
+  /** The variable holding a personal access token with Code (Read) and Project and Team (Read). */
   token_env: z.string().min(1).default("AZURE_DEVOPS_TOKEN"),
 });
 

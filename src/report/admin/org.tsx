@@ -611,7 +611,7 @@ export function Settings(props: SectionProps) {
             org.set({ azure_devops: { ...value.azure_devops, token_env: token_env || undefined } })
           }
           placeholder="AZURE_DEVOPS_TOKEN"
-          hint="A personal access token with Code (Read), or sign in with the Azure CLI (az login)."
+          hint="A personal access token with Code (Read) and Project and Team (Read), or sign in with the Azure CLI (az login)."
         />
         <div class="wide-field">
           <AdoStatus
@@ -619,8 +619,16 @@ export function Settings(props: SectionProps) {
             busy={adoChecking}
             onCheck={async () => {
               setAdoChecking(true);
-              const organization = value.sources.find((s): s is { ado: string } => "ado" in s)?.ado;
-              setAdoCheck(await props.api.checkAdo({ ...value.azure_devops, organization }));
+              const source = value.sources.find(
+                (s): s is { ado: string; project?: string } => "ado" in s,
+              );
+              setAdoCheck(
+                await props.api.checkAdo({
+                  ...value.azure_devops,
+                  organization: source?.ado,
+                  project: source?.project,
+                }),
+              );
               setAdoChecking(false);
             }}
           />

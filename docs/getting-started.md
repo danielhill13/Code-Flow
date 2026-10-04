@@ -33,13 +33,23 @@ and grant read-only **Contents**, **Pull requests** and **Metadata**. Nothing el
 export GITHUB_TOKEN=github_pat_...
 ```
 
-**Azure DevOps.** Make a personal access token (User settings › Personal access tokens) with
-**Code (Read)** only, and put it in `AZURE_DEVOPS_TOKEN` before starting codeflow. Or sign in
-with the [Azure CLI](https://learn.microsoft.com/cli/azure/): `az login`.
+**Azure DevOps.** Make a personal access token (User settings › Personal access tokens) in the
+organization you'll measure, with **Code (Read)** and **Project and Team (Read)**, and put it in
+`AZURE_DEVOPS_TOKEN` in the terminal you start codeflow from. Or sign in with the
+[Azure CLI](https://learn.microsoft.com/cli/azure/): `az login`.
 
 ```bash
 export AZURE_DEVOPS_TOKEN=...
 ```
+
+In PowerShell on Windows:
+
+```powershell
+$env:AZURE_DEVOPS_TOKEN = "..."
+```
+
+Set it before `npm start`: codeflow can't see a variable set after it started, so set one later
+and stop codeflow (Ctrl-C) and start it again.
 
 codeflow never writes a token into its files. The token must belong to someone who can see the
 repos. codeflow paces its Azure DevOps requests (at most two a second, slower when Azure DevOps
@@ -168,6 +178,14 @@ add more orgs (or run `npm run codeflow -- migrate --org <name>`).
 
 - **"No GitHub token found"**: step 2, then Check again. In a terminal, `gh auth status` or
   `echo $GITHUB_TOKEN` shows what codeflow will find.
+- **Azure DevOps won't connect**: step 1 says why once you name the organization in step 2. A
+  token set after codeflow started isn't seen: stop it and start it again from that terminal. A
+  personal access token must be made in that organization (or for all accessible ones), with
+  Code (Read) and Project and Team (Read). On a network that needs a proxy, start codeflow with
+  `HTTPS_PROXY` set and `NODE_USE_ENV_PROXY=1`.
+- **"Create" stays greyed out**: choose "Show what this measures" first; step 3 says what else
+  is missing. To start with GitHub alone, remove the Azure DevOps source and add it later in
+  Setup › Repos.
 - **A repo is missing**: the token can't see it, or the source leaves it out. "Show what this
   measures" in Setup › Repos lists every repo left out, and why.
 - **A metric shows "—"**: too few PRs to show honestly (a median needs 10), or the data doesn't
