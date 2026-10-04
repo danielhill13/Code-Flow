@@ -226,8 +226,11 @@ export class AdoClient {
     for (const [key, value] of Object.entries(query)) {
       if (value !== undefined) params.set(key, String(value));
     }
+    // Some resources (the signed-in user, file diffs) only exist as a preview of a version: this
+    // call asks for that once Azure DevOps says so.
+    let preview = false;
     for (let waits = 0; ; waits++) {
-      params.set("api-version", this.#version);
+      params.set("api-version", preview ? `${this.#version}-preview` : this.#version);
       const url = `${this.base}${path}?${params}`;
       await this.#turn();
       this.stats.calls += 1;
@@ -284,6 +287,10 @@ export class AdoClient {
           message = (JSON.parse(text) as { message?: string }).message ?? message;
         } catch {
           // not JSON: keep the text
+        }
+        if (response.status === 400 && !preview && /preview/i.test(message)) {
+          preview = true;
+          continue;
         }
         // An older server says it doesn't know this version: step down and ask again.
         const next =

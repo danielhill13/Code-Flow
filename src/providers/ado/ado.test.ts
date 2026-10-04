@@ -103,6 +103,32 @@ describe("the Azure DevOps client [D41]", () => {
     expect(versions).toEqual(["7.1", "7.0", "6.0", "6.0"]);
   });
 
+  it("asks for a preview version when a resource only has one, without stepping down", async () => {
+    const versions: string[] = [];
+    const client = new AdoClient({
+      url: "https://dev.azure.test",
+      organization: "contoso",
+      token: pat,
+      paceMs: 0,
+      fetch: async (input) => {
+        const url = new URL(String(input));
+        const version = url.searchParams.get("api-version") ?? "";
+        versions.push(version);
+        return url.pathname.endsWith("connectionData") && !version.endsWith("-preview")
+          ? new Response(
+              JSON.stringify({
+                message: `The requested version "${version}" of the resource is under preview. The -preview flag must be supplied in the api-version for such requests.`,
+              }),
+              { status: 400, headers: { "content-type": "application/json" } },
+            )
+          : ok();
+      },
+    });
+    await client.get("/_apis/connectionData");
+    await client.get("/_apis/projects");
+    expect(versions).toEqual(["7.1", "7.1-preview", "7.1"]);
+  });
+
   it("says plainly when the token is refused, rather than reading a sign-in page", async () => {
     const clock = { now: 0 };
     const client = new AdoClient({
