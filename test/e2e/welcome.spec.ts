@@ -107,8 +107,8 @@ test("TC-611 the org's repos, branches, bots and paths are edited in Setup, and 
   const yml = () => readFile(join(dir, "orgs/acme-co/org.yml"), "utf8");
 
   await setup("Repos");
-  await page.getByLabel("Leave out").fill("legacy");
-  await page.getByLabel("Leave out").blur();
+  await page.getByLabel("Search leave out").fill("legacy");
+  await page.getByLabel("Search leave out").press("Enter");
   await page.getByRole("button", { name: "Show what this measures" }).click();
   await expect(page.locator(".preview-repos")).toContainText("2 repos, 2 left out");
   await page.getByRole("button", { name: "Save" }).click();
@@ -123,8 +123,8 @@ test("TC-611 the org's repos, branches, bots and paths are edited in Setup, and 
   expect(await yml()).toMatch(/acme-co\/legacy:[\s\S]*develop/);
 
   await setup("Bots");
-  await page.getByLabel("Also bots").fill("deploy-svc");
-  await page.getByLabel("Also bots").blur();
+  await page.getByLabel("Search also bots").fill("deploy-svc");
+  await page.getByRole("button", { name: "Add the account or pattern “deploy-svc”" }).click();
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Saved to org.yml.")).toBeVisible();
   expect(await yml()).toContain("deploy-svc");

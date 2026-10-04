@@ -1827,7 +1827,7 @@ summary {
 }
 
 .path-row.wide-path {
-  grid-template-columns: minmax(160px, 1.5fr) 120px minmax(140px, 1fr) 70px;
+  grid-template-columns: minmax(160px, 1.5fr) 120px 70px;
 }
 
 .pair-row input,
@@ -1912,4 +1912,144 @@ summary {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+
+/* Setup's picker: chosen names as chips, and a search box that opens a list to tick from. */
+.choose {
+  gap: 6px;
+}
+
+.choose-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choose-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 2px 4px 2px 9px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.choose-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.choose-chip-remove {
+  border: 0;
+  background: none;
+  color: var(--text2);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 5px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.choose-chip-remove:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.choose-search {
+  display: flex;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.choose-query {
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  min-width: 0;
+}
+
+.choose-panel {
+  max-width: 560px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+
+.choose-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.choose-option:hover {
+  background: var(--hover);
+}
+
+.choose-tick {
+  margin-top: 2px;
+}
+
+.choose-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.choose-label,
+.choose-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.choose-detail {
+  font-size: 11.5px;
+  color: var(--text3);
+}
+
+.choose-note {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.choose-add {
+  display: block;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+/* One row of a list whose parts are pickers: a card of its own. */
+.choice-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.choice-card > .link-button {
+  align-self: flex-start;
 }

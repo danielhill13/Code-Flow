@@ -106,6 +106,16 @@ function Steps({ info }: { info: WorkspaceInfo }) {
   const [name, setName] = useState("");
   const [since, setSince] = useState(info.since);
   const [preview, setPreview] = useState<SourcesPreview | null>(null);
+  // Every repo a preview has listed, kept when the sources change so they stay choosable.
+  const [seenRepos, setSeenRepos] = useState<string[]>([]);
+  useEffect(() => {
+    if (!preview) return;
+    const listed = preview.sources.flatMap((source) => [
+      ...source.repos.map((repo) => repo.fullName),
+      ...source.skipped.map((skip) => skip.repo),
+    ]);
+    setSeenRepos((seen) => [...new Set([...seen, ...listed])]);
+  }, [preview]);
   const [problem, setProblem] = useState<string | null>(null);
   const [previewProblem, setPreviewProblem] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -278,6 +288,7 @@ function Steps({ info }: { info: WorkspaceInfo }) {
               setSources(next);
               setPreview(null);
             }}
+            repos={seenRepos}
           />
           <Field
             label="Measure from"

@@ -2,7 +2,8 @@
 // an Azure DevOps organization's (or one project's) repos. One editor for the first steps and
 // for Setup › Repos, so both say the same thing the same way (decisions D39, D40).
 import type { RawSource } from "./api.ts";
-import { Field, List, Text } from "./fields.tsx";
+import { Field, Text } from "./fields.tsx";
+import { type Option, Picker } from "./picker.tsx";
 
 type Kind = "owner" | "repo" | "ado";
 
@@ -22,6 +23,8 @@ export const kindOf = (source: RawSource): Kind =>
 export function SourceList(props: {
   sources: RawSource[];
   onChange: (sources: RawSource[]) => void;
+  /** Repos codeflow has seen (synced, or listed by "Show what this measures"), by full name. */
+  repos?: readonly string[];
 }) {
   const { sources, onChange } = props;
   const update = (i: number, next: RawSource) =>
@@ -47,7 +50,11 @@ export function SourceList(props: {
               ))}
             </select>
           </Field>
-          <SourceFields source={source} onChange={(next) => update(i, next)} />
+          <SourceFields
+            source={source}
+            onChange={(next) => update(i, next)}
+            repos={props.repos ?? []}
+          />
           <button
             type="button"
             class="link-button"
@@ -69,12 +76,34 @@ export function SourceList(props: {
   );
 }
 
+/** The repos a source covers, by the name its patterns match: the repo's own name. */
+function namesIn(source: RawSource, repos: readonly string[]): Option[] {
+  const prefix =
+    "ado" in source
+      ? `${source.ado}/${source.project ? `${source.project}/` : ""}`
+      : "owner" in source
+        ? `${source.owner}/`
+        : null;
+  if (!prefix || prefix.startsWith("/")) return [];
+  const seen = new Map<string, string>();
+  for (const repo of repos) {
+    if (!repo.toLowerCase().startsWith(prefix.toLowerCase())) continue;
+    const name = repo.split("/").at(-1) ?? repo;
+    if (!seen.has(name)) seen.set(name, repo);
+  }
+  return [...seen]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, repo]) => ({ value: name, label: name, detail: repo }));
+}
+
 function SourceFields({
   source,
   onChange,
+  repos,
 }: {
   source: RawSource;
   onChange: (source: RawSource) => void;
+  repos: readonly string[];
 }) {
   if ("repo" in source) {
     return (
@@ -86,24 +115,31 @@ function SourceFields({
       />
     );
   }
+  const names = namesIn(source, repos);
+  const seen = names.length > 0 ? "" : ' "Show what this measures" lists the repos to choose from.';
   const patterns = (
     <>
-      <List
+      <Picker
         label="Only repos named"
+        options={names}
         value={source.include ?? []}
         onChange={(include) =>
           onChange({ ...source, include: include.length ? include : undefined })
         }
-        placeholder="api-*, web"
-        hint="Patterns; * matches anything. Empty: every repo."
+        placeholder="Every repo; search to narrow…"
+        free="Add the pattern"
+        hint={`None: every repo. A pattern such as api-* takes in repos to come.${seen}`}
       />
-      <List
+      <Picker
         label="Leave out"
+        options={names}
         value={source.exclude ?? []}
         onChange={(exclude) =>
           onChange({ ...source, exclude: exclude.length ? exclude : undefined })
         }
-        placeholder="*-sandbox"
+        placeholder="Search repos to leave out…"
+        free="Add the pattern"
+        hint="Such as *-sandbox."
       />
     </>
   );

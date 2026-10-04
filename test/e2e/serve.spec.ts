@@ -58,7 +58,10 @@ test("TC-602 a team added in Setup is in the report straight away", async ({ pag
   await expect(page.getByText("ana, devon")).toBeVisible();
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Outside");
-  await page.getByLabel("Person or login").first().fill("sam");
+  // Found by searching, and ticked in the list.
+  await page.getByLabel("Search people").fill("sa");
+  await page.getByRole("checkbox", { name: /^sam\b/ }).check();
+  await expect(page.getByRole("list", { name: "People chosen" })).toContainText("sam");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText("Add a team")).toHaveCount(0);
   await expect(page.locator(".row").filter({ hasText: "Outside" })).toBeVisible();
@@ -79,7 +82,8 @@ test("TC-603 a team that breaks a rule is refused with the reason, and nothing i
   const before = await readFile(join(DIR, "orgs/acme/groups.yml"), "utf8");
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Shadow");
-  await page.getByLabel("Person or login").first().fill("ana");
+  await page.getByLabel("Search people").fill("ana");
+  await page.getByLabel("Search people").press("Enter");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("alert")).toContainText("ana is in");
   expect(await readFile(join(DIR, "orgs/acme/groups.yml"), "utf8")).toBe(before);
@@ -151,7 +155,8 @@ test("TC-606 a save over a file changed meanwhile is refused, and says to reload
   await writeFile(file, `${await readFile(file, "utf8")}# edited by hand meanwhile\n`);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Late");
-  await page.getByLabel("Person or login").first().fill("zoe");
+  await page.getByLabel("Search people").fill("zoe");
+  await page.getByLabel("Search people").press("Enter");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("alert")).toContainText("changed since you opened it");
   expect(await readFile(file, "utf8")).not.toContain("Late");

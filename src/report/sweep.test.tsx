@@ -350,6 +350,10 @@ class FakeAdmin implements AdminApi {
         { fullName: "acme/legacy", defaultBranch: "main", measured: ["main", "develop"] },
       ],
       advice: [],
+      branches: [
+        { name: "main", prs: 40 },
+        { name: "develop", prs: 6 },
+      ],
     };
   }
 
@@ -408,6 +412,7 @@ class FakeAdmin implements AdminApi {
           ambiguous: false,
         },
       ],
+      bots: [{ login: "dependabot[bot]", prs: 14 }],
     };
   }
 
@@ -574,11 +579,20 @@ describe("the report, served", () => {
     await until((t) => t.includes("Add a team"));
     const form = document.querySelector("form");
     type(form?.querySelector("input"), "Data");
-    type(form?.querySelector(".member-row input"), "zoe");
-    await tick();
+    // Found by name, though it's an Azure DevOps sign-in, and ticked in the list.
+    type(form?.querySelector(".choose-query"), "Sato");
+    await until((t) => t.includes("Mika Sato (mika@acme.example)"));
+    const option = [...document.querySelectorAll<HTMLLabelElement>(".choose-option")].find((o) =>
+      o.textContent?.includes("Mika Sato"),
+    );
+    expect(document.querySelectorAll(".choose-option")).toHaveLength(1);
+    option?.querySelector("input")?.click();
+    await until((t) => t.includes("When, for people who joined"));
     press("Save");
     await until((t) => !t.includes("Add a team") && t.includes("Data"));
-    expect(admin.parts.groups.value.teams).toMatchObject({ Data: { people: ["zoe"] } });
+    expect(admin.parts.groups.value.teams).toMatchObject({
+      Data: { people: ["mika@acme.example"] },
+    });
     expect(admin.parts.groups.value.products).toMatchObject({ Core: { repos: ["acme/api"] } });
 
     press("Rules");

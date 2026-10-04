@@ -83,6 +83,24 @@ export function identitiesOf(
   );
 }
 
+/**
+ * The service accounts the PRs show: bots by their name ([bot], build services) and authors of PRs
+ * left out as a bot's, with how many PRs each took part in, most active first.
+ */
+export function botsOf(facts: readonly PrFact[]): { login: string; prs: number }[] {
+  const count = new Map<string, number>();
+  for (const pr of facts) {
+    const logins = new Set(
+      (pr.identities ?? []).map((i) => lower(i.login)).filter((login) => isServiceAccount(login)),
+    );
+    if (pr.exclusion === "bot") logins.add(lower(pr.author));
+    for (const login of logins) count.set(login, (count.get(login) ?? 0) + 1);
+  }
+  return [...count]
+    .map(([login, prs]) => ({ login, prs }))
+    .sort((a, b) => b.prs - a.prs || a.login.localeCompare(b.login));
+}
+
 /** Accounts that are services, not people: they never merge with anyone. */
 function isServiceAccount(login: string): boolean {
   return /\[bot\]$|^build\\|^microsoft\.visualstudio/i.test(login);

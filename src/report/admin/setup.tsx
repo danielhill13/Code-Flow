@@ -20,6 +20,14 @@ import {
   without,
 } from "./kit.tsx";
 import { Bots, Branches, Paths, Repos, Settings, Sync } from "./org.tsx";
+import {
+  branchOptions,
+  nameOptions,
+  type Option,
+  Picker,
+  repoOptions,
+  useAccounts,
+} from "./picker.tsx";
 
 type Section =
   | "repos"
@@ -265,8 +273,18 @@ const memberOf = (row: MemberRow): MemberRaw =>
       })
     : row.login;
 
-function Teams({ api, meta, onSaved }: SectionProps) {
+/** A team's members, kept in step with what the picker holds: dates stay with those still in it. */
+function withMembers(rows: readonly MemberRow[], logins: readonly string[]): MemberRow[] {
+  const kept = rows.filter((r) => logins.includes(r.login));
+  const added = logins
+    .filter((login) => !rows.some((r) => r.login === login))
+    .map((login) => ({ login, from: "", to: "", secondary: false }));
+  return [...kept, ...added];
+}
+
+function Teams({ api, onSaved }: SectionProps) {
   const part = usePart(api, "groups", onSaved);
+  const accounts = useAccounts(api);
   const [editing, setEditing] = useState<{
     name: string;
     original: string | null;
@@ -299,7 +317,11 @@ function Teams({ api, meta, onSaved }: SectionProps) {
     )
       setEditing(null);
   };
-  const people = meta?.choices.people.map((p) => p.key) ?? [];
+  const labelOf = (login: string) =>
+    accounts.people.find(
+      (o) =>
+        o.value.toLowerCase() === login.toLowerCase() || o.aliases?.includes(login.toLowerCase()),
+    )?.label ?? login;
   const edit = (change: (e: NonNullable<typeof editing>) => NonNullable<typeof editing>) =>
     setEditing((e) => e && change(e));
   const update = (i: number, patch: Partial<MemberRow>) =>
@@ -314,7 +336,7 @@ function Teams({ api, meta, onSaved }: SectionProps) {
           setEditing({
             name: "",
             original: null,
-            rows: [{ login: "", from: "", to: "", secondary: false }],
+            rows: [],
           })
         }
       />
@@ -331,73 +353,65 @@ function Teams({ api, meta, onSaved }: SectionProps) {
             value={editing.name}
             onChange={(name) => edit((e) => ({ ...e, name }))}
           />
-          <datalist id="known-people">
-            {people.map((p) => (
-              <option key={p} value={p} />
-            ))}
-          </datalist>
-          <div class="field wide-field">
-            <span class="field-label">People</span>
-            <div class="members">
-              <span class="field-hint">Person or login</span>
-              <span class="field-hint">From</span>
-              <span class="field-hint">To</span>
-              <span class="field-hint">Secondary</span>
-              <span />
-              {editing.rows.map((row, i) => (
-                <div key={i} class="member-row">
-                  <input
-                    type="text"
-                    list="known-people"
-                    aria-label="Person or login"
-                    value={row.login}
-                    onInput={(e) => update(i, { login: e.currentTarget.value })}
-                  />
-                  <input
-                    type="date"
-                    aria-label="From"
-                    value={row.from}
-                    onChange={(e) => update(i, { from: e.currentTarget.value })}
-                  />
-                  <input
-                    type="date"
-                    aria-label="To"
-                    value={row.to}
-                    onChange={(e) => update(i, { to: e.currentTarget.value })}
-                  />
-                  <input
-                    type="checkbox"
-                    aria-label="Secondary"
-                    checked={row.secondary}
-                    onChange={(e) => update(i, { secondary: e.currentTarget.checked })}
-                  />
-                  <button
-                    type="button"
-                    class="link-button"
-                    onClick={() => edit((e) => ({ ...e, rows: e.rows.filter((_, j) => j !== i) }))}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+          <Picker
+            label="People"
+            options={accounts.people}
+            value={editing.rows.map((r) => r.login)}
+            onChange={(logins) => edit((e) => ({ ...e, rows: withMembers(e.rows, logins) }))}
+            placeholder="Search by name or login…"
+            free="Add the login"
+            hint="Everyone in the team. Search by name, or by a login on GitHub or Azure DevOps."
+          />
+          {editing.rows.length > 0 && (
+            <div class="field wide-field">
+              <span class="field-label">When, for people who joined, left or help out</span>
+              <div class="members">
+                <span class="field-hint">Person</span>
+                <span class="field-hint">From</span>
+                <span class="field-hint">To</span>
+                <span class="field-hint">Secondary</span>
+                <span />
+                {editing.rows.map((row, i) => (
+                  <div key={row.login} class="member-row">
+                    <span class="clip" title={row.login}>
+                      {labelOf(row.login)}
+                    </span>
+                    <input
+                      type="date"
+                      aria-label={`${row.login} from`}
+                      value={row.from}
+                      onChange={(e) => update(i, { from: e.currentTarget.value })}
+                    />
+                    <input
+                      type="date"
+                      aria-label={`${row.login} to`}
+                      value={row.to}
+                      onChange={(e) => update(i, { to: e.currentTarget.value })}
+                    />
+                    <input
+                      type="checkbox"
+                      aria-label={`${row.login} secondary`}
+                      checked={row.secondary}
+                      onChange={(e) => update(i, { secondary: e.currentTarget.checked })}
+                    />
+                    <button
+                      type="button"
+                      class="link-button"
+                      onClick={() =>
+                        edit((e) => ({ ...e, rows: e.rows.filter((_, j) => j !== i) }))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <span class="field-hint">
+                Leave the dates empty for someone in the team throughout. A person is in one team at
+                a time; secondary lists them here while their PRs count for their main team.
+              </span>
             </div>
-            <button
-              type="button"
-              class="link-button"
-              onClick={() =>
-                edit((e) => ({
-                  ...e,
-                  rows: [...e.rows, { login: "", from: "", to: "", secondary: false }],
-                }))
-              }
-            >
-              + Add someone
-            </button>
-            <span class="field-hint">
-              A person is in one team at a time. Secondary lists them here while their PRs count for
-              their main team.
-            </span>
-          </div>
+          )}
         </Form>
       )}
       <Table cols={cols} head={["Team", "People", "Members", ""]} empty="No teams yet.">
@@ -445,6 +459,7 @@ type GroupEntry = {
 
 function GroupsSection({ api, meta, onSaved }: SectionProps) {
   const part = usePart(api, "groups", onSaved);
+  const accounts = useAccounts(api);
   const [editing, setEditing] = useState<{ entry: GroupEntry; original: GroupEntry | null } | null>(
     null,
   );
@@ -524,26 +539,29 @@ function GroupsSection({ api, meta, onSaved }: SectionProps) {
               <option key={k} value={k} />
             ))}
           </datalist>
-          <List
+          <Picker
             label="Repos"
-            lines
+            options={repoOptions(meta?.repos ?? [])}
             value={editing.entry.repos}
             onChange={(repos) => set({ repos })}
-            placeholder="your-org/api-*"
-            hint={`One per line; * matches anything. Synced: ${meta?.repos.slice(0, 3).join(", ") ?? ""}${(meta?.repos.length ?? 0) > 3 ? "…" : ""}`}
+            free="Add the pattern"
+            hint="Every PR in these repos. Type a pattern such as your-org/api-* to take in repos to come; * matches anything."
           />
-          <Ticks
+          <Picker
             label="Teams"
-            options={Object.keys(value.teams)}
+            options={nameOptions(Object.keys(value.teams))}
             value={editing.entry.teams}
             onChange={(teams) => set({ teams })}
             hint="Their PRs in any repo."
           />
-          <List
+          <Picker
             label="People"
+            options={accounts.people}
             value={editing.entry.people}
             onChange={(people) => set({ people })}
-            hint="Person keys or logins: their PRs in any repo."
+            placeholder="Search by name or login…"
+            free="Add the login"
+            hint="Their PRs in any repo."
           />
         </Form>
       )}
@@ -724,9 +742,17 @@ function rawOf(d: Draft): RuleRaw {
   }) as RuleRaw;
 }
 
-function Rules({ api, onSaved }: SectionProps) {
+function Rules({ api, meta, onSaved }: SectionProps) {
   const part = usePart(api, "rules", onSaved);
+  const accounts = useAccounts(api);
   const groups = usePart(api, "groups", () => {});
+  const [branches, setBranches] = useState<Option[]>([]);
+  useEffect(() => {
+    api.repos().then(
+      (synced) => setBranches(branchOptions(synced.branches ?? [])),
+      () => setBranches([]),
+    );
+  }, [api]);
   const [editing, setEditing] = useState<{ draft: Draft; index: number | null } | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const rules = ((part.opened?.value.rules ?? []) as RuleRaw[]).slice();
@@ -773,6 +799,9 @@ function Rules({ api, onSaved }: SectionProps) {
           onChange={(change) => setEditing((e) => e && { ...e, draft: change(e.draft) })}
           teams={teamNames}
           groups={groupNames}
+          repos={repoOptions(meta?.repos ?? [])}
+          people={accounts.people}
+          branches={branches}
           problem={part.problem}
           busy={part.busy}
           onSave={save}
@@ -853,6 +882,9 @@ function RuleForm(props: {
   onChange: (change: (draft: Draft) => Draft) => void;
   teams: string[];
   groups: string[];
+  repos: Option[];
+  people: Option[];
+  branches: Option[];
   problem: string | null;
   busy: boolean;
   onSave: () => void;
@@ -905,37 +937,39 @@ function RuleForm(props: {
       </Field>
       <h3 class="form-section">Where</h3>
       {draft.kind !== "person" && (
-        <List
+        <Picker
           label="Repos"
+          options={props.repos}
           value={draft.repos}
           onChange={(repos) => set({ repos })}
-          placeholder="your-org/legacy-*"
-          hint="Globs. Empty: every repo."
+          free="Add the pattern"
+          hint="Repos, or patterns such as your-org/legacy-*. None: every repo."
         />
       )}
       {draft.kind === "pr" && (
         <>
-          <Ticks
+          <Picker
             label="Teams"
-            options={props.teams}
+            options={nameOptions(props.teams)}
             value={draft.teams}
             onChange={(teams) => set({ teams })}
           />
-          <Ticks
+          <Picker
             label="Groups"
-            options={props.groups}
+            options={nameOptions(props.groups)}
             value={draft.groups}
             onChange={(groups) => set({ groups })}
           />
         </>
       )}
       {draft.kind !== "repo" && (
-        <List
+        <Picker
           label="People"
+          options={props.people}
           value={draft.people}
           onChange={(people) => set({ people })}
-          placeholder="deploy-svc"
-          hint="Person keys or logins."
+          placeholder="Search by name or login…"
+          free="Add the login"
         />
       )}
       {draft.kind === "pr" && (
@@ -955,11 +989,14 @@ function RuleForm(props: {
             placeholder="^chore"
             hint="A regular expression, ignoring case."
           />
-          <List
+          <Picker
             label="Base branch"
+            options={props.branches}
             value={draft.base}
             onChange={(base) => set({ base })}
-            placeholder="release/*"
+            placeholder="Search branches, or type a pattern such as release/*…"
+            free="Add the pattern"
+            hint="The branch the PR goes into."
           />
           <List
             label="Head branch"

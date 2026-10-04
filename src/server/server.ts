@@ -29,7 +29,7 @@ import { formatIssues } from "../config/load.ts";
 import { asRule, BUNDLE_VERSION, RulesFileSchema } from "../config/schema.ts";
 import type { Org, OrgPart } from "../config/workspace.ts";
 import { unmeasuredBranches } from "../core/branches.ts";
-import { identitiesOf, type PersonRaw, suggestMerges } from "../core/identities.ts";
+import { botsOf, identitiesOf, type PersonRaw, suggestMerges } from "../core/identities.ts";
 import { ruleImpact } from "../core/preview.ts";
 import { ruleProblems } from "../core/rules.ts";
 import { CodeflowError } from "../errors.ts";
@@ -354,29 +354,39 @@ async function workspaceRoute(
 /** Every account the org's PRs show, and which look like one person on both hosts (D42). */
 async function identitiesFor(org: Org) {
   const people = ((await readRaw(org)).people ?? {}) as Record<string, PersonRaw>;
-  if (!existsSync(org.dbPath)) return { identities: [], suggestions: [] };
+  if (!existsSync(org.dbPath)) return { identities: [], suggestions: [], bots: [] };
   const store = Store.open(org.dbPath);
   try {
     deriveFacts(store, org.config);
     const hosts = new Map(store.repos().map((repo) => [repo.id, repo.provider]));
+    const facts = store.facts();
     const identities = identitiesOf(
-      store.facts(),
+      facts,
       (repoId) => (hosts.get(repoId) === "ado" ? "ado" : "github"),
       people,
     );
-    return { identities, suggestions: suggestMerges(identities) };
+    return { identities, suggestions: suggestMerges(identities), bots: botsOf(facts) };
   } finally {
     store.close();
   }
 }
 
-/** The org's synced repos: each one's default branch, the branches measured, and advice. */
+/**
+ * The org's synced repos: each one's default branch, the branches measured, and advice; and every
+ * branch PRs went into, with how many, for Setup to offer.
+ */
 function reposOf(org: Org) {
-  if (!existsSync(org.dbPath)) return { repos: [], advice: [] };
+  if (!existsSync(org.dbPath)) return { repos: [], advice: [], branches: [] };
   const store = Store.open(org.dbPath);
   try {
-    const advice = unmeasuredBranches(store.facts(), new Date(store.dataThrough() ?? Date.now()));
+    const facts = store.facts();
+    const advice = unmeasuredBranches(facts, new Date(store.dataThrough() ?? Date.now()));
+    const into = new Map<string, number>();
+    for (const pr of facts) into.set(pr.baseBranch, (into.get(pr.baseBranch) ?? 0) + 1);
     return {
+      branches: [...into]
+        .map(([name, prs]) => ({ name, prs }))
+        .sort((a, b) => b.prs - a.prs || a.name.localeCompare(b.name)),
       repos: store.repos().map((repo) => ({
         fullName: repo.fullName,
         defaultBranch: repo.defaultBranch,

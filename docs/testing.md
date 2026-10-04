@@ -172,7 +172,7 @@ here.
 | ID | Behaviour |
 | -- | --------- |
 | TC-601 | The org picker switches orgs, and each shows nothing of the other |
-| TC-602 | A team added in Setup is in the report straight away, and the file keeps its comments |
+| TC-602 | A team added in Setup, its people searched for and ticked in a list, is in the report straight away, and the file keeps its comments |
 | TC-603 | A team that breaks a rule is refused with the reason, and nothing is saved |
 | TC-604 | A rule shows what it would change as it is written, then changes the numbers; turning it off restores them |
 | TC-605 | Export downloads a bundle, and import previews before it applies |

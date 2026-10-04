@@ -14,6 +14,7 @@ import type {
 } from "./api.ts";
 import { Choice, Field, List, Problem, Text } from "./fields.tsx";
 import { Form, message, type SectionProps, usePart, Waiting } from "./kit.tsx";
+import { branchOptions, Picker, repoOptions, useAccounts } from "./picker.tsx";
 import { SourceList } from "./sources.tsx";
 
 /** org.yml as the server reads it for Setup: what the file says, defaults filled in. */
@@ -76,6 +77,16 @@ export function Repos(props: SectionProps) {
   const [preview, setPreview] = useState<SourcesPreview | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
+  // Every repo a preview has listed, kept when the sources change so they stay choosable.
+  const [seen, setSeen] = useState<string[]>([]);
+  useEffect(() => {
+    if (!preview) return;
+    const listed = preview.sources.flatMap((source) => [
+      ...source.repos.map((repo) => repo.fullName),
+      ...source.skipped.map((skip) => skip.repo),
+    ]);
+    setSeen((before) => [...new Set([...before, ...listed])]);
+  }, [preview]);
   if (!org.value) return <Waiting problem={org.part.problem} />;
   const { sources, since, github, azure_devops } = org.value;
   const setSources = (next: RawSource[]) => {
@@ -112,7 +123,11 @@ export function Repos(props: SectionProps) {
           setPreview(null);
         }}
       >
-        <SourceList sources={sources} onChange={setSources} />
+        <SourceList
+          sources={sources}
+          onChange={setSources}
+          repos={[...(props.meta?.repos ?? []), ...seen]}
+        />
         <Field label="Measure from" hint="PRs active on or after this day.">
           <input
             type="date"
@@ -146,10 +161,14 @@ export function Branches(props: SectionProps) {
   const org = useOrg(props);
   const [synced, setSynced] = useState<SyncedRepos | null>(null);
   useEffect(() => {
-    props.api.repos().then(setSynced, () => setSynced({ repos: [], advice: [] }));
+    props.api.repos().then(setSynced, () => setSynced({ repos: [], advice: [], branches: [] }));
   }, [props.api, org.saved]);
   if (!org.value) return <Waiting problem={org.part.problem} />;
   const rows = Object.entries(org.value.branches);
+  const repos = repoOptions(synced?.repos.map((r) => r.fullName) ?? []);
+  const branches_ = branchOptions(synced?.branches ?? [], [
+    ...new Set(synced?.repos.map((r) => r.defaultBranch) ?? []),
+  ]);
   const setRows = (next: [string, string[]][]) => org.set({ branches: Object.fromEntries(next) });
   const cols = "minmax(180px,2fr) 130px minmax(160px,1.5fr) 220px";
   return (
@@ -215,36 +234,24 @@ export function Branches(props: SectionProps) {
             <span class="field-hint">None: every repo is measured on its default branch.</span>
           )}
           {rows.map(([pattern, branches], i) => (
-            <div key={i} class="pair-row">
-              <input
-                type="text"
-                aria-label="Repos"
-                value={pattern}
-                placeholder="your-org/legacy-*"
-                onInput={(e) =>
-                  setRows(rows.map((r, j) => (j === i ? [e.currentTarget.value, r[1]] : r)))
+            <div key={i} class="choice-card">
+              <Picker
+                label="Repos"
+                options={repos}
+                value={pattern ? [pattern] : []}
+                onChange={(picked) =>
+                  setRows(rows.map((r, j) => (j === i ? [picked.at(-1) ?? "", r[1]] : r)))
                 }
+                free="Add the pattern"
+                hint="One repo, or a pattern such as your-org/legacy-*."
               />
-              <input
-                type="text"
-                aria-label="Branches"
-                value={branches.join(", ")}
-                placeholder="main, develop"
-                onChange={(e) =>
-                  setRows(
-                    rows.map((r, j) =>
-                      j === i
-                        ? [
-                            r[0],
-                            e.currentTarget.value
-                              .split(",")
-                              .map((b) => b.trim())
-                              .filter(Boolean),
-                          ]
-                        : r,
-                    ),
-                  )
-                }
+              <Picker
+                label="Branches"
+                options={branches_}
+                value={branches}
+                onChange={(picked) => setRows(rows.map((r, j) => (j === i ? [r[0], picked] : r)))}
+                free="Add the branch"
+                hint="Every branch to measure in it, its default branch too if it still counts."
               />
               <button
                 type="button"
@@ -259,10 +266,12 @@ export function Branches(props: SectionProps) {
             + Measure another branch
           </button>
         </div>
-        <List
+        <Picker
           label="Promotion branches"
+          options={branches_}
           value={org.value.promotions}
           onChange={(promotions) => org.set({ promotions })}
+          free="Add the branch"
           hint="A PR from one of these same-repo branches moves work already counted, so it isn't counted again."
         />
         <Saved show={org.saved} />
@@ -275,6 +284,7 @@ export function Branches(props: SectionProps) {
 
 export function Bots(props: SectionProps) {
   const org = useOrg(props);
+  const accounts = useAccounts(props.api);
   if (!org.value) return <Waiting problem={org.part.problem} />;
   const bots = org.value.bots;
   const set = (patch: Partial<OrgRaw["bots"]>) => org.set({ bots: { ...bots, ...patch } });
@@ -294,18 +304,23 @@ export function Bots(props: SectionProps) {
         onSave={org.save}
         onCancel={org.reset}
       >
-        <List
+        <Picker
           label="Also bots"
+          options={accounts.accounts}
           value={bots.accounts ?? []}
-          onChange={(accounts) => set({ accounts })}
-          placeholder="deploy-svc, release-*"
-          hint="Service accounts GitHub doesn't mark as bots."
+          onChange={(picked) => set({ accounts: picked })}
+          placeholder="Search accounts…"
+          free="Add the account or pattern"
+          hint="Service accounts the host doesn't mark as bots. A pattern such as release-* takes in more."
         />
-        <List
+        <Picker
           label="Bots whose reviews count"
+          options={accounts.bots}
           value={bots.reviewers ?? []}
           onChange={(reviewers) => set({ reviewers })}
-          placeholder="review-assistant[bot]"
+          placeholder="Search bots…"
+          free="Add the account"
+          hint="Review bots whose approvals are real review."
         />
         <Choice
           label="Bots' own PRs"
@@ -335,6 +350,13 @@ const BUCKETS = ["product", "test", "docs", "generated", "vendored", "lockfile"]
 
 export function Paths(props: SectionProps) {
   const org = useOrg(props);
+  const [repos, setRepos] = useState<string[]>([]);
+  useEffect(() => {
+    props.api.repos().then(
+      (synced) => setRepos(synced.repos.map((r) => r.fullName)),
+      () => setRepos([]),
+    );
+  }, [props.api]);
   if (!org.value) return <Waiting problem={org.part.problem} />;
   const paths = org.value.paths;
   const setPaths = (next: OrgRaw["paths"]) => org.set({ paths: next });
@@ -363,58 +385,64 @@ export function Paths(props: SectionProps) {
         <div class="wide-field vstack">
           {paths.length === 0 && <span class="field-hint">No rules of your own yet.</span>}
           {paths.map((rule, i) => (
-            <div key={i} class="path-row wide-path">
-              <input
-                type="text"
-                aria-label="Files"
-                value={list(rule.match).join(", ")}
-                placeholder="e2e/**, *.snap"
-                onChange={(e) =>
-                  setPaths(
-                    paths.map((r, j) =>
-                      j === i ? { ...r, match: split(e.currentTarget.value) } : r,
-                    ),
-                  )
-                }
-              />
-              <select
-                aria-label="Bucket"
-                value={rule.bucket}
-                onChange={(e) =>
-                  setPaths(
-                    paths.map((r, j) => (j === i ? { ...r, bucket: e.currentTarget.value } : r)),
-                  )
-                }
-              >
-                {BUCKETS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                aria-label="Only in repos"
-                value={(rule.repos ?? []).join(", ")}
-                placeholder="every repo"
-                onChange={(e) => {
-                  const repos = split(e.currentTarget.value);
+            <div key={i} class="choice-card">
+              <div class="path-row wide-path">
+                <input
+                  type="text"
+                  aria-label="Files"
+                  value={list(rule.match).join(", ")}
+                  placeholder="e2e/**, *.snap"
+                  onChange={(e) =>
+                    setPaths(
+                      paths.map((r, j) =>
+                        j === i ? { ...r, match: split(e.currentTarget.value) } : r,
+                      ),
+                    )
+                  }
+                />
+                <select
+                  aria-label="Bucket"
+                  value={rule.bucket}
+                  onChange={(e) =>
+                    setPaths(
+                      paths.map((r, j) => (j === i ? { ...r, bucket: e.currentTarget.value } : r)),
+                    )
+                  }
+                >
+                  {BUCKETS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  class="link-button"
+                  onClick={() => setPaths(paths.filter((_, j) => j !== i))}
+                >
+                  Remove
+                </button>
+              </div>
+              <Picker
+                label="Only in repos"
+                options={repoOptions(repos)}
+                value={rule.repos ?? []}
+                placeholder="Every repo; search to narrow…"
+                free="Add the pattern"
+                onChange={(picked) =>
                   setPaths(
                     paths.map((r, j) =>
                       j === i
-                        ? { match: r.match, bucket: r.bucket, ...(repos.length ? { repos } : {}) }
+                        ? {
+                            match: r.match,
+                            bucket: r.bucket,
+                            ...(picked.length ? { repos: picked } : {}),
+                          }
                         : r,
                     ),
-                  );
-                }}
+                  )
+                }
               />
-              <button
-                type="button"
-                class="link-button"
-                onClick={() => setPaths(paths.filter((_, j) => j !== i))}
-              >
-                Remove
-              </button>
             </div>
           ))}
           <button

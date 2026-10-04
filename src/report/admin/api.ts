@@ -97,6 +97,8 @@ export type SourcesDraft = {
 export type SyncedRepos = {
   repos: { fullName: string; defaultBranch: string; measured: string[] }[];
   advice: { repo: string; branch: string; into: number; merged: number; counted: number }[];
+  /** Every branch PRs went into, busiest first. */
+  branches: { name: string; prs: number }[];
 };
 
 /** Accounts the org's PRs show, and merge suggestions (core/identities.ts). */
@@ -118,6 +120,8 @@ export type Identities = {
     person: string | null;
     ambiguous: boolean;
   }[];
+  /** Service accounts the PRs show, with how many PRs each took part in. */
+  bots: { login: string; prs: number }[];
 };
 
 export interface AdminApi {
