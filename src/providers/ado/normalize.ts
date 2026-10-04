@@ -113,8 +113,14 @@ export function normalizeAdoPr(
 
   const truncated: Truncatable[] = [];
   if (raw.truncated.includes("commits")) truncated.push("commits");
-  if (raw.files === null) truncated.push("files");
-  const files = raw.files ?? [];
+  // Before codeflow read Azure DevOps's wrapped diff answer, every file came out at zero lines:
+  // such a payload's sizes are unknown, not zero, until the PR is fetched again.
+  const zeroed =
+    raw.files !== null &&
+    raw.files.length > 0 &&
+    raw.files.every((f) => f.additions === 0 && f.deletions === 0);
+  if (raw.files === null || zeroed) truncated.push("files");
+  const files = zeroed ? [] : (raw.files ?? []);
   return {
     id: adoPrId(organization, pr.pullRequestId),
     repoId: repo.id,

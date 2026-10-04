@@ -604,7 +604,78 @@ export function Sync(props: SectionProps) {
         )}
         <Problem text={problem} />
       </section>
+      <FetchAgain {...props} running={running === true} />
     </>
+  );
+}
+
+/**
+ * Clears chosen repos' stored PRs and syncs them whole again: for data read wrongly before a fix
+ * (Azure DevOps sizes, say), or fields codeflow asks for now and didn't then (commit lines).
+ */
+function FetchAgain(props: SectionProps & { running: boolean }) {
+  const [repos, setRepos] = useState<string[]>([]);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [done, setDone] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    props.api.repos().then(
+      (synced) => setRepos(synced.repos.map((r) => r.fullName)),
+      () => setRepos([]),
+    );
+  }, [props.api]);
+  if (repos.length === 0) return null;
+  return (
+    <section class="card vstack" aria-labelledby="fetch-again">
+      <div class="card-head">
+        <h2 id="fetch-again">Fetch repos again</h2>
+        <span class="note">
+          Clears what is stored for them and fetches every PR again: after an update that reads
+          more, or reads something better. A first sync's time again, for these repos.
+        </span>
+      </div>
+      <Picker
+        label="Repos"
+        options={repoOptions(repos)}
+        value={chosen}
+        onChange={(next) => {
+          setChosen(next);
+          setDone(null);
+        }}
+        free="Add the pattern"
+        hint="Every repo of an Azure DevOps project: your-org/Project/*."
+      />
+      <Problem text={problem} />
+      {done && <p class="muted">{done}</p>}
+      <div class="step-actions">
+        <button
+          type="button"
+          class="button"
+          disabled={chosen.length === 0 || busy || props.running}
+          onClick={async () => {
+            setBusy(true);
+            setProblem(null);
+            try {
+              const { cleared } = await props.api.refetch(chosen);
+              setDone(
+                cleared.length === 0
+                  ? "No synced repo matches."
+                  : `Cleared ${cleared.map((r) => r.fullName).join(", ")}: syncing them again now.`,
+              );
+              setChosen([]);
+              props.onSaved();
+            } catch (err) {
+              setProblem(message(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {props.running ? "Wait for the sync to finish" : "Clear and fetch again"}
+        </button>
+      </div>
+    </section>
   );
 }
 

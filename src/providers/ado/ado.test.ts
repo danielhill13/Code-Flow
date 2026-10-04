@@ -249,6 +249,15 @@ describe("an Azure DevOps PR, read as codeflow's PR model", () => {
     expect(pr.truncated).toContain("files");
     expect(pr.files).toEqual([]);
   });
+
+  it("reads every file at zero lines, as stored before the diff fix, as size unknown [rule 4]", () => {
+    const payload = billing?.prs.find((p) => (p.files?.length ?? 0) > 0);
+    if (!payload?.files) throw new Error("no PR with files");
+    const zeroed = payload.files.map((f) => ({ ...f, additions: 0, deletions: 0 }));
+    const pr = normalizeAdoPr({ ...payload, files: zeroed }, repo, versionOf(payload));
+    expect(pr.truncated).toContain("files");
+    expect(pr.files).toEqual([]);
+  });
 });
 
 describe("syncing an Azure DevOps repo", () => {

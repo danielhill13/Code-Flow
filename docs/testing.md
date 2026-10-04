@@ -128,6 +128,7 @@ here.
 | TC-117 | An org only on Azure DevOps syncs without a GitHub token, and a missing Azure DevOps token is explained |
 | TC-118 | `people` lists both hosts' accounts and suggests which are one person |
 | TC-119 | Merging puts a person's Azure DevOps PRs on their team, with no new sync |
+| TC-121 | `sync --refetch` clears a repo's stored PRs and fetches them all again; a size comes from Azure DevOps's wrapped diff answer |
 
 ### Orgs, config and errors (`test/scenarios/orgs.test.ts`)
 

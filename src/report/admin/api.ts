@@ -134,6 +134,8 @@ export interface AdminApi {
   unmeasured(): Promise<{ repos: Unmeasured[] }>;
   /** Removes their data. */
   prune(): Promise<{ removed: Unmeasured[] }>;
+  /** Clears the stored PRs of these repos and syncs, so they're fetched whole again. */
+  refetch(repos: string[]): Promise<{ cleared: Unmeasured[] }>;
   status(): Promise<SyncStatus>;
   syncNow(): Promise<SyncStatus>;
   repos(): Promise<SyncedRepos>;
@@ -187,6 +189,10 @@ export class ServerAdmin implements AdminApi {
 
   prune(): Promise<{ removed: Unmeasured[] }> {
     return call(this.#base, "/prune", { method: "POST", body: {} });
+  }
+
+  refetch(repos: string[]): Promise<{ cleared: Unmeasured[] }> {
+    return call(this.#base, "/refetch", { method: "POST", body: { repos } });
   }
 
   async remove(): Promise<void> {

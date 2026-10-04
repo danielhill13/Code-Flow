@@ -361,6 +361,10 @@ class FakeAdmin implements AdminApi {
     return { repos: [{ id: "R_9", fullName: "acme/old-tool", provider: "github", prs: 4 }] };
   }
 
+  async refetch() {
+    return { cleared: [] };
+  }
+
   async prune() {
     return { removed: [{ id: "R_9", fullName: "acme/old-tool", provider: "github", prs: 4 }] };
   }

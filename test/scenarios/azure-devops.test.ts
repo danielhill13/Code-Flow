@@ -103,8 +103,32 @@ describe("an org spanning GitHub and Azure DevOps", () => {
     expect(shown.code, shown.out).toBe(0);
     expect(shown.out).toMatch(/Counted\s+yes/);
     expect(shown.out).toMatch(/rounds? of new commits after review/);
+    // Its size, from Azure DevOps's wrapped diff answer: the product lines its files changed.
+    const lines = (reviewed.files ?? [])
+      .filter((f) => f.path.startsWith("src/"))
+      .reduce((n, f) => n + f.additions + f.deletions, 0);
+    expect(lines).toBeGreaterThan(0);
+    expect(shown.out).toContain(`${lines.toLocaleString("en-US")} product lines`);
     const left = await ws.run("pr", `${ADO_ORG}/${ADO_PROJECT}/billing#${bot.pr.pullRequestId}`);
     expect(left.out).toMatch(/Counted\s+no: a bot opened it/);
+  });
+
+  it("TC-121 sync --refetch clears a repo's stored PRs and fetches them all again", async () => {
+    const before = (await ws.run("status")).out;
+    expect(before).toContain(`${ADO_ORG}/${ADO_PROJECT}/billing`);
+    const result = await ws.run("sync", "--refetch", `${ADO_ORG}/${ADO_PROJECT}/bill*`);
+    expect(result.code, result.out).toBe(0);
+    expect(result.out).toMatch(
+      new RegExp(`Refetch\\s+${ADO_ORG}/${ADO_PROJECT}/billing: \\d+ PRs cleared, fetching again`),
+    );
+    expect(result.out).not.toMatch(/Refetch\s+[^\n]*portal/);
+    const after = (await ws.run("status")).out;
+    const count = (text: string) =>
+      new RegExp(`${ADO_ORG}/${ADO_PROJECT}/billing\\s+(\\d+)`).exec(text)?.[1];
+    expect(Number(count(before))).toBeGreaterThan(0);
+    expect(count(after)).toBe(count(before));
+    const none = await ws.run("sync", "--refetch", "nothing/like/this");
+    expect(none.out).toContain("no stored repo matches nothing/like/this");
   });
 });
 

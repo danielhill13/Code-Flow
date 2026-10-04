@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 8;
+export const DERIVE_VERSION = 9;
 
 /**
  * Why a PR is not counted in flow metrics:

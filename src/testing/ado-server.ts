@@ -156,24 +156,29 @@ export class AdoServer {
       );
       return {
         status: 200,
-        body: body.fileDiffParams.map((param) => {
-          const path = (param.path || param.originalPath).replace(/^\//, "");
-          const file = payload?.files?.find((f) => f.path === path);
-          return {
-            path: param.path,
-            originalPath: param.originalPath,
-            lineDiffBlocks: file
-              ? [
-                  { changeType: "add", modifiedLinesCount: file.additions, originalLinesCount: 0 },
-                  {
-                    changeType: "delete",
-                    modifiedLinesCount: 0,
-                    originalLinesCount: file.deletions,
-                  },
-                ]
-              : [],
-          };
-        }),
+        // Azure DevOps wraps every list it returns as { count, value }.
+        body: wrapped(
+          body.fileDiffParams.map((param) => {
+            const path = (param.path || param.originalPath).replace(/^\//, "");
+            const file = payload?.files?.find((f) => f.path === path);
+            return {
+              path: param.path,
+              originalPath: param.originalPath,
+              // Changed lines come as "edit" blocks, as Azure DevOps sends them; "none" blocks
+              // are unchanged context and count for nothing.
+              lineDiffBlocks: file
+                ? [
+                    { changeType: "none", modifiedLinesCount: 40, originalLinesCount: 40 },
+                    {
+                      changeType: "edit",
+                      modifiedLinesCount: file.additions,
+                      originalLinesCount: file.deletions,
+                    },
+                  ]
+                : [],
+            };
+          }),
+        ),
       };
     }
     if (kind === "pullRequests" && prId) {
@@ -207,4 +212,9 @@ async function text(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
   return Buffer.concat(chunks).toString("utf8");
+}
+
+/** A list as Azure DevOps returns it: wrapped, with its count. */
+function wrapped<T>(value: T[]): { count: number; value: T[] } {
+  return { count: value.length, value };
 }

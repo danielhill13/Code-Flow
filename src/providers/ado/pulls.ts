@@ -100,7 +100,7 @@ async function changedFiles(
   const changes = await client.get<{
     changeEntries: {
       item: { path: string; isFolder?: boolean };
-      changeType: string;
+      changeType: string | number;
       originalPath?: string;
     }[];
   }>(`${base}/iterations/${last.id}/changes`, { $top: MAX_FILES + 1, $compareTo: 0 });
@@ -109,39 +109,64 @@ async function changedFiles(
   const files: NonNullable<AdoPayload["files"]> = [];
   for (let i = 0; i < entries.length; i += DIFF_BATCH) {
     const batch = entries.slice(i, i + DIFF_BATCH);
-    const diffs = await client.post<
+    const answer = await client.post<FileDiff[] | { value?: FileDiff[] }>(
+      `${repoPath(repo)}/filediffs`,
       {
-        path: string;
-        lineDiffBlocks?: {
-          changeType: string;
-          modifiedLinesCount: number;
-          originalLinesCount: number;
-        }[];
-      }[]
-    >(`${repoPath(repo)}/filediffs`, {
-      baseVersionCommit: from,
-      targetVersionCommit: target,
-      fileDiffParams: batch.map((e) => ({
-        path: e.changeType.includes("delete") ? "" : e.item.path,
-        originalPath: e.changeType.includes("add") ? "" : (e.originalPath ?? e.item.path),
-      })),
-    });
-    batch.forEach((entry, j) => {
-      const blocks = diffs[j]?.lineDiffBlocks ?? [];
-      files.push({
-        path: entry.item.path.replace(/^\//, ""),
-        additions: blocks.reduce(
-          (n, b) => n + (b.changeType === "delete" ? 0 : b.modifiedLinesCount),
-          0,
-        ),
-        deletions: blocks.reduce(
-          (n, b) => n + (b.changeType === "add" ? 0 : b.originalLinesCount),
-          0,
-        ),
-      });
-    });
+        baseVersionCommit: from,
+        targetVersionCommit: target,
+        fileDiffParams: batch.map((e) => ({
+          path: changed(e.changeType, "delete") ? "" : e.item.path,
+          originalPath: changed(e.changeType, "add") ? "" : (e.originalPath ?? e.item.path),
+        })),
+      },
+    );
+    // Azure DevOps wraps a list as { count, value }; a bare list is read too.
+    const diffs = Array.isArray(answer) ? answer : (answer.value ?? []);
+    for (const [j, entry] of batch.entries()) {
+      const path = entry.item.path;
+      // By path where the answer gives one, else by position, as the request listed them.
+      const diff =
+        diffs.find((d) => d.path === path || (d.path === "" && d.originalPath === path)) ??
+        diffs[j];
+      // A file without its diff has an unknown size, and so has the PR: never zero.
+      if (!diff?.lineDiffBlocks) return null;
+      let additions = 0;
+      let deletions = 0;
+      for (const block of diff.lineDiffBlocks) {
+        const kind = blockKind(block.changeType);
+        if (kind === "add" || kind === "edit") additions += block.modifiedLinesCount ?? 0;
+        if (kind === "delete" || kind === "edit") deletions += block.originalLinesCount ?? 0;
+      }
+      files.push({ path: path.replace(/^\//, ""), additions, deletions });
+    }
   }
   return files;
+}
+
+type FileDiff = {
+  path: string;
+  originalPath?: string;
+  lineDiffBlocks?: {
+    changeType: string | number;
+    modifiedLinesCount?: number;
+    originalLinesCount?: number;
+  }[];
+};
+
+/** Whether a change type (a name such as "rename, edit", or flags) includes `kind`. */
+function changed(type: string | number, kind: "add" | "delete"): boolean {
+  if (typeof type === "number") return (type & (kind === "add" ? 1 : 16)) !== 0;
+  return type
+    .toLowerCase()
+    .split(/[\s,]+/)
+    .includes(kind);
+}
+
+/** A line block's kind, whether Azure DevOps names it or numbers it (none, add, delete, edit). */
+function blockKind(type: string | number): "none" | "add" | "delete" | "edit" {
+  if (typeof type === "number") return (["none", "add", "delete", "edit"] as const)[type] ?? "none";
+  const name = type.toLowerCase();
+  return name === "add" || name === "delete" || name === "edit" ? name : "none";
 }
 
 /**

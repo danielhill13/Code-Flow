@@ -1,8 +1,10 @@
+import { existsSync } from "node:fs";
 import { relative } from "node:path";
 import { type AdoSource, isGitHub } from "../config/schema.ts";
 import type { Org } from "../config/workspace.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
+import { forgetRepos } from "../pipeline/prune.ts";
 import { type AdoSourceResult, discoverAdo } from "../providers/ado/discover.ts";
 import { type AdoRepoOutcome, syncAdoRepo } from "../providers/ado/sync.ts";
 import { discoverRepos, sourceName } from "../providers/github/discover.ts";
@@ -21,7 +23,10 @@ import {
   type Session,
 } from "./session.ts";
 
-export type SyncOptions = OrgOptions;
+export type SyncOptions = OrgOptions & {
+  /** Repos (full names, * matches anything) whose stored data is cleared and fetched again. */
+  refetch?: string[];
+};
 
 const WALKS: Record<WalkName, string> = {
   updates: "updates",
@@ -45,11 +50,35 @@ export async function sync(options: SyncOptions): Promise<number> {
   for (const [i, org] of orgs.entries()) {
     if (i > 0) print();
     orgHeading(workspace, org, print);
+    if (options.refetch?.length) refetch(org, options.refetch, print);
     const result = await syncOrg(org, progress, print);
     code = Math.max(code, result);
     if (result === 130) break; // stopped by the reader: don't start the next org
   }
   return code;
+}
+
+/** Clears the stored PRs of the repos matching the patterns, so this sync fetches them anew. */
+function refetch(org: Org, patterns: readonly string[], print: Print): void {
+  if (!existsSync(org.dbPath)) return;
+  const store = Store.open(org.dbPath);
+  try {
+    const cleared = forgetRepos(store, patterns);
+    if (cleared.length === 0) {
+      print(status("warn", "Refetch", `no stored repo matches ${patterns.join(", ")}`));
+    }
+    for (const repo of cleared) {
+      print(
+        status(
+          "info",
+          "Refetch",
+          `${repo.fullName}: ${plural(repo.prs, "PR")} cleared, fetching again`,
+        ),
+      );
+    }
+  } finally {
+    store.close();
+  }
 }
 
 /**

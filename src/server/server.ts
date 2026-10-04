@@ -34,7 +34,7 @@ import { ruleImpact } from "../core/preview.ts";
 import { ruleProblems } from "../core/rules.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts, deriveWith, measuredBranches } from "../pipeline/derive.ts";
-import { pruneRepos, unmeasuredRepos } from "../pipeline/prune.ts";
+import { forgetRepos, pruneRepos, unmeasuredRepos } from "../pipeline/prune.ts";
 import { Store } from "../store/store.ts";
 import {
   checkAdo,
@@ -166,6 +166,20 @@ async function handle(
       return json(res, reposOf(org));
     case "GET unmeasured":
       return json(res, { repos: withStore(org, (store) => unmeasuredRepos(store, org.config)) });
+    case "POST refetch": {
+      if (!options.scheduler) throw new NotFound("This server doesn't sync.");
+      const { repos } = (await body(req)) as { repos?: unknown };
+      if (
+        !Array.isArray(repos) ||
+        repos.length === 0 ||
+        !repos.every((r) => typeof r === "string")
+      ) {
+        throw new CodeflowError("Name the repos to fetch again.");
+      }
+      const cleared = withStore(org, (store) => forgetRepos(store, repos as string[]));
+      await options.scheduler.syncNow(name);
+      return json(res, { cleared });
+    }
     case "POST prune":
       return json(res, { removed: withStore(org, (store) => pruneRepos(store, org.config)) });
     case "GET identities":

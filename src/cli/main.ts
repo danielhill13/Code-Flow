@@ -61,6 +61,10 @@ program
   .description("fetch pull requests changed since the last sync; resumes if interrupted")
   .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
   .option("--org <name>", "only this org; needed by some commands when there are several")
+  .option(
+    "--refetch <repos...>",
+    "clear these repos' stored PRs and fetch them again (full names; * matches anything)",
+  )
   .action(async (options: SyncOptions) => {
     process.exitCode = await sync(options);
   });
