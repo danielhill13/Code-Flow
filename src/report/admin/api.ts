@@ -101,6 +101,9 @@ export type SyncedRepos = {
   branches: { name: string; prs: number }[];
 };
 
+/** A stored repo no source selects any more, with how many PRs it holds. */
+export type Unmeasured = { id: string; fullName: string; provider: string; prs: number };
+
 /** Accounts the org's PRs show, and merge suggestions (core/identities.ts). */
 export type Identities = {
   identities: {
@@ -127,6 +130,10 @@ export type Identities = {
 export interface AdminApi {
   readonly org: string;
   identities(): Promise<Identities>;
+  /** Stored repos the sources no longer select (decision D43). */
+  unmeasured(): Promise<{ repos: Unmeasured[] }>;
+  /** Removes their data. */
+  prune(): Promise<{ removed: Unmeasured[] }>;
   status(): Promise<SyncStatus>;
   syncNow(): Promise<SyncStatus>;
   repos(): Promise<SyncedRepos>;
@@ -172,6 +179,14 @@ export class ServerAdmin implements AdminApi {
 
   identities(): Promise<Identities> {
     return call(this.#base, "/identities");
+  }
+
+  unmeasured(): Promise<{ repos: Unmeasured[] }> {
+    return call(this.#base, "/unmeasured");
+  }
+
+  prune(): Promise<{ removed: Unmeasured[] }> {
+    return call(this.#base, "/prune", { method: "POST", body: {} });
   }
 
   async remove(): Promise<void> {

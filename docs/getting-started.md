@@ -155,6 +155,7 @@ picks up the change. [configuration.md](configuration.md) describes every option
 | `pr 123` | how codeflow read one PR, to check it against GitHub |
 | `build` | the report as a file that opens offline |
 | `run` | `sync`, then `build` |
+| `prune` | lists repos stored but no longer measured; `--yes` removes their data |
 | `serve` | the web app (`npm start` builds the page and opens it) |
 
 Run them as `npm run codeflow -- <command>`. With several orgs, add `--org <name>` to work on one.
@@ -186,6 +187,9 @@ add more orgs (or run `npm run codeflow -- migrate --org <name>`).
 - **"Create" stays greyed out**: choose "Show what this measures" first; step 3 says what else
   is missing. To start with GitHub alone, remove the Azure DevOps source and add it later in
   Setup › Repos.
+- **Repos you no longer measure still show**: narrowing a source doesn't delete what was
+  synced. Setup › Repos lists them under "Stored, but no longer measured" and removes their
+  data, or run `npm run codeflow -- prune --yes`.
 - **A repo is missing**: the token can't see it, or the source leaves it out. "Show what this
   measures" in Setup › Repos lists every repo left out, and why.
 - **A metric shows "—"**: too few PRs to show honestly (a median needs 10), or the data doesn't

@@ -364,6 +364,22 @@ export class Store {
     }));
   }
 
+  /**
+   * Removes a repo and everything stored about it: its PRs (every version), facts and history.
+   * Only for a repo the org no longer measures, when the user asks (decision D43); it is the one
+   * exception to raw rows being only ever inserted. Returns how many PR versions went.
+   */
+  removeRepo(repoId: string): number {
+    return transaction(this.#db, () => {
+      const { changes } = this.#db.prepare("DELETE FROM raw_prs WHERE repo_id = ?").run(repoId);
+      for (const table of ["pr_facts", "derivations", "default_branches"]) {
+        this.#db.prepare(`DELETE FROM ${table} WHERE repo_id = ?`).run(repoId);
+      }
+      this.#db.prepare("DELETE FROM repos WHERE id = ?").run(repoId);
+      return Number(changes);
+    });
+  }
+
   /** Changes whenever a PR version is added to the repo, since raw rows are only ever inserted. */
   rawFingerprint(repoId: string): string {
     const row = this.#db

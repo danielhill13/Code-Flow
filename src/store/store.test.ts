@@ -121,6 +121,27 @@ describe("savePage", () => {
   });
 });
 
+describe("removeRepo", () => {
+  it("removes one repo and everything stored about it, leaving the others", () => {
+    const store = openStore();
+    const other = { ...repo, id: "R_2", fullName: "acme/web" };
+    store.upsertRepo(repo);
+    store.upsertRepo(other);
+    const run = store.startRun("sync");
+    store.savePage(
+      repo.id,
+      [pr("P1", "2026-09-01T00:00:00Z"), pr("P2", "2026-09-02T00:00:00Z")],
+      run,
+      {},
+    );
+    store.savePage(other.id, [pr("P3", "2026-09-03T00:00:00Z")], run, {});
+    expect(store.removeRepo(repo.id)).toBe(2);
+    expect(store.repos().map((r) => r.fullName)).toEqual(["acme/web"]);
+    expect(store.rawFingerprint(other.id)).not.toBe(store.rawFingerprint(repo.id));
+    expect(store.repoSummaries().map((r) => r.prs)).toEqual([1]);
+  });
+});
+
 describe("locks", () => {
   it("refuse a lock a live process holds", () => {
     const store = openStore();

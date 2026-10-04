@@ -9,6 +9,7 @@ import { type InitOptions, init } from "./init.ts";
 import { type MigrateOptions, migrate } from "./migrate.ts";
 import { listPeople, type MergeOptions, mergeAccounts, type PeopleOptions } from "./people.ts";
 import { type PrOptions, showPr } from "./pr.ts";
+import { type PruneOptions, prune } from "./prune.ts";
 import { listRules, type RulesOptions, type RulesTestOptions, testRules } from "./rules.ts";
 import { type ServeOptions, serve } from "./serve.ts";
 import { type StatusOptions, showStatus } from "./status.ts";
@@ -87,6 +88,16 @@ program
   .option("--org <name>", "only this org; needed by some commands when there are several")
   .action(async (options: StatusOptions) => {
     process.exitCode = await showStatus(options);
+  });
+
+program
+  .command("prune")
+  .description("list repos stored but no longer measured; --yes removes their data (no network)")
+  .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
+  .option("--org <name>", "only this org; needed by some commands when there are several")
+  .option("--yes", "remove their data, not just list them")
+  .action(async (options: PruneOptions) => {
+    process.exitCode = await prune(options);
   });
 
 program

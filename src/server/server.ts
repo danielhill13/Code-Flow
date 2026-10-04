@@ -34,6 +34,7 @@ import { ruleImpact } from "../core/preview.ts";
 import { ruleProblems } from "../core/rules.ts";
 import { CodeflowError } from "../errors.ts";
 import { deriveFacts, deriveWith, measuredBranches } from "../pipeline/derive.ts";
+import { pruneRepos, unmeasuredRepos } from "../pipeline/prune.ts";
 import { Store } from "../store/store.ts";
 import {
   checkAdo,
@@ -161,6 +162,10 @@ async function handle(
       return json(res, { removed: name });
     case "GET repos":
       return json(res, reposOf(org));
+    case "GET unmeasured":
+      return json(res, { repos: withStore(org, (store) => unmeasuredRepos(store, org.config)) });
+    case "POST prune":
+      return json(res, { removed: withStore(org, (store) => pruneRepos(store, org.config)) });
     case "GET identities":
       return json(res, await identitiesFor(org));
     case "GET status": {
@@ -348,6 +353,17 @@ async function workspaceRoute(
       return json(res, await previewSources(await body(req)));
     default:
       throw new NotFound("Not found.");
+  }
+}
+
+/** Runs `fn` on the org's store, or gives nothing when the org has no data yet. */
+function withStore<T>(org: Org, fn: (store: Store) => T[]): T[] {
+  if (!existsSync(org.dbPath)) return [];
+  const store = Store.open(org.dbPath);
+  try {
+    return fn(store);
+  } finally {
+    store.close();
   }
 }
 

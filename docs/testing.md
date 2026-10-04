@@ -115,6 +115,7 @@ here.
 | TC-110 | `rules` lists the org's rules, and `rules test` previews a draft without saving it |
 | TC-111 | Stale PRs are counted apart from open ones, a bot's nudge doesn't revive one, and the window is the org's |
 | TC-112 | `run` syncs and then builds, for a scheduler such as cron |
+| TC-120 | `prune` lists repos stored but no longer selected by any source, and `--yes` removes their data |
 
 ### GitHub and Azure DevOps together (`test/scenarios/azure-devops.test.ts`)
 

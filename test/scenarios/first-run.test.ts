@@ -174,4 +174,26 @@ describe("a first run, step by step", () => {
     expect(list.out).toContain("config:promotions");
     expect(list.out).toContain("config:branches:acme-co/legacy");
   });
+
+  it("TC-120 prune lists repos no source selects any more, and removes their data when told", async () => {
+    const file = "orgs/acme/org.yml";
+    const before = await ws.read(file);
+    expect(before).toMatch(/- owner: acme-co\n/);
+    await ws.write(
+      file,
+      before.replace(/- owner: acme-co\n/, "- owner: acme-co\n    exclude: [legacy]\n"),
+    );
+    const listed = await ws.run("prune");
+    expect(listed.code, listed.out).toBe(0);
+    expect(listed.out).toMatch(/not measured\s+acme-co\/legacy/);
+    expect(listed.out).not.toContain("acme-co/api");
+    expect((await ws.run("pr", "acme-co/legacy#20")).code).toBe(0);
+
+    const removed = await ws.run("prune", "--yes");
+    expect(removed.out).toMatch(/removed\s+acme-co\/legacy/);
+    expect((await ws.run("status")).out).not.toContain("acme-co/legacy");
+    expect((await ws.run("prune")).out).toContain("every stored repo is one the sources measure");
+    expect((await ws.run("summary")).code).toBe(0);
+    await ws.write(file, before);
+  });
 });

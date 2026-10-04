@@ -314,3 +314,12 @@ left with none), from Setup › People or `codeflow people merge`, through the s
 edit, and applies with no new sync. `github: []` now means "no GitHub account", so an Azure
 DevOps-only person's key doesn't claim a GitHub login.
 
+**D43 · 2026-10-04 · Removing the data of repos no longer measured.** The store kept every repo
+ever synced, and the report showed them all, so narrowing a source (a whole organization down to
+a few repos) left the others in the report. Which stored repos the sources still select is now
+read from names alone (`config/scope.ts`: owner, project and the include and exclude patterns),
+with no call to the host. `codeflow prune` lists the others and `--yes` removes their data;
+Setup › Repos lists them too and removes them after a second click. Removing a whole repo's data
+is the one exception to raw rows being only ever inserted: it happens only when the user asks,
+takes the sync lock so it never races a sync, and syncing the repo again brings it back.
+

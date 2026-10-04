@@ -55,7 +55,8 @@ sets it up.
 - Every Azure DevOps call goes through `AdoClient`, which paces requests (one at a time, at most
   two a second, slower when the server's rate-limit headers say so). Never call its API around it.
 - All SQL lives in `src/store/`. Schema changes are new entries appended to `migrations.ts`; never
-  edit a migration that has shipped. Rows in `raw_prs` are only ever inserted.
+  edit a migration that has shipped. Rows in `raw_prs` are only ever inserted, except that
+  `Store.removeRepo` drops a whole repo the user asked to prune (decision D43).
 - Test sync logic against `src/testing/fake-github.ts`, which reproduces GitHub's ordering and
   keyset paging, and a real in-memory `Store`.
 - Bump `DERIVE_VERSION` in `src/core/facts.ts` whenever derive's logic changes what a fact holds:

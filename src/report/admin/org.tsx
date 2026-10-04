@@ -2,6 +2,7 @@
 // file paths, its sync, and its settings. They edit org.yml through the server, which checks each
 // save as a whole; each section sends only the keys it shows, so the rest of the file is untouched.
 import { useEffect, useState } from "preact/hooks";
+import { num } from "../../core/format.ts";
 import { AdoStatus, GitHubStatus, PreviewTable, useStatus } from "../welcome.tsx";
 import type {
   AdoCheck,
@@ -11,6 +12,7 @@ import type {
   RawSource,
   SourcesPreview,
   SyncedRepos,
+  Unmeasured,
 } from "./api.ts";
 import { Choice, Field, List, Problem, Text } from "./fields.tsx";
 import { Form, message, type SectionProps, usePart, Waiting } from "./kit.tsx";
@@ -151,7 +153,85 @@ export function Repos(props: SectionProps) {
         )}
         <Saved show={org.saved} />
       </Form>
+      <NoLongerMeasured {...props} saved={org.saved} />
     </>
+  );
+}
+
+/**
+ * Repos stored under an earlier, wider source that no source selects now (decision D43): listed,
+ * and their data removed after a second click. Until then they stay in the report.
+ */
+function NoLongerMeasured(props: SectionProps & { saved: boolean }) {
+  const [repos, setRepos] = useState<Unmeasured[] | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  useEffect(() => {
+    props.api.unmeasured().then(
+      (r) => setRepos(r.repos),
+      () => setRepos([]),
+    );
+  }, [props.api, props.saved]);
+  if (done) return <p class="muted">{done}</p>;
+  if (!repos || repos.length === 0) return null;
+  const prs = repos.reduce((n, r) => n + r.prs, 0);
+  const remove = async () => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const { removed } = await props.api.prune();
+      setDone(
+        `Removed the data of ${removed.length === 1 ? "1 repo" : `${num(removed.length)} repos`}.`,
+      );
+      props.onSaved();
+    } catch (err) {
+      setProblem(message(err));
+    } finally {
+      setBusy(false);
+      setConfirming(false);
+    }
+  };
+  return (
+    <section class="card vstack" aria-labelledby="no-longer-measured">
+      <div class="card-head">
+        <h2 id="no-longer-measured">Stored, but no longer measured</h2>
+        <span class="note">
+          These were synced under an earlier source. They stay in the report until their data is
+          removed.
+        </span>
+      </div>
+      <ul class="skipped">
+        {repos.map((repo) => (
+          <li key={repo.id}>
+            {repo.fullName} <span class="muted">· {num(repo.prs)} PRs</span>
+          </li>
+        ))}
+      </ul>
+      <Problem text={problem} />
+      <div class="step-actions">
+        {confirming ? (
+          <>
+            <button type="button" class="button primary" disabled={busy} onClick={remove}>
+              {busy
+                ? "Removing…"
+                : `Remove ${num(prs)} PRs from ${repos.length === 1 ? "1 repo" : `${num(repos.length)} repos`}`}
+            </button>
+            <button type="button" class="button" onClick={() => setConfirming(false)}>
+              Keep them
+            </button>
+            <span class="muted">
+              Only this machine's copy; syncing them again brings them back.
+            </span>
+          </>
+        ) : (
+          <button type="button" class="button" onClick={() => setConfirming(true)}>
+            Remove their data…
+          </button>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -357,6 +357,14 @@ class FakeAdmin implements AdminApi {
     };
   }
 
+  async unmeasured() {
+    return { repos: [{ id: "R_9", fullName: "acme/old-tool", provider: "github", prs: 4 }] };
+  }
+
+  async prune() {
+    return { removed: [{ id: "R_9", fullName: "acme/old-tool", provider: "github", prs: 4 }] };
+  }
+
   async remove() {}
 
   async checkGitHub() {
@@ -539,7 +547,14 @@ describe("the report, served", () => {
   it("shows every section of the setup without broken values", async () => {
     await show({ tab: "setup" });
     const sections = {
-      Repos: ["GitHub: every repo", "GitHub: one repo", "Azure DevOps organization", "Project"],
+      Repos: [
+        "GitHub: every repo",
+        "GitHub: one repo",
+        "Azure DevOps organization",
+        "Project",
+        "Stored, but no longer measured",
+        "acme/old-tool",
+      ],
       Branches: ["acme/legacy", "main, develop", "Promotion branches"],
       Bots: ["Also bots", "Bots whose reviews count", "Ignore comments matching"],
       Paths: ["Path rules", "Add a rule"],
