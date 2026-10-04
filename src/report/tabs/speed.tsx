@@ -213,7 +213,7 @@ function SizeCard({ model, state }: { model: SpeedModel; state: ReportState }) {
 }
 
 function Throughput({ model, state }: { model: SpeedModel; state: ReportState }) {
-  const { merged, size, linesMerged } = model.throughput;
+  const { merged, size, withinSize, linesMerged } = model.throughput;
   const max = Math.max(...merged.series.map((p) => p.value?.value ?? 0), 0);
   return (
     <Card title="Throughput" note={`PRs merged per ${model.window.grain}`}>
@@ -238,10 +238,11 @@ function Throughput({ model, state }: { model: SpeedModel; state: ReportState })
           );
         })}
       </div>
-      <div class="stats">
+      <div class="stats four">
         {[
           { tile: merged, label: "PRs merged" },
           { tile: size, label: `PR size (${statLabel(state.percentile)})` },
+          { tile: withinSize, label: `Within ${num(model.sizeTargetLines)} lines` },
           { tile: linesMerged, label: "Lines merged" },
         ].map(({ tile, label }) => (
           <a

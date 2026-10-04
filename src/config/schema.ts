@@ -405,6 +405,13 @@ const settingsShape = {
   stale_after_days: z.int().min(1).max(3650).default(90),
   /** Whether the report offers one person's numbers: picking people, reviewers by name. */
   people_views: z.boolean().default(true),
+  /**
+   * How long after merging a PR is watched for its product files changing again (churn), in
+   * days (decision D44).
+   */
+  churn_window_days: z.int().min(1).max(365).default(30),
+  /** PRs at or under this many product lines are within the org's size target (decision D44). */
+  size_target_lines: z.int().min(1).max(100_000).default(400),
 };
 
 /** What to measure, before an org exists: what the web app's first steps ask for. */

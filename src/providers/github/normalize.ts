@@ -53,7 +53,16 @@ export type GhPayload = {
   labels: { nodes: { name: string }[] } | null;
   reviewThreads: { totalCount: number } | null;
   commits: GhConnection<{
-    commit: { oid: string; authoredDate: string; committedDate: string; message: string };
+    commit: {
+      oid: string;
+      authoredDate: string;
+      committedDate: string;
+      message: string;
+      /** Absent in payloads stored before codeflow asked for them. */
+      additions?: number;
+      deletions?: number;
+      parents?: { totalCount: number };
+    };
   }>;
   reviews: GhConnection<{
     author: GhActor;
@@ -126,6 +135,9 @@ export function normalizePr(raw: GhPayload, repo: { id: string; fullName: string
         authoredAt: commit.authoredDate,
         committedAt: commit.committedDate,
         message: commit.message,
+        ...(commit.additions !== undefined && { additions: commit.additions }),
+        ...(commit.deletions !== undefined && { deletions: commit.deletions }),
+        ...(commit.parents !== undefined && { parents: commit.parents.totalCount }),
       }),
     ),
     reviews: raw.reviews.nodes.map(

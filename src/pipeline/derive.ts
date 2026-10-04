@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import picomatch from "picomatch";
 import { asRule, type Config, loginsOf } from "../config/schema.ts";
+import { type ChurnClues, churnClues, linkChurn } from "../core/churn.ts";
 import { DEFAULT_PROMOTION_BRANCHES, type DeriveRules, derivePr } from "../core/derive.ts";
 import { DERIVE_VERSION, type PrFact } from "../core/facts.ts";
 import { attribute, type Groups, NO_GROUPS, personOf } from "../core/groups.ts";
@@ -64,13 +65,17 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
 export function deriveRepo(store: Store, repo: StoredRepo, rules: DeriveRules): PrFact[] {
   const facts = new Map<string, PrFact>();
   const clues: RevertClues[] = [];
-  // One PR in memory at a time: only its facts and revert clues are kept.
+  const churn: ChurnClues[] = [];
+  // One PR in memory at a time: only its facts and its revert and churn clues are kept.
   for (const version of store.latestPrs(repo.id)) {
     const model = normalize(repo, version.payload, version.updatedAt);
-    facts.set(model.id, derivePr(model, rules));
+    const fact = derivePr(model, rules);
+    facts.set(model.id, fact);
     clues.push(revertClues(model));
+    churn.push(churnClues(model, fact, rules.classify));
   }
   linkReverts(clues, facts);
+  linkChurn(churn, facts);
   return [...facts.values()];
 }
 

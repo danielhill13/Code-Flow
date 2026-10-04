@@ -52,7 +52,9 @@ export type SpeedModel = {
   largest: Phase | null;
   approval: Tile;
   sizes: { band: SizeBand; count: MetricValue; cycle: MetricValue }[];
-  throughput: { merged: Tile; size: Tile; linesMerged: Tile };
+  throughput: { merged: Tile; size: Tile; withinSize: Tile; linesMerged: Tile };
+  /** The org's size target, in product lines. */
+  sizeTargetLines: number;
 };
 
 export function speed(ctx: ViewContext, q: ViewQuery): SpeedModel {
@@ -98,7 +100,9 @@ export function speed(ctx: ViewContext, q: ViewQuery): SpeedModel {
     throughput: {
       merged: slice.tile("merged", window, p),
       size: slice.tile("size", window, p),
+      withinSize: slice.tile("withinSize", window, p),
       linesMerged: slice.tile("linesMerged", window, p),
     },
+    sizeTargetLines: ctx.sizeTargetLines,
   };
 }

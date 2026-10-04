@@ -27,7 +27,17 @@ export type Review = {
 
 export type Comment = { author: Actor | null; at: string; body: string };
 
-export type Commit = { sha: string; authoredAt: string; committedAt: string; message: string };
+export type Commit = {
+  sha: string;
+  authoredAt: string;
+  committedAt: string;
+  message: string;
+  /** Lines the commit added and deleted, every file; absent where the host doesn't say. */
+  additions?: number;
+  deletions?: number;
+  /** How many parents: more than one is a merge, such as the target branch merged in. */
+  parents?: number;
+};
 
 export type ChangedFile = { path: string; additions: number; deletions: number };
 

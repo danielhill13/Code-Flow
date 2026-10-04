@@ -1,5 +1,5 @@
 import type { Exclusion, PrFact } from "./facts.ts";
-import { METRICS, type Metric, type MetricContext, type Population } from "./metrics.ts";
+import { contextAt, METRICS, type Metric, type MetricContext, type Population } from "./metrics.ts";
 import { inPeriod, type Span } from "./periods.ts";
 import { DEFAULT_STALE_DAYS, isStale } from "./stale.ts";
 import { percentile, percentileStat } from "./stats.ts";
@@ -67,10 +67,19 @@ const DAY_MS = 86_400_000;
 export function measure(
   facts: readonly PrFact[],
   period: Span,
-  options: { asOf: Date; percentile?: number; staleAfterDays?: number },
+  options: {
+    asOf: Date;
+    percentile?: number;
+    staleAfterDays?: number;
+    churnDays?: number;
+    sizeTargetLines?: number;
+  },
 ): Measurement {
   const p = options.percentile ?? 0.5;
-  const ctx: MetricContext = { asOf: options.asOf };
+  const ctx: MetricContext = contextAt(options.asOf, {
+    ...(options.churnDays !== undefined && { churnDays: options.churnDays }),
+    ...(options.sizeTargetLines !== undefined && { sizeTargetLines: options.sizeTargetLines }),
+  });
   const groups = populations(facts, period);
   const merged = groups.merged;
   const staleDays = options.staleAfterDays ?? DEFAULT_STALE_DAYS;

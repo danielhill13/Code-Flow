@@ -9,8 +9,8 @@ import {
   populations,
 } from "../aggregate.ts";
 import type { PrFact } from "../facts.ts";
-import type { Population } from "../metrics.ts";
-import { metricOf } from "../metrics.ts";
+import type { MetricContext, Population } from "../metrics.ts";
+import { DEFAULT_CHURN_DAYS, lagOf, metricOf } from "../metrics.ts";
 import type { Span } from "../periods.ts";
 import {
   type Breakdown,
@@ -45,7 +45,17 @@ export type ViewContext = {
   staleAfterDays: number;
   /** Whether views may name one person's numbers, such as reviewers by name. */
   peopleViews: boolean;
+  /** The org's churn window and size target (decision D44). */
+  churnDays: number;
+  sizeTargetLines: number;
 };
+
+/** What the metrics see of a view's context. */
+export const metricContext = (ctx: ViewContext): MetricContext => ({
+  asOf: ctx.asOf,
+  churnDays: ctx.churnDays,
+  sizeTargetLines: ctx.sizeTargetLines,
+});
 
 /** What a tab is asked for: which PRs, broken down how, over which window, with which statistic. */
 export type ViewQuery = {
@@ -146,7 +156,7 @@ export class Slice {
   value(key: string, span: Span, p: number): MetricValue {
     if (!covers(this.ctx.coveredFrom, span)) return uncovered(key, this.ctx.coveredFrom);
     const metric = metricOf(key);
-    return evaluate(metric, this.groups(span)[metric.population], p, { asOf: this.ctx.asOf });
+    return evaluate(metric, this.groups(span)[metric.population], p, metricContext(this.ctx));
   }
 
   /** Each phase's share of the cycle hours of PRs merged in the span; null if not covered. */
@@ -159,13 +169,13 @@ export class Slice {
     if (!covers(this.ctx.coveredFrom, span)) return uncovered(key, this.ctx.coveredFrom);
     const metric = metricOf(key);
     const prs = this.groups(span)[metric.population].filter(test);
-    return evaluate(metric, prs, p, { asOf: this.ctx.asOf });
+    return evaluate(metric, prs, p, metricContext(this.ctx));
   }
 
   /** The value and the previous window's, each over the metric's own (possibly lagged) span. */
   pair(key: string, window: WindowView, p: number): Pair {
-    const current = lagged(key, window.current);
-    const previous = lagged(key, window.previous);
+    const current = lagged(key, window.current, this.ctx);
+    const previous = lagged(key, window.previous, this.ctx);
     return {
       value: this.value(key, current, p),
       previous: covers(this.ctx.coveredFrom, previous) ? this.value(key, previous, p) : null,
@@ -175,7 +185,7 @@ export class Slice {
   /** The metric for each bucket of the window, shifted back too for a lagged metric. */
   series(key: string, window: WindowView, p: number): Point[] {
     return window.buckets.map((bucket) => {
-      const span = lagged(key, bucket);
+      const span = lagged(key, bucket, this.ctx);
       return {
         bucket,
         span,
@@ -188,7 +198,7 @@ export class Slice {
     const { value, previous } = this.pair(key, window, p);
     return {
       key,
-      span: lagged(key, window.current),
+      span: lagged(key, window.current, this.ctx),
       value,
       previous,
       series: this.series(key, window, p),
@@ -212,8 +222,12 @@ export class Slice {
 }
 
 /** A metric's span in a rolling window: shifted back by its lag, if it has one. */
-export function lagged(key: string, span: Span): Span {
-  const lag = metricOf(key).lagDays;
+export function lagged(
+  key: string,
+  span: Span,
+  ctx: Pick<ViewContext, "churnDays"> = { churnDays: DEFAULT_CHURN_DAYS },
+): Span {
+  const lag = lagOf(metricOf(key), ctx);
   return lag ? shiftBack(span, lag) : span;
 }
 

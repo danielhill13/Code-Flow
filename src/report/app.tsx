@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { everyMs } from "../core/every.ts";
 import { statLabel } from "../core/format.ts";
+import { DEFAULT_CHURN_DAYS } from "../core/metrics.ts";
 import {
   type Breakdown,
   breakdowns,
@@ -331,6 +332,7 @@ function Report({
           pr={drawer}
           asOf={asOf}
           staleAfterDays={meta.settings.staleAfterDays}
+          churnDays={meta.settings.churnDays ?? DEFAULT_CHURN_DAYS}
           onClose={closeDrawer}
         />
       )}

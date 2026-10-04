@@ -323,3 +323,17 @@ Setup › Repos lists them too and removes them after a second click. Removing a
 is the one exception to raw rows being only ever inserted: it happens only when the user asks,
 takes the sync lock so it never races a sync, and syncing the repo again brings it back.
 
+**D44 · 2026-10-04 · Churn, rework and the size target.** Three questions leaders ask after "how
+fast": do PRs stay small, how much changes once review starts, and does merged code stick.
+*Size target*: the share of merged PRs at or under `size_target_lines` (400 by default), beside
+the size bands Speed already shows. *Rework*: lines changed by commits pushed after the first
+review, merges of the target branch left out; GitHub gives lines per commit (asked for from now
+on, so older PRs gain it only when fetched again), Azure DevOps doesn't, so it is null there rather
+than estimated. *Churn*: file-level, from the files each PR changed, which both hosts already give:
+a merged PR is "changed again" when a later merged PR into the same branch, not a bot's, changes one
+of its product files within `churn_window_days` (30 by default), and "followed up" when that later
+PR is its own author's. Line-level churn (blame) would need clones of every repo; file-level
+answers the leadership question with data already synced. Both churn shares lag by the window, as
+the revert rate does, and are null for PRs too young to tell. They are worded neutrally: some
+change is normal evolution, a rise is worth a look.
+

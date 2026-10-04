@@ -58,7 +58,10 @@ export type ReviewModel = {
   /** Inside a team or repo: the reviewers, busiest first; the rest grouped as `others`. */
   reviewers: ReviewerLoad[];
   others: { count: number; reviews: number; share: number; waiting: number } | null;
-  /** Re-pushed after review, commented, reverted: what happened after review. */
+  /**
+   * What happened after review: re-pushed, lines changed after it, commented; and after merge:
+   * reverted, changed again soon, followed up by the author (decision D44).
+   */
   after: Tile[];
 };
 
@@ -66,7 +69,14 @@ export type ReviewModel = {
 export const REVIEWER_ROWS = 7;
 
 export const REVIEW_TILES = ["pickup", "review", "reviewsPerPr", "repushed", "reviewed"] as const;
-export const AFTER_TILES = ["repushed", "commented", "reverted"] as const;
+export const AFTER_TILES = [
+  "repushed",
+  "rework",
+  "commented",
+  "reverted",
+  "touchedAgain",
+  "followUp",
+] as const;
 
 export function review(ctx: ViewContext, q: ViewQuery): ReviewModel {
   const window = windowView(ctx, q.window);

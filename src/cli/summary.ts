@@ -65,6 +65,8 @@ export async function summary(options: SummaryOptions): Promise<number> {
       asOf,
       percentile: parsePercentile(options.percentile),
       staleAfterDays: config.stale_after_days,
+      churnDays: config.churn_window_days,
+      sizeTargetLines: config.size_target_lines,
     });
 
     const warnings = branchWarnings(store, org, asOf);

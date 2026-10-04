@@ -93,7 +93,8 @@ const CONNECTION_ARGS: Partial<Record<PrConnectionName, string>> = {
 };
 
 const CONNECTION_NODES: Record<PrConnectionName, string> = {
-  commits: "commit { oid authoredDate committedDate message author { user { login } } }",
+  commits:
+    "commit { oid authoredDate committedDate message additions deletions parents { totalCount } author { user { login } } }",
   reviews: "author { __typename login } state submittedAt body",
   comments: "author { __typename login } createdAt body",
   files: "path additions deletions changeType",

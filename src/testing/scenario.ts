@@ -99,8 +99,26 @@ function payload(repo: string, plan: Plan): GhPayload {
           authoredDate: iso(opened - 20 * 3_600_000),
           committedDate: iso(opened - 2 * 3_600_000),
           message: plan.title,
+          additions: plan.files.reduce((n, f) => n + f.additions, 0),
+          deletions: plan.files.reduce((n, f) => n + f.deletions, 0),
+          parents: { totalCount: 1 },
         },
       },
+      // A change asked for is made: a push after that review, so rework has lines to show.
+      ...reviewed
+        .filter((r) => r.state === "CHANGES_REQUESTED")
+        .slice(0, 1)
+        .map((r) => ({
+          commit: {
+            oid: `f${repo}${plan.number}`.padEnd(12, "0"),
+            authoredDate: iso(r.at + 3 * 3_600_000),
+            committedDate: iso(r.at + 3 * 3_600_000),
+            message: "Address review",
+            additions: 6 + (plan.number % 20),
+            deletions: 2,
+            parents: { totalCount: 1 },
+          },
+        })),
     ]),
     reviews: connection(
       reviewed.map((r) => ({
@@ -156,6 +174,8 @@ function everyday(
       labels: chore ? ["chore"] : [],
       files: [
         { path: `src/${repo}/part${i}.ts`, additions: 10 + ((i * 37) % 400), deletions: i % 23 },
+        // Some code is changed again soon after it merges: churn has something to find.
+        ...(i % 4 === 0 ? [{ path: `src/${repo}/shared.ts`, additions: 5, deletions: 3 }] : []),
         ...(i % 3 === 0 ? [{ path: `test/part${i}.test.ts`, additions: 40, deletions: 2 }] : []),
         ...(i % 10 === 0 ? [{ path: "docs/guide.md", additions: 12, deletions: 0 }] : []),
       ],

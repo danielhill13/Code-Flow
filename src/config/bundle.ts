@@ -41,6 +41,8 @@ const SETTINGS = [
   "sync_every",
   "stale_after_days",
   "people_views",
+  "churn_window_days",
+  "size_target_lines",
 ];
 
 const KEYS: Record<Part, readonly string[]> = {

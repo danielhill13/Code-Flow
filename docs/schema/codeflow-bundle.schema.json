@@ -239,6 +239,18 @@
         "people_views": {
           "default": true,
           "type": "boolean"
+        },
+        "churn_window_days": {
+          "default": 30,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 365
+        },
+        "size_target_lines": {
+          "default": 400,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
         }
       },
       "additionalProperties": false

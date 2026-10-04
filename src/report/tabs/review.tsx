@@ -21,7 +21,13 @@ const LABELS: Record<string, string> = {
   reviewed: "Reviewed before merge",
   commented: "Commented",
   reverted: `Reverted within ${REVERT_WINDOW_DAYS} d`,
+  rework: "Changed after review",
+  touchedAgain: "Changed again soon",
+  followUp: "Followed up by the author",
 };
+
+/** Tiles judged a while after merging: they describe PRs merged earlier, old enough to tell. */
+const LAGGED = new Set(["reverted", "touchedAgain", "followUp"]);
 
 export function Review(props: {
   model: ReviewModel;
@@ -79,9 +85,10 @@ export function Review(props: {
 
       <section style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         <div class="card-head">
-          <h2>After review</h2>
+          <h2>After review and merge</h2>
           <span class="note">
-            If pickup gets faster while re-pushes rise, review may be getting shallower.
+            If pickup gets faster while re-pushes rise, review may be getting shallower. Code
+            changed again soon after merging is often work that wasn't finished.
           </span>
         </div>
         <div class="grid tiles-3">
@@ -92,9 +99,11 @@ export function Review(props: {
               label={LABELS[tile.key] ?? tile.key}
               small
               more={
-                tile.key === "reverted"
+                LAGGED.has(tile.key)
                   ? ` · of PRs merged ${tile.span.label}, old enough to tell`
-                  : ""
+                  : tile.key === "rework"
+                    ? " · lines, GitHub only"
+                    : ""
               }
               href={listHref(
                 state,

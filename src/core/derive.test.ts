@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { alice, at, bob, carol, deriveRules, prModel, rabbit } from "../testing/factories.ts";
+import {
+  alice,
+  at,
+  bob,
+  carol,
+  deriveRules,
+  prFact,
+  prModel,
+  rabbit,
+} from "../testing/factories.ts";
 import { derivePr } from "./derive.ts";
 import type { PrFact } from "./facts.ts";
+import { contextAt, metricOf } from "./metrics.ts";
 import type { PrModel, Review } from "./model.ts";
 import type { PrOutcome } from "./rules.ts";
 
@@ -481,5 +491,64 @@ describe("derivePr: where an open PR stands", () => {
       people: ["bob", "carol"],
       teams: [],
     });
+  });
+});
+
+describe("rework: lines changed after the first review [rule 14]", () => {
+  const commit = (sha: string, day: string, lines?: number, parents = 1) => ({
+    sha,
+    authoredAt: at(`${day} 09:00`),
+    committedAt: at(`${day} 09:00`),
+    message: sha,
+    ...(lines !== undefined && { additions: lines, deletions: 0, parents }),
+  });
+  const reviewed = {
+    reviews: [
+      { author: bob, state: "changes_requested" as const, at: at("03-02 12:00"), body: "" },
+    ],
+  };
+
+  it("adds the lines of commits pushed after the first review, leaving out merges", () => {
+    const fact = prFact({
+      ...reviewed,
+      commits: [
+        commit("a", "03-01", 100),
+        commit("b", "03-03", 12),
+        commit("m", "03-03", 500, 2),
+        commit("c", "03-04", 3),
+      ],
+    });
+    expect(fact.reworkLines).toBe(15);
+  });
+
+  it("is zero when nothing was pushed after review, and null when nobody reviewed", () => {
+    expect(prFact({ ...reviewed, commits: [commit("a", "03-01", 100)] }).reworkLines).toBe(0);
+    expect(
+      prFact({ commits: [commit("a", "03-01", 100), commit("b", "03-03", 5)] }).reworkLines,
+    ).toBeNull();
+  });
+
+  it("is null when the host doesn't give a later commit's lines, or cut the list short", () => {
+    expect(
+      prFact({ ...reviewed, commits: [commit("a", "03-01"), commit("b", "03-03")] }).reworkLines,
+    ).toBeNull();
+    expect(
+      prFact({ ...reviewed, commits: [commit("b", "03-03", 5)], truncated: ["commits"] })
+        .reworkLines,
+    ).toBeNull();
+  });
+});
+
+describe("the size target [rule 15]", () => {
+  it("counts PRs at or under the org's target, and says nothing of PRs of unknown size", () => {
+    const metric = metricOf("withinSize");
+    if (metric.kind !== "share") throw new Error("a share");
+    const ctx = contextAt(new Date(at("06-01 00:00")), { sizeTargetLines: 400 });
+    const sized = (lines: number) =>
+      prFact({ files: [{ path: "src/a.ts", additions: lines, deletions: 0 }] });
+    expect(metric.test(sized(400), ctx)).toBe(true);
+    expect(metric.test(sized(401), ctx)).toBe(false);
+    expect(metric.test(sized(401), { ...ctx, sizeTargetLines: 500 })).toBe(true);
+    expect(metric.test(prFact({ truncated: ["files"] }), ctx)).toBeNull();
   });
 });

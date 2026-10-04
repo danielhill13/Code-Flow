@@ -15,7 +15,24 @@ export type MetricGroup = "Speed" | "Throughput" | "Review" | "Stability" | "Flo
 export type MetricContext = {
   /** When the data was last known complete. */
   asOf: Date;
+  /** How long after merging a PR is watched for its files changing again (decision D44). */
+  churnDays: number;
+  /** The org's size target, in product lines: PRs at or under it are within it. */
+  sizeTargetLines: number;
 };
+
+/** The churn window an org gets unless it says otherwise. */
+export const DEFAULT_CHURN_DAYS = 30;
+/** The size target an org gets unless it says otherwise. */
+export const DEFAULT_SIZE_TARGET = 400;
+
+/** A context with the org defaults, for callers that only know the time. */
+export const contextAt = (asOf: Date, settings: Partial<MetricContext> = {}): MetricContext => ({
+  churnDays: DEFAULT_CHURN_DAYS,
+  sizeTargetLines: DEFAULT_SIZE_TARGET,
+  ...settings,
+  asOf,
+});
 
 type Base = {
   key: string;
@@ -33,8 +50,31 @@ type Base = {
    * In a rolling window, the metric is measured over PRs merged this many days earlier, so that
    * each of them is old enough to judge. Calendar periods aren't shifted.
    */
-  lagDays?: number;
+  lagDays?: number | ((ctx: MetricContext) => number);
 };
+
+/** How many days a metric's rolling window is shifted back by, if at all. */
+export function lagOf(metric: Metric, ctx: Pick<MetricContext, "churnDays">): number {
+  const lag = metric.lagDays;
+  return typeof lag === "function" ? lag(ctx as MetricContext) : (lag ?? 0);
+}
+
+/**
+ * Whether something that happened `at` (or never) falls within `days` of a merge: null while the
+ * PR is too recent to tell, since counting it as "no" would flatter the rate.
+ */
+function within(
+  mergedAt: string | null,
+  at: string | null,
+  days: number,
+  asOf: Date,
+): boolean | null {
+  if (mergedAt === null) return null;
+  const merged = Date.parse(mergedAt);
+  const window = days * DAY_MS;
+  if (at !== null && Date.parse(at) - merged <= window) return true;
+  return asOf.getTime() - merged >= window ? false : null;
+}
 
 export type Metric = Base &
   (
@@ -142,6 +182,16 @@ export const METRICS: readonly Metric[] = [
       "Product lines added plus deleted. Lockfiles, generated, vendored, test and docs files don't count.",
   },
   {
+    key: "withinSize",
+    label: "Within size target",
+    group: "Throughput",
+    kind: "share",
+    population: "merged",
+    test: (pr, ctx) => (pr.sizeLines === null ? null : pr.sizeLines <= ctx.sizeTargetLines),
+    subset: "Size known",
+    definition: `Of merged PRs whose size is known: at most the org's size target in product lines (${DEFAULT_SIZE_TARGET} unless set). Small PRs are reviewed sooner and more closely.`,
+  },
+  {
     key: "linesMerged",
     label: "Lines merged",
     group: "Throughput",
@@ -203,22 +253,55 @@ export const METRICS: readonly Metric[] = [
     definition: "Of reviewed PRs: new commits arrived after a review, so it went round again.",
   },
   {
+    key: "rework",
+    label: "Changed after review",
+    group: "Review",
+    kind: "distribution",
+    unit: "lines",
+    population: "merged",
+    value: (pr) => pr.reworkLines,
+    subset: "Reviewed, lines known",
+    definition:
+      "Of reviewed PRs: lines changed by commits pushed after the first review, merges of the target branch left out. GitHub only: Azure DevOps doesn't give lines per commit.",
+  },
+  {
     key: "reverted",
     label: `Reverted within ${REVERT_WINDOW_DAYS} days`,
     group: "Stability",
     kind: "share",
     population: "merged",
-    test: (pr, ctx) => {
-      if (pr.mergedAt === null) return null;
-      const merged = Date.parse(pr.mergedAt);
-      const window = REVERT_WINDOW_DAYS * DAY_MS;
-      if (pr.revertedAt !== null && Date.parse(pr.revertedAt) - merged <= window) return true;
-      // Too recent to tell: counting it as not reverted would flatter the rate.
-      return ctx.asOf.getTime() - merged >= window ? false : null;
-    },
+    test: (pr, ctx) => within(pr.mergedAt, pr.revertedAt, REVERT_WINDOW_DAYS, ctx.asOf),
     subset: "Old enough to tell",
     lagDays: REVERT_WINDOW_DAYS,
     definition: `Of merged PRs at least ${REVERT_WINDOW_DAYS} days old: reverted by another PR within ${REVERT_WINDOW_DAYS} days of merging.`,
+  },
+  {
+    key: "touchedAgain",
+    label: "Changed again soon",
+    group: "Stability",
+    kind: "share",
+    population: "merged",
+    test: (pr, ctx) =>
+      pr.productFiles === null || pr.productFiles === 0
+        ? null
+        : within(pr.mergedAt, pr.touchedAgainAt, ctx.churnDays, ctx.asOf),
+    subset: "Old enough to tell",
+    lagDays: (ctx) => ctx.churnDays,
+    definition: `Of merged PRs old enough to tell: another PR merged into the same branch changed one of its product files within the org's churn window (${DEFAULT_CHURN_DAYS} days unless set). Some of this is normal evolution; a rise is worth a look.`,
+  },
+  {
+    key: "followUp",
+    label: "Followed up by the author",
+    group: "Stability",
+    kind: "share",
+    population: "merged",
+    test: (pr, ctx) =>
+      pr.productFiles === null || pr.productFiles === 0
+        ? null
+        : within(pr.mergedAt, pr.followUpAt, ctx.churnDays, ctx.asOf),
+    subset: "Old enough to tell",
+    lagDays: (ctx) => ctx.churnDays,
+    definition: `Of merged PRs old enough to tell: the same person changed one of its product files again in a later PR within the churn window. Often work that wasn't finished when it merged.`,
   },
   {
     key: "abandoned",

@@ -9,7 +9,7 @@
 | 4 | Hosted track: `serve`, scheduler, GitHub App auth, Docker image | The same report is served, and the conformance suite passes on both tracks | |
 | 5 | Scale: concurrent sync, webhooks, anomaly flags | Runs within budget against hundreds of repos | |
 | 6 | Work items: Jira and Azure Boards links | Link coverage is reported; work-item cycle time works | |
-| 7 | Rework ratio from git clones, opt-in per repo | Rework shows for opted-in repos | |
+| 7 | Line-level churn and rework from git clones, opt-in per repo (file-level churn and rework after review are built: D44) | Line-level numbers show for opted-in repos | |
 
 **Validation repo:** [usebruno/bruno](https://github.com/usebruno/bruno). It is public, so its
 data can go into test fixtures. In October 2026 it had about 4,400 PRs in total, 2,552 of them
@@ -35,9 +35,11 @@ none from June.
 
 - Speed: cycle time, coding, pickup, review, merge wait, time to approval, plus where the time
   went (each phase's share of all cycle hours, and any single PR holding a quarter of a phase)
-- Throughput: PRs merged, PR size, lines merged (product files only)
-- Review: reviewed, approved, reviews per PR, commented, re-pushed after review
-- Stability: reverted within 30 days (merges under 30 days old are left out, not counted as fine)
+- Throughput: PRs merged, PR size, within the size target, lines merged (product files only)
+- Review: reviewed, approved, reviews per PR, commented, re-pushed after review, changed after
+  review (lines; GitHub only)
+- Stability: reverted within 30 days (merges under 30 days old are left out, not counted as fine);
+  changed again soon and followed up by the author, within the churn window (D44)
 - Flow: abandoned, and open PRs now
 
 **Phase 3, so far.** The report follows the design handoff of October 2026: six tabs by

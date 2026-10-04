@@ -162,15 +162,17 @@ bots:
 
 By default, bot PRs aren't counted, and bot reviews and comments don't count as review.
 
-## sync_every, stale_after_days and people_views
+## sync_every, stale_after_days, people_views, size_target_lines and churn_window_days
 
-How the org's data is kept current and how its report reads it. All three are also in the web
-app, under Setup › Settings.
+How the org's data is kept current and how its report reads it. All are also in the web app,
+under Setup › Settings.
 
 ```yaml
 sync_every: 24h          # how often `codeflow serve` syncs: 30m, 6h, 24h, 7d … or off
 stale_after_days: 90     # an open PR with no activity for longer is stale
 people_views: true       # false: no picking people, no reviewers by name
+size_target_lines: 400   # merged PRs at or under this many product lines are within the target
+churn_window_days: 30    # product files changed again within this many days of merging
 ```
 
 - **`sync_every`** (default `24h`, at least `15m`) applies while `codeflow serve` runs: it syncs
@@ -184,6 +186,13 @@ people_views: true       # false: no picking people, no reviewers by name
 - **`people_views`** (default `true`): `false` removes people from the selection picker (a link
   that names a person shows everyone instead), and review load counts reviewers without naming
   them. Teams, groups and repos are unchanged, and the PR list still shows each PR's author.
+- **`size_target_lines`** (default 400): Speed shows the share of merged PRs at or under it, in
+  lines of product code, beside the size bands.
+- **`churn_window_days`** (default 30): a merged PR is **changed again soon** when a later PR
+  merged into the same branch changes one of its product files within this many days, and
+  **followed up by the author** when that later PR is the author's own. Review shows both, for
+  PRs old enough to tell, beside **changed after review** (lines pushed after the first review;
+  GitHub only). See decision D44.
 
 ## paths
 

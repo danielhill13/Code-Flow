@@ -65,6 +65,8 @@ export const EDITABLE = {
     "sync_every",
     "stale_after_days",
     "people_views",
+    "churn_window_days",
+    "size_target_lines",
   ],
 } as const satisfies Record<string, readonly string[]>;
 

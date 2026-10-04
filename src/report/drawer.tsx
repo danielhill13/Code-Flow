@@ -25,10 +25,37 @@ const EXCLUSIONS = {
   promotion: "Not counted: it promotes work between long-lived branches.",
 } as const;
 
+/**
+ * Whether a merged PR's product files changed again within the churn window, and by which PR;
+ * null when that can't apply (not merged, files unknown).
+ */
+function changedAgain(pr: PrFact, asOf: Date, days: number): string | null {
+  if (pr.state !== "merged" || !pr.mergedAt || !pr.productFiles) return null;
+  const window = days * 86_400_000;
+  const merged = Date.parse(pr.mergedAt);
+  const after = (at: string) => Math.max(0, Math.round((Date.parse(at) - merged) / 86_400_000));
+  const inWindow = (at: string | null): at is string =>
+    at !== null && Date.parse(at) - merged <= window;
+  if (inWindow(pr.touchedAgainAt) && pr.touchedAgainBy !== null) {
+    const own =
+      inWindow(pr.followUpAt) && pr.followUpBy !== null
+        ? pr.followUpBy === pr.touchedAgainBy
+          ? ", by the same author"
+          : `; the author followed up in #${pr.followUpBy}, ${after(pr.followUpAt)} days later`
+        : "";
+    return `Yes, by #${pr.touchedAgainBy}, ${after(pr.touchedAgainAt)} days after merging${own}`;
+  }
+  return asOf.getTime() - merged < window
+    ? "Not so far: too recent to tell"
+    : `No, within ${days} days`;
+}
+
 export function Drawer(props: {
   pr: PrFact;
   asOf: Date;
   staleAfterDays: number;
+  /** The org's churn window, in days (decision D44). */
+  churnDays: number;
   onClose: () => void;
 }) {
   const { pr, asOf, onClose } = props;
@@ -122,6 +149,18 @@ export function Drawer(props: {
         : "No",
     ],
   ];
+  if (pr.state === "merged" && pr.reviewed) {
+    facts.push([
+      "Changed after review",
+      pr.reworkLines === null
+        ? `Unknown: ${hostOf(pr.url)} didn't give lines per commit`
+        : pr.reworkLines === 0
+          ? "Nothing: no new commits after the first review"
+          : `${num(pr.reworkLines)} lines, in commits after the first review`,
+    ]);
+  }
+  const churn = changedAgain(pr, asOf, props.churnDays);
+  if (churn) facts.push(["Changed again", churn]);
   if (reverted) facts.push(["Reverted", reverted]);
   if (pr.reverts.length > 0) facts.push(["Reverts", pr.reverts.map((n) => `#${n}`).join(", ")]);
 

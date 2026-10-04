@@ -1,5 +1,6 @@
 import type { PrFact } from "./facts.ts";
 import type { Groups } from "./groups.ts";
+import { DEFAULT_CHURN_DAYS, DEFAULT_SIZE_TARGET } from "./metrics.ts";
 import { type Choices, choices } from "./selection.ts";
 import { DEFAULT_STALE_DAYS } from "./stale.ts";
 import { type CompareModel, type CompareQuery, compare } from "./views/compare.ts";
@@ -33,11 +34,16 @@ export type ReportSettings = {
   staleAfterDays: number;
   /** Whether the report offers one person's numbers: picking people, reviewers by name. */
   peopleViews: boolean;
+  /** The churn window, in days, and the size target, in product lines (decision D44). */
+  churnDays: number;
+  sizeTargetLines: number;
 };
 
 export const DEFAULT_SETTINGS: ReportSettings = {
   staleAfterDays: DEFAULT_STALE_DAYS,
   peopleViews: true,
+  churnDays: DEFAULT_CHURN_DAYS,
+  sizeTargetLines: DEFAULT_SIZE_TARGET,
 };
 
 export type Meta = Omit<ReportData, "facts" | "groups" | "settings"> & {
@@ -78,6 +84,9 @@ export class EmbeddedSource implements DataSource {
       coveredFrom: data.coveredFrom,
       staleAfterDays: settings.staleAfterDays,
       peopleViews: settings.peopleViews,
+      // A report built before these settings existed has neither: the defaults stand in.
+      churnDays: settings.churnDays ?? DEFAULT_CHURN_DAYS,
+      sizeTargetLines: settings.sizeTargetLines ?? DEFAULT_SIZE_TARGET,
     };
   }
 

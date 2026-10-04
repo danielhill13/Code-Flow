@@ -107,6 +107,8 @@ const ctx: ViewContext = {
   coveredFrom: "2026-01-01",
   staleAfterDays: 90,
   peopleViews: true,
+  churnDays: 30,
+  sizeTargetLines: 400,
 };
 const query = (
   selection: Selection = EVERYTHING,

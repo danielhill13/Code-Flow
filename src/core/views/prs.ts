@@ -7,7 +7,7 @@ import { metricOf } from "../metrics.ts";
 import { inPeriod } from "../periods.ts";
 import { byContributors, type Contributors, type Selection, selects } from "../selection.ts";
 import { isStale, quietDays } from "../stale.ts";
-import type { ViewContext } from "./context.ts";
+import { metricContext, type ViewContext } from "./context.ts";
 import { AGE_BANDS, ageDays, inAgeBand, OPEN_STATES } from "./flow.ts";
 import { inBand, SIZE_BANDS, type SizeBand } from "./speed.ts";
 
@@ -125,7 +125,7 @@ export function prTest(
 const STATE = { merged: "merged", open: "open", stale: "open", abandoned: "closed" } as const;
 
 function filterTest(ctx: ViewContext, set: PrSet, filter: PrFilter): (pr: PrFact) => boolean {
-  const metricCtx = { asOf: ctx.asOf };
+  const metricCtx = metricContext(ctx);
   switch (filter.kind) {
     case "span":
       return (pr) =>

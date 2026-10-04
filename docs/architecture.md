@@ -292,6 +292,15 @@ These hold everywhere. Each gets a test as it is built.
     and the URL captures the whole view.
 12. **Stale data looks stale.** The report always shows the data-through date and the last
     successful sync.
+13. **Churn is product code changed again soon.** A merged PR is changed again when a later PR
+    merged into the same branch, not a bot's, changes one of its product files within the org's
+    churn window (`churn_window_days`, 30 by default); a follow-up is the same by its own author.
+    A PR younger than the window, or whose files weren't all listed, is null, never "no".
+14. **Rework is lines changed after the first review**, by commits pushed after it, merges of the
+    target branch left out. Null without a review, or where the host gives no lines per commit
+    (Azure DevOps), never zero.
+15. **Size is read against the org's target.** A merged PR of known size is within the target
+    when its product lines are at most `size_target_lines` (400 by default).
 
 ## Per-PR timeline
 

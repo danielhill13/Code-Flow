@@ -179,6 +179,11 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     reverts: [],
     revertedBy: null,
     revertedAt: null,
+    touchedAgainBy: null,
+    touchedAgainAt: null,
+    followUpBy: null,
+    followUpAt: null,
+    reworkLines: rework(pr, firstReviewAt),
     truncated: pr.truncated,
     identities: identities(pr),
   };
@@ -335,6 +340,22 @@ function rounds(pr: PrModel, reviews: readonly { at: string }[]): number {
     }
   }
   return count;
+}
+
+/**
+ * Lines changed by the commits pushed after the first review: how much the PR changed once
+ * someone had looked at it. Merges of the target branch aren't the author's change, so they're
+ * left out. Null when nobody reviewed it, or any such commit's lines aren't known.
+ */
+function rework(pr: PrModel, firstReviewAt: string | null): number | null {
+  if (firstReviewAt === null || pr.truncated.includes("commits")) return null;
+  let lines = 0;
+  for (const commit of pr.commits) {
+    if (commit.committedAt <= firstReviewAt || (commit.parents ?? 1) > 1) continue;
+    if (commit.additions === undefined || commit.deletions === undefined) return null;
+    lines += commit.additions + commit.deletions;
+  }
+  return lines;
 }
 
 type Request = { name: string; team: boolean; at: string };

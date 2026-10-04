@@ -208,6 +208,26 @@ function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays
       `reverted by #${pr.revertedBy} on ${when(pr.revertedAt)}`,
   ].filter(Boolean);
   if (reverts.length > 0) print(status("info", "Reverts", reverts.join("; ")));
+  if (pr.reviewed && pr.state === "merged") {
+    print(
+      status(
+        "info",
+        "Rework",
+        pr.reworkLines === null
+          ? "lines changed after review unknown: the host doesn't give lines per commit"
+          : `${plural(pr.reworkLines, "line")} changed after the first review`,
+      ),
+    );
+  }
+  const later = [
+    pr.touchedAgainBy !== null &&
+      pr.touchedAgainAt !== null &&
+      `files changed again by #${pr.touchedAgainBy} on ${when(pr.touchedAgainAt)}`,
+    pr.followUpBy !== null &&
+      pr.followUpAt !== null &&
+      `followed up by the author in #${pr.followUpBy} on ${when(pr.followUpAt)}`,
+  ].filter(Boolean);
+  if (later.length > 0) print(status("info", "Churn", later.join("; ")));
 
   print(
     pr.truncated.length === 0

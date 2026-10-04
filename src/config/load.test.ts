@@ -51,6 +51,8 @@ since: 2025-10-01
       sync_every: "24h",
       stale_after_days: 90,
       people_views: true,
+      churn_window_days: 30,
+      size_target_lines: 400,
       people: {},
       teams: {},
       groups: {},

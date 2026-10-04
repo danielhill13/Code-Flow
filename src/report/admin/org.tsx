@@ -36,6 +36,8 @@ type OrgRaw = {
   paths: { match: string | string[]; bucket: string; repos?: string[] }[];
   sync_every: string;
   stale_after_days: number;
+  churn_window_days: number;
+  size_target_lines: number;
   people_views: boolean;
 };
 
@@ -660,6 +662,30 @@ export function Settings(props: SectionProps) {
             max={3650}
             value={value.stale_after_days}
             onInput={(e) => org.set({ stale_after_days: Number(e.currentTarget.value) })}
+          />
+        </Field>
+        <Field
+          label="Size target (lines)"
+          hint="PRs at or under this many lines of product code are within the target. Small PRs are reviewed sooner and more closely."
+        >
+          <input
+            type="number"
+            min={1}
+            max={100000}
+            value={value.size_target_lines}
+            onInput={(e) => org.set({ size_target_lines: Number(e.currentTarget.value) })}
+          />
+        </Field>
+        <Field
+          label="Changed again within (days)"
+          hint="A merged PR whose product files another PR changes within this many days counts as changed again soon (churn)."
+        >
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={value.churn_window_days}
+            onInput={(e) => org.set({ churn_window_days: Number(e.currentTarget.value) })}
           />
         </Field>
         <Field
