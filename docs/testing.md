@@ -130,6 +130,7 @@ here.
 | TC-119 | Merging puts a person's Azure DevOps PRs on their team, with no new sync |
 | TC-121 | `sync --refetch` clears a repo's stored PRs and fetches them all again; a size comes from Azure DevOps's wrapped diff answer |
 | TC-122 | A PR size Azure DevOps won't give is unknown, never zero, and `pr` and `doctor` say what Azure DevOps answered |
+| TC-123 | A later sync checks each open Azure DevOps PR with one request, and reads again only one that moved |
 
 ### Orgs, config and errors (`test/scenarios/orgs.test.ts`)
 

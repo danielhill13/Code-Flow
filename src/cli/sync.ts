@@ -208,7 +208,9 @@ export async function syncOrg(
           onProgress: (walk) =>
             progress.update(
               `${repo.fullName}: ${walk.walk}, ${plural(walk.prs, "PR")} in ` +
-                `${plural(walk.pages, "page")} · ${elapsed()}`,
+                `${plural(walk.pages, "page")}` +
+                (walk.unchanged ? `, ${num(walk.unchanged)} unchanged` : "") +
+                ` · ${elapsed()}`,
             ),
         });
         progress.clear();
@@ -307,6 +309,12 @@ function printOutcome(outcome: Outcome, print: Print): void {
   }
   if (outcome.walks.length === 0) return; // up to date: counted in the summary instead
   const added = outcome.walks.reduce((sum, walk) => sum + walk.newVersions, 0);
+  const unchanged = (outcome.walks as { unchanged?: number }[]).reduce(
+    (sum, walk) => sum + (walk.unchanged ?? 0),
+    0,
+  );
+  const checked =
+    unchanged > 0 ? `; ${plural(unchanged, "open PR")} unchanged, not read again` : "";
   const walks = (outcome.walks as { walk: string; pages: number }[])
     .map((walk) => `${WALKS[walk.walk as WalkName] ?? walk.walk}: ${plural(walk.pages, "page")}`)
     .join(", ");
@@ -319,7 +327,7 @@ function printOutcome(outcome: Outcome, print: Print): void {
   print(
     marked(
       "ok",
-      `${name}: ${plural(prs, "PR")} fetched, ${num(added)} new or changed ${dim(`(${walks})`)}`,
+      `${name}: ${plural(prs, "PR")} fetched, ${num(added)} new or changed${checked} ${dim(`(${walks})`)}`,
     ),
   );
 }

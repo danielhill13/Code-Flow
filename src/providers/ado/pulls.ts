@@ -55,15 +55,47 @@ export async function listPrs(
   return { prs: value, next: value.length < PAGE_SIZE ? null : request.skip + value.length };
 }
 
+/** A PR's comment threads: votes, reviewer changes and conversations. One request. */
+export async function prThreads(
+  client: AdoClient,
+  repo: AdoRepo,
+  pr: AdoPullRequest,
+): Promise<{ value: AdoThread[] }> {
+  return client.get<{ value: AdoThread[] }>(
+    `${repoPath(repo)}/pullRequests/${pr.pullRequestId}/threads`,
+  );
+}
+
+/**
+ * What can change on an open PR, read from its list entry and its threads: a push (the source
+ * commit), a vote, a comment or reviewer change (threads), its title, labels, draft or status.
+ * Equal for two reads, the PR hasn't moved, and the rest of it needn't be read again.
+ */
+export function openSignature(pr: AdoPullRequest, threads: readonly AdoThread[]): string {
+  return JSON.stringify([
+    pr.status,
+    pr.isDraft ?? false,
+    pr.title,
+    pr.lastMergeSourceCommit?.commitId ?? null,
+    (pr.labels ?? []).map((l) => `${l.name}:${l.active !== false}`).sort(),
+    threads
+      .filter((t) => !t.isDeleted)
+      .map((t) => [t.id, t.lastUpdatedDate ?? t.publishedDate, t.comments.length])
+      .sort(),
+  ]);
+}
+
 /** Everything about one PR that codeflow reads, as one payload to store. */
 export async function fetchPr(
   client: AdoClient,
   repo: AdoRepo,
   pr: AdoPullRequest,
+  /** The PR's threads, when the caller has just read them. */
+  read?: AdoThread[],
 ): Promise<AdoPayload> {
   const base = `${repoPath(repo)}/pullRequests/${pr.pullRequestId}`;
   // One after another: the client paces every request (D41).
-  const threads = await client.get<{ value: AdoThread[] }>(`${base}/threads`);
+  const threads = read ? { value: read } : await prThreads(client, repo, pr);
   const iterations = await client.get<{ value: AdoIteration[] }>(`${base}/iterations`);
   const commits = await client.get<{ value: AdoCommit[] }>(`${base}/commits`, {
     $top: MAX_COMMITS,

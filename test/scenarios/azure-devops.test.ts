@@ -80,6 +80,48 @@ describe("an org spanning GitHub and Azure DevOps", () => {
     expect(again.out).toContain("0 new or changed");
   });
 
+  it("TC-123 a later sync checks each open Azure DevOps PR with one request, and reads again only one that moved", async () => {
+    if (!ws.ado) throw new Error("no fake Azure DevOps");
+    const billing = ado[0];
+    const open = billing?.prs.filter((p) => p.pr.status === "active") ?? [];
+    expect(open.length).toBeGreaterThan(1);
+    const from = ws.ado.calls.length;
+    const quiet = await ws.run("sync");
+    expect(quiet.out).toMatch(/billing: 0 PRs fetched, 0 new or changed; \d+ open PRs unchanged/);
+    const calls = ws.ado.calls.slice(from);
+    expect(calls.some((c) => /\/iterations|\/commits|filediffs/.test(c))).toBe(false);
+
+    // A reviewer comments on one open PR: that one is read whole again, the rest aren't.
+    const [moved] = open;
+    if (!billing || !moved) throw new Error("scenario lacks open PRs");
+    const at = new Date().toISOString();
+    ws.ado.put("billing", {
+      ...moved,
+      threads: [
+        ...moved.threads,
+        {
+          id: 9999,
+          publishedDate: at,
+          lastUpdatedDate: at,
+          comments: [
+            {
+              id: 1,
+              author: { displayName: "Rui", uniqueName: "rui@acme.example" },
+              content: "One question",
+              publishedDate: at,
+              commentType: "text",
+            },
+          ],
+        },
+      ],
+    });
+    const before = ws.ado.calls.length;
+    const one = await ws.run("sync");
+    expect(one.out).toMatch(/billing: 1 PR fetched, 1 new or changed; \d+ open PRs unchanged/);
+    const read = ws.ado.calls.slice(before).filter((c) => c.endsWith("/iterations"));
+    expect(read).toEqual([expect.stringContaining(`/pullRequests/${moved.pr.pullRequestId}/`)]);
+  });
+
   it("TC-115 a person's PRs on either host are theirs, and their team's", async () => {
     const ana = (await ws.run("summary", "--json", "--repo", `${ADO_ORG}/*/*`)).stdout;
     expect(

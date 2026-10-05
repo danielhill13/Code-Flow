@@ -11,12 +11,19 @@
 import type { Store } from "../../store/store.ts";
 import type { AdoClient } from "./client.ts";
 import { adoPrId } from "./normalize.ts";
-import { fetchPr, listPrs, versionOf } from "./pulls.ts";
+import { fetchPr, listPrs, openSignature, prThreads, versionOf } from "./pulls.ts";
 import type { AdoPayload, AdoPullRequest, AdoRepo } from "./types.ts";
 
 export type AdoWalkName = "backfill" | "open PRs" | "closed since";
 
-export type AdoWalk = { walk: AdoWalkName; pages: number; prs: number; newVersions: number };
+export type AdoWalk = {
+  walk: AdoWalkName;
+  pages: number;
+  prs: number;
+  newVersions: number;
+  /** Open PRs found unchanged by one request, and so not read again. */
+  unchanged?: number;
+};
 
 export type AdoRepoOutcome = {
   repo: AdoRepo;
@@ -87,6 +94,9 @@ export async function syncAdoRepo(options: {
       );
       options.onProgress?.(walk);
     };
+    /** Threads just read while checking open PRs: not asked for twice. */
+    let reuse = new Map<number, AdoPayload["threads"]>();
+
     /**
      * Fetches each PR's details, storing them every few PRs so progress shows (and survives a
      * stop) long before a page of 100 is done; the page's cursor is saved with its last batch.
@@ -103,7 +113,7 @@ export async function syncAdoRepo(options: {
           if (batch.length > 0) store_(walk, batch, {});
           return null;
         }
-        batch.push(await fetchPr(client, repo, pr));
+        batch.push(await fetchPr(client, repo, pr, reuse.get(pr.pullRequestId)));
         walk.prs += 1;
         if (batch.length === SAVE_EVERY) {
           store_(walk, batch, {});
@@ -144,15 +154,44 @@ export async function syncAdoRepo(options: {
       }
     }
 
-    // 2. Every open PR: any of them may have changed since the last sync.
+    // 2. Every open PR: any of them may have changed since the last sync. Azure DevOps can't say
+    // which, so each is checked with one request (its threads) against what is stored, and only
+    // one that moved is read whole again.
     {
-      const walk: AdoWalk = { walk: "open PRs", pages: 0, prs: 0, newVersions: 0 };
+      const walk: AdoWalk = { walk: "open PRs", pages: 0, prs: 0, newVersions: 0, unchanged: 0 };
       walks.push(walk);
+      const stored = new Map<number, string>();
+      for (const version of store.latestPrs(id)) {
+        const payload = version.payload as AdoPayload;
+        if (payload.pr?.status === "active") {
+          stored.set(payload.pr.pullRequestId, openSignature(payload.pr, payload.threads));
+        }
+      }
       let skip: number | null = 0;
       while (skip !== null) {
         const page = await listPrs(client, repo, { status: "active", skip });
         walk.pages += 1;
-        if ((await details(walk, page.prs, {})) === null) return { ...outcome, interrupted: true };
+        const moved: AdoPullRequest[] = [];
+        const threadsOf = new Map<number, AdoPayload["threads"]>();
+        for (const pr of page.prs) {
+          if (signal?.aborted) return { ...outcome, interrupted: true };
+          const before = stored.get(pr.pullRequestId);
+          if (before === undefined) {
+            moved.push(pr);
+            continue;
+          }
+          const threads = (await prThreads(client, repo, pr)).value.filter((t) => !t.isDeleted);
+          if (openSignature(pr, threads) === before) {
+            walk.unchanged = (walk.unchanged ?? 0) + 1;
+            options.onProgress?.(walk);
+          } else {
+            threadsOf.set(pr.pullRequestId, threads);
+            moved.push(pr);
+          }
+        }
+        reuse = threadsOf;
+        if ((await details(walk, moved, {})) === null) return { ...outcome, interrupted: true };
+        reuse = new Map();
         skip = page.next;
       }
     }

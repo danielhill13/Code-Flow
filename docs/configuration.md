@@ -105,9 +105,11 @@ needs **Code (Read)**, and **Project and Team (Read)** for a source that names n
 (listing an organization's projects needs it). Make it in the organization you measure, or for
 all accessible organizations.
 
-Azure DevOps can't list PRs by when they last changed, so each sync reads every open PR again,
-plus those closed since the last sync; the first sync reads every PR created since `since`. Each
-PR takes about five requests (its threads, pushes, commits, files and line counts). codeflow
+Azure DevOps can't list PRs by when they last changed, so each sync checks every open PR with
+one request (its threads, which hold votes and comments; the list itself shows pushes, title and
+draft) and reads again only those that moved, plus the PRs closed since the last sync; the first
+sync reads every PR created since `since`. Reading a PR takes about five requests (its threads,
+pushes, commits, files and line counts). codeflow
 sends them one at a time, at most two a second, and slows down further when Azure DevOps's
 rate-limit headers say its budget is running low, or waits as long as it asks when it throttles.
 A repo with 1,000 PRs a year takes about 40 minutes the first time and a few minutes a day after.
