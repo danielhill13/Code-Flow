@@ -284,8 +284,9 @@ These hold everywhere. Each gets a test as it is built.
 8. **Every number opens its PRs** and says how many there are. Coverage is always shown, and so is
    concentration when a few PRs carry a number.
 9. **Bots are not reviewers.** Accounts GitHub reports as bots, plus any named in config, are
-   left out of review metrics, and their PRs are left out of flow metrics by default. Config can
-   count named bot accounts as reviewers. Boilerplate bot comments never count as review.
+   left out of review metrics. Their PRs count in flow metrics by default, like anyone's, and
+   `bots.include_prs: false` leaves them out (D45). Config can count named bot accounts as
+   reviewers. Boilerplate bot comments never count as review.
 10. **No leaderboards.** Nothing breaks numbers down by author. People can be selected, alone or
     together (D26), and review load names reviewers, as capacity (D21).
 11. **Labels come from one place.** A statistic's name (median, P75, …) comes from one function,

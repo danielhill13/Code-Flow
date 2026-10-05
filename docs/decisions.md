@@ -337,3 +337,11 @@ answers the leadership question with data already synced. Both churn shares lag 
 the revert rate does, and are null for PRs too young to tell. They are worded neutrally: some
 change is normal evolution, a rise is worth a look.
 
+**D45 · 2026-10-05 · Bot PRs count by default.** Bot PRs (dependency bumps, release merges)
+were left out of flow metrics unless `bots.include_prs` said otherwise. They are work that
+merges, and a team that reviews them spends time on them, so they now count by default;
+`include_prs: false` (Setup › Bots › Bots' own PRs › Not counted) leaves them out. Bots are still
+never reviewers unless named, and their comments never count as review. A branch rule or a
+promotion pattern still leaves out bot traffic that only moves work along, such as release
+merges. Supersedes the default in D9's rule wording.
+

@@ -158,11 +158,12 @@ and `doctor` say so and print the `branches:` line that would fix it.
 bots:
   accounts: [ci-helper]                 # more logins to treat as bots (GitHub's own always are)
   reviewers: [coderabbitai]             # bots whose reviews count as review (default: none)
-  include_prs: false                    # count PRs that bots open (default: no)
+  include_prs: true                     # count PRs that bots open (default: yes; false leaves them out)
   ignore_bodies: ["^Thanks for your contribution"]   # comments matching these never count
 ```
 
-By default, bot PRs aren't counted, and bot reviews and comments don't count as review.
+By default, bot PRs are counted like anyone's (`include_prs: false`, or Setup › Bots › Bots' own
+PRs › Not counted, leaves them out), and bot reviews and comments don't count as review.
 
 ## sync_every, stale_after_days, people_views, size_target_lines and churn_window_days
 

@@ -136,7 +136,7 @@ describe("an org spanning GitHub and Azure DevOps", () => {
     expect(html).toMatch(/"author":"ana@acme\.example"[^}]*?"person":"ana","team":"Platform"/);
   });
 
-  it("TC-116 pr explains an Azure DevOps PR from its address, and leaves a build service's out", async () => {
+  it("TC-116 pr explains an Azure DevOps PR from its address, and knows a build service for a bot", async () => {
     const [billing] = ado;
     const reviewed = billing?.prs.find(
       (p) => p.pr.status === "completed" && p.iterations.length > 1,
@@ -155,7 +155,9 @@ describe("an org spanning GitHub and Azure DevOps", () => {
     expect(lines).toBeGreaterThan(0);
     expect(shown.out).toContain(`${lines.toLocaleString("en-US")} product lines`);
     const left = await ws.run("pr", `${ADO_ORG}/${ADO_PROJECT}/billing#${bot.pr.pullRequestId}`);
-    expect(left.out).toMatch(/Counted\s+no: a bot opened it/);
+    // A build service is a bot, and its PRs count like any bot's: by default (D45).
+    expect(left.out).toMatch(/opened by build\\[^\n]*\(bot\)/);
+    expect(left.out).toMatch(/Counted\s+yes/);
   });
 
   it("TC-121 sync --refetch clears a repo's stored PRs and fetches them all again", async () => {

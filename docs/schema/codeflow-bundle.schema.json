@@ -164,7 +164,7 @@
               }
             },
             "include_prs": {
-              "default": false,
+              "default": true,
               "type": "boolean"
             },
             "ignore_bodies": {

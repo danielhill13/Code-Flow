@@ -46,7 +46,7 @@ since: 2025-10-01
       azure_devops: { url: "https://dev.azure.com", token_env: "AZURE_DEVOPS_TOKEN" },
       branches: {},
       promotions: [...DEFAULT_PROMOTION_BRANCHES],
-      bots: { accounts: [], reviewers: [], include_prs: false, ignore_bodies: [] },
+      bots: { accounts: [], reviewers: [], include_prs: true, ignore_bodies: [] },
       paths: [],
       sync_every: "24h",
       stale_after_days: 90,
@@ -160,7 +160,7 @@ paths:
   - { match: ["docs/**", "site/**"], bucket: product, repos: [acme/website] }
 `);
     expect(config.branches).toEqual({ "acme/legacy": ["develop", "main"] });
-    expect(config.bots).toMatchObject({ reviewers: ["coderabbitai"], include_prs: false });
+    expect(config.bots).toMatchObject({ reviewers: ["coderabbitai"], include_prs: true });
     expect(config.paths).toEqual([
       { match: ["packages/*-tests/**"], bucket: "test" },
       { match: ["docs/**", "site/**"], bucket: "product", repos: ["acme/website"] },

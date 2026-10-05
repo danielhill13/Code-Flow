@@ -408,9 +408,10 @@ export function Bots(props: SectionProps) {
           label="Bots' own PRs"
           value={bots.include_prs}
           onChange={(include_prs) => set({ include_prs })}
-          unset="Not counted"
+          unset="Counted (the default)"
           yes="Counted"
           no="Not counted"
+          hint="PRs that bots open, such as dependency bumps. Not counted: the report measures only people's PRs."
         />
         <List
           label="Ignore comments matching"

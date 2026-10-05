@@ -104,10 +104,20 @@ describe("a first run, step by step", () => {
     expect(table.out).not.toMatch(/undefined|NaN|\[object Object\]/);
   });
 
-  it("TC-107 pr explains how one PR was read: a bot's, a promotion and a revert", async () => {
+  it("TC-107 pr explains how one PR was read: a bot's, a promotion and a revert [rule 9]", async () => {
+    // A bot's PR counts by default, and says which setting counts it (D45)...
     const bot = await ws.run("pr", "acme-co/api#200");
     expect(bot.code, bot.out).toBe(0);
-    expect(bot.out).toContain("Counted     no: a bot opened it");
+    expect(bot.out).toMatch(/Counted\s+yes/);
+    expect(bot.out).toMatch(/Rules\s+config:bots\.include_prs/);
+    // ...and not once the org says so.
+    const file = "orgs/acme/org.yml";
+    const before = await ws.read(file);
+    await ws.write(file, `${before}\nbots:\n  include_prs: false\n`);
+    expect((await ws.run("pr", "acme-co/api#200")).out).toContain(
+      "Counted     no: a bot opened it",
+    );
+    await ws.write(file, before);
     const promotion = await ws.run("pr", "acme-co/web#300");
     expect(promotion.out).toMatch(/Counted\s+no: .*promot/);
     const revert = await ws.run("pr", "acme-co/api#201");

@@ -58,12 +58,19 @@ describe("deriveFacts", () => {
     expect(deriveFacts(store, config())).toMatchObject({ repos: 1, derived: 1, prs: 2 });
     expect(deriveFacts(store, config())).toMatchObject({ derived: 0 });
 
-    const withBots = config("bots:\n  include_prs: true\n");
-    expect(deriveFacts(store, withBots)).toMatchObject({ derived: 1 });
+    // Bot PRs count by default (D45); leaving them out is a config change, so it derives again.
+    expect(store.facts().every((fact) => fact.counted)).toBe(true);
+    const noBots = config("bots:\n  include_prs: false\n");
+    expect(deriveFacts(store, noBots)).toMatchObject({ derived: 1 });
 
     save(ghPayload({ id: "PR_3", number: 3 }));
-    expect(deriveFacts(store, withBots)).toMatchObject({ derived: 1, prs: 3 });
-    expect(store.facts().every((fact) => fact.counted)).toBe(true);
+    expect(deriveFacts(store, noBots)).toMatchObject({ derived: 1, prs: 3 });
+    expect(
+      store
+        .facts()
+        .filter((fact) => !fact.counted)
+        .map((fact) => fact.number),
+    ).toEqual([2]);
   });
 
   it("keeps counting PRs into a default branch that has since been renamed [rule 2]", () => {
@@ -117,6 +124,8 @@ rules:
   - id: deploy-account
     scope: { people: [deploy-svc] }
     then: { bot: true }
+bots:
+  include_prs: false
 `),
     );
     expect(fact(1)).toMatchObject({ counted: false, exclusion: "rule", excludedBy: "no-chores" });

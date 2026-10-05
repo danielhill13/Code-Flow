@@ -128,8 +128,11 @@ const BotsSchema = z.strictObject({
   accounts: z.array(Pattern).default([]),
   /** Bot logins whose reviews count as review. */
   reviewers: z.array(Pattern).default([]),
-  /** Count PRs that bots open in flow metrics. */
-  include_prs: z.boolean().default(false),
+  /**
+   * Count PRs that bots open (dependency bumps, release merges) in flow metrics. On by default:
+   * they are work that merges; turn off to measure only people's PRs (decision D45).
+   */
+  include_prs: z.boolean().default(true),
   /** Comments and review bodies matching any of these are ignored, as boilerplate. */
   ignore_bodies: z.array(Regex).default([]),
 });

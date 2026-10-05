@@ -68,8 +68,17 @@ describe("real PRs from usebruno/bruno", () => {
     expect(fact(7921)).toMatchObject({ reverts: [7719], sizeLines: 813, fromFork: false });
   });
 
-  it("#6134: a Dependabot PR is not counted", () => {
-    expect(fact(6134)).toMatchObject({ counted: false, exclusion: "bot", authorIsBot: true });
+  it("#6134: a Dependabot PR is known as a bot's, counted by default, and left out on request [rule 9]", () => {
+    expect(fact(6134)).toMatchObject({ counted: true, exclusion: null, authorIsBot: true });
+    const noBots = parseConfig(
+      "sources:\n  - repo: usebruno/bruno\nsince: 2025-10-01\nbots:\n  include_prs: false\n",
+    );
+    const model = models.find((m) => m.number === 6134);
+    if (!model) throw new Error("no #6134 fixture");
+    expect(derivePr(model, rulesFor(noBots, "usebruno/bruno", ["main"]))).toMatchObject({
+      counted: false,
+      exclusion: "bot",
+    });
   });
 
   it("#6738: a PR from a fork's main branch is new work, not a promotion", () => {
