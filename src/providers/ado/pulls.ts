@@ -15,10 +15,13 @@ import type {
 export const PAGE_SIZE = 100;
 /** Commits read per PR; more than this marks the list as cut short. */
 const MAX_COMMITS = 250;
-/** Files whose lines are counted per PR; more, and the PR's size is unknown rather than guessed. */
-const MAX_FILES = 500;
-/** Files per file-diff request. */
-const DIFF_BATCH = 50;
+/**
+ * Files whose lines are counted per PR; more, and the PR's size is unknown rather than guessed.
+ * At ten files a request, the largest PR costs 30 requests (15 seconds at codeflow's pace).
+ */
+const MAX_FILES = 300;
+/** Files per file-diff request: Azure DevOps answers at most ten at a time. */
+const DIFF_BATCH = 10;
 
 const repoPath = (repo: AdoRepo) =>
   `/${encodeURIComponent(repo.project)}/_apis/git/repositories/${repo.id}`;
@@ -149,9 +152,14 @@ export async function changedFiles(
   }>(`${base}/iterations/${last.id}/changes`, { $top: MAX_FILES + 1, $compareTo: 0 });
   const entries = (changes.changeEntries ?? []).filter((e) => !e.item.isFolder);
   if (entries.length > MAX_FILES) return { error: `more than ${MAX_FILES} files changed` };
+  type Entry = (typeof entries)[number];
   const files: NonNullable<AdoPayload["files"]> = [];
-  for (let i = 0; i < entries.length; i += DIFF_BATCH) {
-    const batch = entries.slice(i, i + DIFF_BATCH);
+  // Azure DevOps answers at most DIFF_BATCH files per request, and may answer fewer: ask for the
+  // next files in line, keep each diff that comes back (matched by path), and ask again for any
+  // it left out. A request that brings back none of them ends it: the size is unknown.
+  let pending: Entry[] = entries;
+  while (pending.length > 0) {
+    const batch = pending.slice(0, DIFF_BATCH);
     const answer = await client.post<FileDiff[] | { value?: FileDiff[] }>(
       `${repoPath(repo)}/filediffs`,
       {
@@ -165,16 +173,23 @@ export async function changedFiles(
     );
     // Azure DevOps wraps a list as { count, value }; a bare list is read too.
     const diffs = Array.isArray(answer) ? answer : (answer.value ?? []);
+    const answered = new Map<Entry, FileDiff>();
     for (const [j, entry] of batch.entries()) {
       const path = entry.item.path;
-      // By path where the answer gives one, else by position, as the request listed them.
       const diff =
-        diffs.find((d) => d.path === path || (d.path === "" && d.originalPath === path)) ??
-        diffs[j];
-      // A file missing from the answer has an unknown size, and so has the PR: never zero.
-      if (!diff) {
-        return { error: `Azure DevOps gave ${diffs.length} diffs for ${batch.length} files` };
-      }
+        diffs.find(
+          (d) => d.path === path || (!d.path && d.originalPath === (entry.originalPath ?? path)),
+        ) ??
+        // By position only when every file came back, in the order asked.
+        (diffs.length === batch.length ? diffs[j] : undefined);
+      if (diff) answered.set(entry, diff);
+    }
+    if (answered.size === 0) {
+      return {
+        error: `Azure DevOps gave no diff for ${batch.length === 1 ? "a file" : `${batch.length} files`} (${batch[0]?.item.path ?? "?"}…)`,
+      };
+    }
+    for (const [entry, diff] of answered) {
       // A file with no line blocks (binary, or renamed unchanged) changed no lines, as GitHub
       // counts it too.
       let additions = 0;
@@ -184,8 +199,9 @@ export async function changedFiles(
         if (kind === "add" || kind === "edit") additions += block.modifiedLinesCount ?? 0;
         if (kind === "delete" || kind === "edit") deletions += block.originalLinesCount ?? 0;
       }
-      files.push({ path: path.replace(/^\//, ""), additions, deletions });
+      files.push({ path: entry.item.path.replace(/^\//, ""), additions, deletions });
     }
+    pending = pending.filter((entry) => !answered.has(entry));
   }
   return { files };
 }

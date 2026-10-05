@@ -5,9 +5,9 @@ import { ADO_ORG, adoLogin, contosoRepos } from "../../testing/scenario.ts";
 import { AdoClient, type AdoToken, PACE_MS, resolveAdoToken } from "./client.ts";
 import { discoverAdo, selectAdoRepos } from "./discover.ts";
 import { normalizeAdoPr } from "./normalize.ts";
-import { versionOf } from "./pulls.ts";
+import { changedFiles, versionOf } from "./pulls.ts";
 import { adoRepoId, syncAdoRepo } from "./sync.ts";
-import type { AdoPayload } from "./types.ts";
+import type { AdoIteration, AdoPayload } from "./types.ts";
 
 const pat: AdoToken = { authorization: "Basic x", source: "$T", kind: "personal access token" };
 
@@ -343,5 +343,81 @@ describe("syncing an Azure DevOps repo", () => {
     );
     expect(merged?.state).toBe("MERGED");
     expect(adoLogin("ana")).toBe("ana@acme.example");
+  });
+});
+
+describe("an Azure DevOps PR's line counts", () => {
+  const files = Array.from({ length: 23 }, (_, i) => ({ path: `/src/f${i}.cs`, lines: i + 1 }));
+  const repo = {
+    id: "r1",
+    name: "app",
+    project: "P",
+    fullName: "contoso/P/app",
+    defaultBranch: "main",
+    disabled: false,
+    fork: false,
+  };
+  const iterations = [
+    { id: 1, sourceRefCommit: { commitId: "s1" }, commonRefCommit: { commitId: "c1" } },
+  ] as unknown as AdoIteration[];
+  const json = (body: unknown) =>
+    new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+  const changes = () =>
+    json({ changeEntries: files.map((f) => ({ item: { path: f.path }, changeType: "edit" })) });
+  const base = "/P/_apis/git/repositories/r1/pullRequests/7";
+
+  it("are asked for ten files at a time, and again for any an answer leaves out", async () => {
+    const asked: number[] = [];
+    const client = new AdoClient({
+      url: "https://dev.azure.test",
+      organization: "contoso",
+      token: pat,
+      paceMs: 0,
+      fetch: async (input, init) => {
+        if (new URL(String(input)).pathname.endsWith("/changes")) return changes();
+        const params = (JSON.parse(String(init?.body)) as { fileDiffParams: { path: string }[] })
+          .fileDiffParams;
+        asked.push(params.length);
+        // The second answer comes back three short, and in its own order.
+        const given = (asked.length === 2 ? params.slice(0, 7) : params.slice(0, 10)).reverse();
+        return json({
+          count: given.length,
+          value: given.map((p) => ({
+            path: p.path,
+            lineDiffBlocks: [
+              {
+                changeType: "edit",
+                modifiedLinesCount: Number(/\d+/.exec(p.path)?.[0]) + 1,
+                originalLinesCount: 1,
+              },
+            ],
+          })),
+        });
+      },
+    });
+    const sized = await changedFiles(client, repo, base, iterations);
+    if (!("files" in sized)) throw new Error(sized.error);
+    expect(asked).toEqual([10, 10, 6]);
+    expect(sized.files).toHaveLength(23);
+    expect(sized.files.reduce((n, f) => n + f.additions, 0)).toBe(
+      files.reduce((n, f) => n + f.lines, 0),
+    );
+    expect(sized.files.every((f) => f.deletions === 1)).toBe(true);
+  });
+
+  it("are unknown, with the reason, when an answer brings back none of the files asked for", async () => {
+    const client = new AdoClient({
+      url: "https://dev.azure.test",
+      organization: "contoso",
+      token: pat,
+      paceMs: 0,
+      fetch: async (input) =>
+        new URL(String(input)).pathname.endsWith("/changes")
+          ? changes()
+          : json({ count: 0, value: [] }),
+    });
+    expect(await changedFiles(client, repo, base, iterations)).toEqual({
+      error: expect.stringContaining("gave no diff for 10 files"),
+    });
   });
 });

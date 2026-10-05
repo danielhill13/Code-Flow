@@ -164,9 +164,10 @@ export class AdoServer {
       );
       return {
         status: 200,
-        // Azure DevOps wraps every list it returns as { count, value }.
+        // Azure DevOps wraps every list it returns as { count, value }, and answers at most ten
+        // files a request: the rest must be asked for again.
         body: wrapped(
-          body.fileDiffParams.map((param) => {
+          body.fileDiffParams.slice(0, 10).map((param) => {
             const path = (param.path || param.originalPath).replace(/^\//, "");
             const file = payload?.files?.find((f) => f.path === path);
             return {
