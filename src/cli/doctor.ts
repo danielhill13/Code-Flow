@@ -3,7 +3,10 @@ import { relative } from "node:path";
 import { type AdoSource, type GitHubSource, isGitHub } from "../config/schema.ts";
 import type { Org } from "../config/workspace.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
+import type { AdoClient } from "../providers/ado/client.ts";
 import { discoverAdo } from "../providers/ado/discover.ts";
+import { changedFiles, listPrs } from "../providers/ado/pulls.ts";
+import type { AdoIteration, AdoRepo } from "../providers/ado/types.ts";
 import {
   discoverRepos,
   type Repo,
@@ -147,6 +150,8 @@ async function doctorAdo(
       );
     }
     if (result.repos.length === 0) code = 1;
+    const sized = await sizeCheck(client, result.repos);
+    if (sized) print(status(sized.ok ? "ok" : "warn", "PR sizes", sized.text));
   }
   print(
     dim(
@@ -328,4 +333,38 @@ function alreadySynced(dbPath: string, repos: readonly Repo[]): number {
   } finally {
     store.close();
   }
+}
+
+/**
+ * Reads one recently completed PR's line counts, as sync will: whether Azure DevOps gives PR
+ * sizes in this organization, and if not, what it said. Null with no completed PR to try.
+ */
+async function sizeCheck(
+  client: AdoClient,
+  repos: readonly AdoRepo[],
+): Promise<{ ok: boolean; text: string } | null> {
+  for (const repo of repos.slice(0, 3)) {
+    const { prs } = await listPrs(client, repo, { status: "completed", skip: 0 });
+    const pr = prs[0];
+    if (!pr) continue;
+    const base = `/${encodeURIComponent(repo.project)}/_apis/git/repositories/${repo.id}/pullRequests/${pr.pullRequestId}`;
+    try {
+      const iterations = await client.get<{ value: AdoIteration[] }>(`${base}/iterations`);
+      const sized = await changedFiles(client, repo, base, iterations.value);
+      if ("error" in sized) {
+        return { ok: false, text: `${repo.fullName}#${pr.pullRequestId}: unknown, ${sized.error}` };
+      }
+      const lines = sized.files.reduce((n, f) => n + f.additions + f.deletions, 0);
+      return {
+        ok: true,
+        text: `${repo.fullName}#${pr.pullRequestId}: ${plural(sized.files.length, "file")}, ${plural(lines, "line")} changed`,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        text: `${repo.fullName}#${pr.pullRequestId}: unknown, ${(err as Error).message}`,
+      };
+    }
+  }
+  return null;
 }

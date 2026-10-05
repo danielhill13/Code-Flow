@@ -129,6 +129,7 @@ here.
 | TC-118 | `people` lists both hosts' accounts and suggests which are one person |
 | TC-119 | Merging puts a person's Azure DevOps PRs on their team, with no new sync |
 | TC-121 | `sync --refetch` clears a repo's stored PRs and fetches them all again; a size comes from Azure DevOps's wrapped diff answer |
+| TC-122 | A PR size Azure DevOps won't give is unknown, never zero, and `pr` and `doctor` say what Azure DevOps answered |
 
 ### Orgs, config and errors (`test/scenarios/orgs.test.ts`)
 

@@ -72,7 +72,15 @@ export async function showPr(target: string, options: PrOptions): Promise<number
       }
       return 0;
     }
-    printPr(fact, print, { asOf, staleAfterDays: config.stale_after_days });
+    // Why a size is unknown, where the host's answer said: Azure DevOps's diff can be refused.
+    let sizeWhy: string | undefined;
+    if (fact.linesByBucket === null) {
+      for (const version of store.latestPrs(fact.repoId)) {
+        const why = (version.payload as { filesError?: unknown }).filesError;
+        if (version.id === fact.id && typeof why === "string") sizeWhy = why;
+      }
+    }
+    printPr(fact, print, { asOf, staleAfterDays: config.stale_after_days, sizeWhy });
     return 0;
   } finally {
     store.close();
@@ -104,7 +112,11 @@ async function orgOf(options: PrOptions, repo: string | undefined): Promise<Org>
   );
 }
 
-function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays: number }): void {
+function printPr(
+  pr: PrFact,
+  print: Print,
+  context: { asOf: Date; staleAfterDays: number; sizeWhy?: string },
+): void {
   print(`${bold(`${pr.repo}#${pr.number}`)}  ${pr.title}`);
   print(dim(`  ${pr.url}`));
   print();
@@ -175,7 +187,15 @@ function printPr(pr: PrFact, print: Print, context: { asOf: Date; staleAfterDays
   }
 
   if (pr.linesByBucket === null) {
-    print(status("warn", "Size", `unknown: ${hostOf(pr.url)} didn't give every file's lines`));
+    print(
+      status(
+        "warn",
+        "Size",
+        context.sizeWhy
+          ? `unknown: ${context.sizeWhy}`
+          : `unknown: ${hostOf(pr.url)} didn't give every file's lines (fetched before codeflow recorded why: sync --refetch reads it again)`,
+      ),
+    );
   } else {
     const other = Object.entries(pr.linesByBucket)
       .filter(([bucket, lines]) => bucket !== "product" && lines > 0)

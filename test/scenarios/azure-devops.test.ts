@@ -54,6 +54,9 @@ describe("an org spanning GitHub and Azure DevOps", () => {
     expect(result.out).toMatch(new RegExp(`ADO org\\s+${ADO_ORG} .* as Codeflow Tester`));
     expect(result.out).toMatch(/contoso\/Platform \(Azure DevOps\): 2 repos selected; left out 1/);
     expect(result.out).toContain("at most two requests a second");
+    expect(result.out).toMatch(
+      /PR sizes\s+contoso\/Platform\/\w+#\d+: \d+ files?, [\d,]+ lines? changed/,
+    );
     expect(result.out).toContain("everything checks out");
   });
 
@@ -129,6 +132,24 @@ describe("an org spanning GitHub and Azure DevOps", () => {
     expect(count(after)).toBe(count(before));
     const none = await ws.run("sync", "--refetch", "nothing/like/this");
     expect(none.out).toContain("no stored repo matches nothing/like/this");
+  });
+
+  it("TC-122 a size Azure DevOps won't give is unknown, and says why, in pr and doctor", async () => {
+    if (!ws.ado) throw new Error("no fake Azure DevOps");
+    ws.ado.refuseDiffs = true;
+    const id = `${ADO_ORG}/${ADO_PROJECT}/billing`;
+    try {
+      const doctor = await ws.run("doctor");
+      expect(doctor.out).toMatch(/PR sizes\s+[^\n]*unknown, Azure DevOps said 403: TF401027/);
+      const pr = ado[0]?.prs.find((p) => p.pr.status === "completed");
+      if (!pr) throw new Error("scenario lacks PRs");
+      expect((await ws.run("sync", "--refetch", id)).code).toBe(0);
+      const shown = await ws.run("pr", `${id}#${pr.pr.pullRequestId}`);
+      expect(shown.out).toMatch(/Size\s+unknown: Azure DevOps said 403: TF401027/);
+    } finally {
+      ws.ado.refuseDiffs = false;
+      await ws.run("sync", "--refetch", id);
+    }
   });
 });
 

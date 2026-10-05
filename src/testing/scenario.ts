@@ -473,6 +473,10 @@ export function contosoRepos(now = Date.now()): FakeAdoRepo[] {
           ...(i % 4 === 0
             ? [{ path: `tests/${repo}/Module${i}Tests.cs`, additions: 35, deletions: 1 }]
             : []),
+          // A binary file: Azure DevOps gives its diff no line blocks, so it changes no lines.
+          ...(i % 5 === 0
+            ? [{ path: `assets/${repo}/icon${i}.png`, additions: 0, deletions: 0 }]
+            : []),
         ],
       };
     });

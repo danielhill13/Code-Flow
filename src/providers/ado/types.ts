@@ -85,6 +85,8 @@ export type AdoPayload = {
   commits: AdoCommit[];
   /** Changed files with their line counts; null when they couldn't be worked out. */
   files: { path: string; additions: number; deletions: number }[] | null;
+  /** Why `files` is null, as Azure DevOps or codeflow put it. */
+  filesError?: string;
   /** Lists cut short: "commits", "files". */
   truncated: string[];
 };

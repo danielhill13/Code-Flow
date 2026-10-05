@@ -23,6 +23,8 @@ export class AdoServer {
   readonly #repos: FakeAdoRepo[];
   /** A token without Project and Team (Read): listing projects is refused, as Azure DevOps does. */
   readonly #noProjectScope: boolean;
+  /** Set to refuse file diffs, as a server might: sizes can't be read. */
+  refuseDiffs = false;
   #server: Server | null = null;
 
   constructor(
@@ -146,6 +148,12 @@ export class AdoServer {
       const top = Number(q.get("$top") ?? 100);
       return { status: 200, body: { value: listed.slice(skip, skip + top) } };
     }
+    if (kind === "filediffs" && req.method === "POST" && this.refuseDiffs) {
+      return {
+        status: 403,
+        body: { message: "TF401027: You need the Git 'PullRequestContribute' permission." },
+      };
+    }
     if (kind === "filediffs" && req.method === "POST") {
       const body = JSON.parse(await text(req)) as {
         targetVersionCommit: string;
@@ -166,16 +174,19 @@ export class AdoServer {
               originalPath: param.originalPath,
               // Changed lines come as "edit" blocks, as Azure DevOps sends them; "none" blocks
               // are unchanged context and count for nothing.
-              lineDiffBlocks: file
-                ? [
-                    { changeType: "none", modifiedLinesCount: 40, originalLinesCount: 40 },
-                    {
-                      changeType: "edit",
-                      modifiedLinesCount: file.additions,
-                      originalLinesCount: file.deletions,
-                    },
-                  ]
-                : [],
+              // A binary file's diff has no line blocks at all.
+              lineDiffBlocks: path.endsWith(".png")
+                ? undefined
+                : file
+                  ? [
+                      { changeType: "none", modifiedLinesCount: 40, originalLinesCount: 40 },
+                      {
+                        changeType: "edit",
+                        modifiedLinesCount: file.additions,
+                        originalLinesCount: file.deletions,
+                      },
+                    ]
+                  : [],
             };
           }),
         ),

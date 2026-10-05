@@ -70,7 +70,10 @@ export async function fetchPr(
   });
   const truncated: string[] = [];
   if (commits.value.length >= MAX_COMMITS) truncated.push("commits");
-  const files = await changedFiles(client, repo, base, iterations.value).catch(() => null);
+  const sized = await changedFiles(client, repo, base, iterations.value).catch(
+    (err: unknown): Sized => ({ error: err instanceof Error ? err.message : String(err) }),
+  );
+  const files = "files" in sized ? sized.files : null;
   if (files === null) truncated.push("files");
   return {
     pr,
@@ -79,24 +82,32 @@ export async function fetchPr(
     iterations: iterations.value,
     commits: commits.value,
     files,
+    ...("error" in sized && { filesError: sized.error }),
     truncated,
   };
 }
 
+/** A PR's changed files with their lines, or why they couldn't be read. */
+type Sized = { files: NonNullable<AdoPayload["files"]> } | { error: string };
+
 /**
  * The PR's changed files with lines added and deleted: its last push compared with where its
- * branch left the target. Null when there are too many files to count, or the diff can't be read.
+ * branch left the target, as Azure DevOps's own "Files" tab compares them. Or why not: too many
+ * files to count, or a diff Azure DevOps wouldn't give.
  */
-async function changedFiles(
+export async function changedFiles(
   client: AdoClient,
   repo: AdoRepo,
   base: string,
   iterations: readonly AdoIteration[],
-): Promise<AdoPayload["files"]> {
+): Promise<Sized> {
   const last = iterations.at(-1);
   const target = last?.sourceRefCommit?.commitId;
   const from = last?.commonRefCommit?.commitId;
-  if (!last || !target || !from) return null;
+  if (!last) return { error: "the PR has no pushes (iterations)" };
+  if (!target || !from) {
+    return { error: `its last push (iteration ${last.id}) names no source or common commit` };
+  }
   const changes = await client.get<{
     changeEntries: {
       item: { path: string; isFolder?: boolean };
@@ -104,8 +115,8 @@ async function changedFiles(
       originalPath?: string;
     }[];
   }>(`${base}/iterations/${last.id}/changes`, { $top: MAX_FILES + 1, $compareTo: 0 });
-  const entries = changes.changeEntries.filter((e) => !e.item.isFolder);
-  if (entries.length > MAX_FILES) return null;
+  const entries = (changes.changeEntries ?? []).filter((e) => !e.item.isFolder);
+  if (entries.length > MAX_FILES) return { error: `more than ${MAX_FILES} files changed` };
   const files: NonNullable<AdoPayload["files"]> = [];
   for (let i = 0; i < entries.length; i += DIFF_BATCH) {
     const batch = entries.slice(i, i + DIFF_BATCH);
@@ -128,11 +139,15 @@ async function changedFiles(
       const diff =
         diffs.find((d) => d.path === path || (d.path === "" && d.originalPath === path)) ??
         diffs[j];
-      // A file without its diff has an unknown size, and so has the PR: never zero.
-      if (!diff?.lineDiffBlocks) return null;
+      // A file missing from the answer has an unknown size, and so has the PR: never zero.
+      if (!diff) {
+        return { error: `Azure DevOps gave ${diffs.length} diffs for ${batch.length} files` };
+      }
+      // A file with no line blocks (binary, or renamed unchanged) changed no lines, as GitHub
+      // counts it too.
       let additions = 0;
       let deletions = 0;
-      for (const block of diff.lineDiffBlocks) {
+      for (const block of diff.lineDiffBlocks ?? []) {
         const kind = blockKind(block.changeType);
         if (kind === "add" || kind === "edit") additions += block.modifiedLinesCount ?? 0;
         if (kind === "delete" || kind === "edit") deletions += block.originalLinesCount ?? 0;
@@ -140,7 +155,7 @@ async function changedFiles(
       files.push({ path: path.replace(/^\//, ""), additions, deletions });
     }
   }
-  return files;
+  return { files };
 }
 
 type FileDiff = {
