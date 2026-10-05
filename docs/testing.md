@@ -170,6 +170,7 @@ here.
 | TC-507 | At phone width, no tab scrolls sideways |
 | TC-508 | Stale PRs are shown on Flow apart from those open now, and listed on request |
 | TC-509 | Changes read as a neutral increase or decrease, in one unit |
+| TC-510 | What is selected is listed first when the picker opens again |
 
 ### Setup in the served app (`test/e2e/serve.spec.ts`)
 

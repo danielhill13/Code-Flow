@@ -134,6 +134,31 @@ test("TC-505 picking a team narrows every number to it, and back", async ({ page
   expect(await numberIn(page, "PRs merged")).toBe(all);
 });
 
+test("TC-510 what is selected is listed first when the picker opens again", async ({ page }) => {
+  await page.goto(REPORT);
+  await ready(page);
+  await page.getByRole("button", { name: "Select…" }).click();
+  const picker = page.getByRole("dialog", { name: "Select what to look at" });
+  const repos = picker.locator("fieldset").filter({ hasText: "Repos" });
+  const names = await repos.locator("label").allTextContents();
+  const last = names.at(-1)?.trim() ?? "";
+  expect(names.length).toBeGreaterThan(1);
+  await repos.getByLabel(last).check();
+  // Ticking doesn't move a row away from the pointer.
+  expect((await repos.locator("label").allTextContents()).at(-1)?.trim()).toBe(last);
+  await picker.getByRole("button", { name: "Show" }).click();
+  await ready(page);
+
+  await page
+    .getByRole("button", { name: /Select…|Change/ })
+    .first()
+    .click();
+  const again = page.getByRole("dialog", { name: "Select what to look at" });
+  const first = again.locator("fieldset").filter({ hasText: "Repos" }).locator("label").first();
+  await expect(first).toHaveText(last);
+  await expect(first.locator("input")).toBeChecked();
+});
+
 test("TC-506 the theme the viewer picks stays picked", async ({ page }) => {
   await page.goto(REPORT);
   await ready(page);

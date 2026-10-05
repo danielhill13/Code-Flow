@@ -237,12 +237,20 @@ function Picker(props: {
         <div class="picker-columns">
           {props.facets.map((facet) => {
             const chosen = valuesFor(choices, draft, facet);
-            const matches = facet.options.filter(
+            // What was selected when the menu opened comes first, so it's seen without
+            // scrolling. Ordered by the opening selection, not the draft: a row doesn't jump
+            // away from the pointer as it's ticked.
+            const opened = valuesFor(choices, props.selection, facet);
+            const found = facet.options.filter(
               (o) =>
                 needle === "" ||
                 o.label.toLowerCase().includes(needle) ||
                 o.value.toLowerCase().includes(needle),
             );
+            const matches = [
+              ...found.filter((o) => opened.includes(o.value)),
+              ...found.filter((o) => !opened.includes(o.value)),
+            ];
             const visible = matches.slice(0, 60);
             return (
               <fieldset key={facet.id} class="picker-column">
