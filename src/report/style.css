@@ -2063,3 +2063,18 @@ summary {
 .choice-card > .link-button {
   align-self: flex-start;
 }
+
+/* A table column heading that sorts it. */
+.sort-head {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sort-head:hover {
+  color: var(--text);
+}

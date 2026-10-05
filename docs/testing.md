@@ -192,6 +192,7 @@ here.
 | TC-611 | The org's repos, branches, bots and paths are edited in Setup, land in org.yml, and Sync now runs |
 | TC-612 | An Azure DevOps project becomes an org the same way, beside the GitHub one |
 | TC-613 | A suggested match is merged in a click, shown as one person, and can be separated (`test/e2e/people.spec.ts`) |
+| TC-615 | The accounts table is searched by login, name or person, and sorted by any column (`test/e2e/people.spec.ts`) |
 | TC-614 | A source codeflow can't read says why in step 1, and can be removed to start without it; a pasted Azure DevOps address fills organization and project |
 
 ## Writing tests

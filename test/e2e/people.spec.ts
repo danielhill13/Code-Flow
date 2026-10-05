@@ -46,3 +46,28 @@ test("TC-613 a suggested match is merged in a click, shown as one person, and ca
     "ana@acme.example",
   );
 });
+
+test("TC-615 the accounts table is searched by login, name or person, and sorted by any column", async ({
+  page,
+}) => {
+  await page.goto(`${URL}/orgs/company/#tab=setup`);
+  await ready(page);
+  await page.getByRole("button", { name: "People", exact: true }).click();
+  await page.getByLabel("Only accounts not in a person").uncheck();
+  const rows = page.locator('section[aria-labelledby="accounts"] .row.dense');
+  const logins = async () =>
+    (await rows.locator("span:nth-child(2)").allTextContents()).map((t) => t.trim());
+
+  await page.getByLabel("Search accounts").fill("acme.example");
+  for (const login of await logins()) expect(login).toContain("acme.example");
+  await page.getByLabel("Search accounts").fill("no such account");
+  await expect(page.getByText("No account matches.")).toBeVisible();
+  await page.getByLabel("Search accounts").fill("");
+
+  await page.getByRole("button", { name: "Account", exact: true }).click();
+  const up = await logins();
+  expect(up).toEqual([...up].sort((a, b) => a.localeCompare(b)));
+  await page.getByRole("button", { name: /^Account/ }).click();
+  const down = await logins();
+  expect(down).toEqual([...up].reverse());
+});

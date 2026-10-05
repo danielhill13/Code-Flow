@@ -10,6 +10,25 @@ import { message } from "./kit.tsx";
 
 const HOST = { github: "GitHub", ado: "Azure DevOps" } as const;
 
+type SortKey = "login" | "host" | "name" | "prs" | "person";
+type Account = Identities["identities"][number];
+
+/** Orders two accounts by a column, ascending; empty values last, then by login. */
+function compare(a: Account, b: Account, key: SortKey): number {
+  const text = (x: Account) =>
+    key === "login"
+      ? x.login
+      : key === "host"
+        ? HOST[x.host]
+        : key === "name"
+          ? (x.name ?? "")
+          : (x.person ?? "");
+  if (key === "prs") return a.authored - b.authored || a.involved - b.involved;
+  const [x, y] = [text(a), text(b)];
+  if (!x !== !y) return x ? -1 : 1;
+  return x.localeCompare(y) || a.login.localeCompare(b.login);
+}
+
 export function Accounts(props: {
   api: AdminApi;
   people: Record<string, PersonRaw>;
@@ -27,6 +46,8 @@ export function Accounts(props: {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [chosen, setChosen] = useState<Set<string>>(new Set());
   const [loose, setLoose] = useState(true);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "prs", dir: -1 });
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   useEffect(() => {
@@ -58,7 +79,34 @@ export function Accounts(props: {
   const defaultKey =
     picked.find((i) => i.person)?.person ?? picked.find((i) => i.host === "github")?.login ?? "";
   const defaultName = picked.find((i) => i.name)?.name ?? "";
-  const shown = data.identities.filter((i) => !loose || i.person === null || chosen.has(id(i)));
+  const q = query.trim().toLowerCase();
+  const shown = data.identities
+    .filter((i) => !loose || i.person === null || chosen.has(id(i)))
+    .filter(
+      (i) =>
+        !q ||
+        [i.login, i.name ?? "", i.person ?? "", HOST[i.host]].some((v) =>
+          v.toLowerCase().includes(q),
+        ),
+    )
+    .sort((a, b) => sort.dir * compare(a, b, sort.key));
+  const header = (key: SortKey, label: string) => (
+    <button
+      type="button"
+      class="sort-head"
+      title={`Sort by ${label.toLowerCase()}`}
+      onClick={() =>
+        setSort(
+          sort.key === key
+            ? { key, dir: sort.dir === 1 ? -1 : 1 }
+            : { key, dir: key === "prs" ? -1 : 1 },
+        )
+      }
+    >
+      {label}
+      {sort.key === key ? (sort.dir === 1 ? " ↑" : " ↓") : ""}
+    </button>
+  );
   // Accounts whose person has more than one account: those can be separated again.
   const shared = new Set(
     Object.entries(props.people)
@@ -123,6 +171,15 @@ export function Accounts(props: {
           <span class="note">
             Every account in the PRs. Tick the ones that are one person, then merge them.
           </span>
+          <input
+            type="search"
+            class="choose-query"
+            aria-label="Search accounts"
+            placeholder="Search login, name or person…"
+            value={query}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            style={{ maxWidth: "280px" }}
+          />
           <label class="end radio">
             <input
               type="checkbox"
@@ -171,11 +228,11 @@ export function Accounts(props: {
           <div class="table-inner" style={{ "--min": "760px" }}>
             <div class="row head" style={{ "--cols": cols }}>
               <span />
-              <span>Account</span>
-              <span>Host</span>
-              <span>Name</span>
-              <span>PRs</span>
-              <span>Person</span>
+              {header("login", "Account")}
+              {header("host", "Host")}
+              {header("name", "Name")}
+              {header("prs", "PRs")}
+              {header("person", "Person")}
               <span />
             </div>
             {shown.slice(0, 200).map((identity) => (
@@ -215,7 +272,9 @@ export function Accounts(props: {
                 </span>
               </div>
             ))}
-            {shown.length === 0 && <div class="empty">Every account is in a person.</div>}
+            {shown.length === 0 && (
+              <div class="empty">{q ? "No account matches." : "Every account is in a person."}</div>
+            )}
           </div>
         </div>
         {shown.length > 200 && (
