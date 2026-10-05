@@ -2,7 +2,9 @@
 // removes their data (decision D43). Local only: no network.
 import { existsSync } from "node:fs";
 import type { Org } from "../config/workspace.ts";
+import { copyOf } from "../pipeline/copies.ts";
 import { pruneRepos, unmeasuredRepos } from "../pipeline/prune.ts";
+import { removeCopy } from "../providers/git/git.ts";
 import { Store } from "../store/store.ts";
 import { num, plural, status } from "./format.ts";
 import { type OrgOptions, orgHeading, orgsFor, type Print } from "./session.ts";
@@ -15,12 +17,12 @@ export async function prune(options: PruneOptions): Promise<number> {
   for (const [i, org] of orgs.entries()) {
     if (i > 0) print();
     orgHeading(workspace, org, print);
-    pruneOrg(org, options.yes === true, print);
+    await pruneOrg(org, options.yes === true, print);
   }
   return 0;
 }
 
-function pruneOrg(org: Org, yes: boolean, print: Print): void {
+async function pruneOrg(org: Org, yes: boolean, print: Print): Promise<void> {
   if (!existsSync(org.dbPath)) {
     print(status("ok", "Data", "nothing stored yet"));
     return;
@@ -28,6 +30,8 @@ function pruneOrg(org: Org, yes: boolean, print: Print): void {
   const store = Store.open(org.dbPath);
   try {
     const found = yes ? pruneRepos(store, org.config) : unmeasuredRepos(store, org.config);
+    // Their local copies go with them (D46).
+    if (yes) for (const repo of found) await removeCopy(copyOf(org, repo.id));
     if (found.length === 0) {
       print(status("ok", "Repos", "every stored repo is one the sources measure"));
       return;

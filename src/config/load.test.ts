@@ -53,6 +53,7 @@ since: 2025-10-01
       people_views: true,
       churn_window_days: 30,
       size_target_lines: 400,
+      local_copies: [],
       people: {},
       teams: {},
       groups: {},

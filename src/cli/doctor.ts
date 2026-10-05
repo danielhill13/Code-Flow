@@ -2,11 +2,13 @@ import { existsSync } from "node:fs";
 import { relative } from "node:path";
 import { type AdoSource, type GitHubSource, isGitHub } from "../config/schema.ts";
 import type { Org } from "../config/workspace.ts";
+import { copyStatuses } from "../pipeline/copies.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import type { AdoClient } from "../providers/ado/client.ts";
 import { discoverAdo } from "../providers/ado/discover.ts";
 import { changedFiles, listPrs } from "../providers/ado/pulls.ts";
 import type { AdoIteration, AdoRepo } from "../providers/ado/types.ts";
+import { gitVersion } from "../providers/git/git.ts";
 import {
   discoverRepos,
   type Repo,
@@ -71,6 +73,7 @@ async function doctorOrg(org: Org, options: DoctorOptions, print: Print): Promis
   let code = 0;
   if (github.length > 0) code = Math.max(code, await doctorGitHub(org, github, options, print));
   if (ado.length > 0) code = Math.max(code, await doctorAdo(org, ado, options, print));
+  if (org.config.local_copies.length > 0) code = Math.max(code, await doctorCopies(org, print));
   if (code === 0) print(status("ok", "Ready", "everything checks out"));
   return code;
 }
@@ -367,4 +370,55 @@ async function sizeCheck(
     }
   }
   return null;
+}
+
+/** Local copies (D46): git is there, and which copies exist, how big, how fresh. */
+async function doctorCopies(org: Org, print: Print): Promise<number> {
+  const version = await gitVersion();
+  if (!version) {
+    print(
+      status(
+        "fail",
+        "Local copies",
+        "git isn't installed, or isn't on the PATH: install it (git-scm.com), or empty local_copies",
+      ),
+    );
+    return 1;
+  }
+  if (!existsSync(org.dbPath)) {
+    print(status("ok", "Local copies", `${version}; copies are made at the first sync`));
+    return 0;
+  }
+  const store = Store.open(org.dbPath);
+  try {
+    const rows = await copyStatuses(org, store);
+    const kept = rows.filter((r) => r.wanted);
+    print(
+      status(
+        "ok",
+        "Local copies",
+        `${version}; ${plural(kept.length, "repo")} kept: ` +
+          (kept
+            .map((r) =>
+              r.bytes === null
+                ? `${r.repo} (made at the next sync)`
+                : `${r.repo} (${num(Math.max(1, Math.round(r.bytes / 1_048_576)))} MB)`,
+            )
+            .join(", ") || "none synced yet"),
+      ),
+    );
+    const stale = rows.filter((r) => !r.wanted);
+    if (stale.length > 0) {
+      print(
+        status(
+          "warn",
+          "Local copies",
+          `no longer kept, still on disk: ${stale.map((r) => r.repo).join(", ")} (Setup › Repos deletes them)`,
+        ),
+      );
+    }
+    return 0;
+  } finally {
+    store.close();
+  }
 }

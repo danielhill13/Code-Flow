@@ -86,6 +86,12 @@ export type Metric = Base &
         value: (pr: PrFact, ctx: MetricContext) => number | null;
       }
     | { kind: "share"; test: (pr: PrFact, ctx: MetricContext) => boolean | null }
+    | {
+        /** Σ part ÷ Σ whole over the PRs that have both: lines weigh, not PRs (decision D46). */
+        kind: "ratio";
+        part: (pr: PrFact, ctx: MetricContext) => number | null;
+        whole: (pr: PrFact, ctx: MetricContext) => number | null;
+      }
   );
 
 /** How long a merged PR is watched for a revert before it can count as not reverted. */
@@ -288,6 +294,19 @@ export const METRICS: readonly Metric[] = [
     subset: "Old enough to tell",
     lagDays: (ctx) => ctx.churnDays,
     definition: `Of merged PRs old enough to tell: another PR merged into the same branch changed one of its product files within the org's churn window (${DEFAULT_CHURN_DAYS} days unless set). Some of this is normal evolution; a rise is worth a look.`,
+  },
+  {
+    key: "rewritten",
+    label: "Lines rewritten soon",
+    group: "Stability",
+    kind: "ratio",
+    population: "merged",
+    part: (pr) => (pr.churnAddedLines ? pr.rewrittenLines : null),
+    whole: (pr) => (pr.churnAddedLines ? pr.churnAddedLines : null),
+    subset: "Local copy, old enough to tell",
+    lagDays: (ctx) => ctx.churnDays,
+    definition:
+      "Of the product lines merged PRs added, the share changed or removed again within the churn window, line by line. Only repos with a local copy, and PRs old enough to tell.",
   },
   {
     key: "followUp",

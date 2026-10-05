@@ -2078,3 +2078,12 @@ summary {
 .sort-head:hover {
   color: var(--text);
 }
+
+/* A short list inside a form's explanation. */
+.plain-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}

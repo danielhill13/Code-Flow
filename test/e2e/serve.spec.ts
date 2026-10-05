@@ -205,3 +205,20 @@ test("TC-607 an org not synced yet offers only its setup", async ({ page }) => {
     "true",
   );
 });
+
+test("TC-616 a local copy is chosen per repo in Setup, with what it gives and costs", async ({
+  page,
+}) => {
+  await setup(page, "acme", "Repos");
+  const card = page.locator("form").filter({ hasText: "Local copies (optional)" });
+  await expect(card).toContainText("Exact PR sizes on Azure DevOps");
+  await expect(card).toContainText("the repo's source code is stored on this machine");
+  await card.getByLabel("Search keep a copy of").fill("api");
+  await card.getByRole("checkbox", { name: /acme-co\/api/ }).check();
+  await card.getByRole("button", { name: "Save" }).click();
+  await expect(card.getByText("Saved to org.yml.")).toBeVisible();
+  expect(await readFile(join(DIR, "orgs/acme/org.yml"), "utf8")).toMatch(
+    /local_copies:[\s\S]*acme-co\/api/,
+  );
+  await expect(card).toContainText("made at the next sync");
+});

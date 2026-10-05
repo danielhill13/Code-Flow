@@ -43,6 +43,7 @@ const SETTINGS = [
   "people_views",
   "churn_window_days",
   "size_target_lines",
+  "local_copies",
 ];
 
 const KEYS: Record<Part, readonly string[]> = {

@@ -198,6 +198,33 @@ churn_window_days: 30    # product files changed again within this many days of 
   PRs old enough to tell, beside **changed after review** (lines pushed after the first review;
   GitHub only). See decision D44.
 
+## local_copies
+
+```yaml
+local_copies: ["your-org/YourProject/app", "acme/api"]   # repos, or patterns: * matches anything
+```
+
+codeflow reads everything through GitHub's and Azure DevOps's APIs. For the repos listed here it
+also keeps a copy of the repo's git history on this machine (a bare clone in
+`.codeflow/<org>/git/`), fetched at the start of each sync, and reads more from it:
+
+- **Azure DevOps PR sizes**, exactly and with fewer requests: a completed PR as it landed on its
+  target branch (merge commit, squash or rebase alike), an open PR from where its branch left
+  the target. Its API counts lines ten files a request; it is still used for PRs the copy can't
+  read, such as an abandoned PR whose branch was deleted.
+- **Changed after review on Azure DevOps**: lines per commit, which its API doesn't give.
+- **Lines rewritten soon**, on either host: of the product lines a merged PR added, how many
+  `git blame` no longer gives to it on its target branch once the churn window has passed.
+  Measured once per PR and window, after each sync.
+
+GitHub already gives exact sizes and lines per commit, so for a GitHub repo a copy adds only
+line-level churn. The cost: the repo's source code on this machine, and as much disk as a clone.
+It needs git installed. The token codeflow already uses reaches git through its environment, never
+a file, and a copy only ever fetches. Setup › Repos › Local copies chooses repos, shows each
+copy's size and last fetch, and deletes copies no longer kept; `codeflow prune` deletes a pruned
+repo's copy too. A copy that can't be fetched is reported in the sync, which carries on through
+the API. See decision D46.
+
 ## paths
 
 What counts as product code, for PR size and lines merged. Every changed file falls into one

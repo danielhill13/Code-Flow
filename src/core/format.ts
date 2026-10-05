@@ -51,7 +51,7 @@ export function formatValue(value: MetricValue): string {
   if (value.value === null) return "—";
   const metric = metricOf(value.key);
   if (metric.kind === "count") return num(value.value);
-  if (metric.kind === "share") return percent(value.value);
+  if (metric.kind === "share" || metric.kind === "ratio") return percent(value.value);
   switch (metric.unit) {
     case "hours":
       return duration(value.value);

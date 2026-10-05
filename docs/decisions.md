@@ -345,3 +345,17 @@ never reviewers unless named, and their comments never count as review. A branch
 promotion pattern still leaves out bot traffic that only moves work along, such as release
 merges. Supersedes the default in D9's rule wording.
 
+**D46 · 2026-10-05 · Local copies, opt-in per repo.** The APIs give everything about review, but
+Azure DevOps counts lines ten files a request and not at all per commit, and neither host can say
+which lines were rewritten after a PR merged. For repos listed in `local_copies`, codeflow keeps a
+bare clone beside the org's database and fetches it at the start of each sync (every branch, and
+on GitHub every PR's head). From it: Azure DevOps PR sizes (a completed PR as it landed: merge
+commit or squash against its first parent, a rebase as the PR's own commits in a row, known by
+their subjects; an open PR from its merge base), lines per commit, and line-level churn (the
+product lines a merged PR added that `git blame --first-parent` no longer gives to it on its
+target branch at the end of the churn window), stored per PR and window in `line_churn` and
+measured once. The API stays the source for everything else, and the fallback for what a copy
+can't read. A new metric kind, `ratio`, sums lines over PRs, so a large PR weighs as its lines
+do. Opt-in, because a copy puts the repo's source code on the machine; the token reaches git only
+through its environment. The API-only route remains the default.
+

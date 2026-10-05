@@ -415,6 +415,12 @@ const settingsShape = {
   churn_window_days: z.int().min(1).max(365).default(30),
   /** PRs at or under this many product lines are within the org's size target (decision D44). */
   size_target_lines: z.int().min(1).max(100_000).default(400),
+  /**
+   * Repos (full names; * matches anything) codeflow keeps a local git copy of, for Azure DevOps
+   * PR sizes and rework, and line-level churn on either host (decision D46). Opt-in: a copy holds
+   * the repo's source code on this machine.
+   */
+  local_copies: z.array(Pattern).default([]),
 };
 
 /** What to measure, before an org exists: what the web app's first steps ask for. */

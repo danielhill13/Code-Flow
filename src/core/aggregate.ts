@@ -150,6 +150,11 @@ export function prValue(metric: Metric, pr: PrFact, ctx: MetricContext): number 
       return metric.value(pr, ctx);
     case "share":
       return metric.test(pr, ctx);
+    case "ratio": {
+      const part = metric.part(pr, ctx);
+      const whole = metric.whole(pr, ctx);
+      return part === null || whole === null || whole === 0 ? null : part / whole;
+    }
   }
 }
 
@@ -179,6 +184,29 @@ export function evaluate(
         p,
       );
       return { key, ...stat, notApplicable: prs.length - stat.n };
+    }
+    case "ratio": {
+      let part = 0;
+      let whole = 0;
+      let n = 0;
+      for (const pr of prs) {
+        const a = metric.part(pr, ctx);
+        const b = metric.whole(pr, ctx);
+        if (a === null || b === null || b === 0) continue;
+        part += a;
+        whole += b;
+        n += 1;
+      }
+      return {
+        key,
+        value: n > 0 ? part / whole : null,
+        n,
+        notApplicable: prs.length - n,
+        // Only repos with a local copy have line churn, once PRs are old enough (D46).
+        ...(n === 0 && {
+          hidden: `needs a local copy of the repo (Setup › Repos), and PRs merged at least ${ctx.churnDays} days ago`,
+        }),
+      };
     }
     case "share": {
       const tests = present(prs.map((pr) => metric.test(pr, ctx)));

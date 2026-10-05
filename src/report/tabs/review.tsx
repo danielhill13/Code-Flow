@@ -24,10 +24,11 @@ const LABELS: Record<string, string> = {
   rework: "Changed after review",
   touchedAgain: "Changed again soon",
   followUp: "Followed up by the author",
+  rewritten: "Lines rewritten soon",
 };
 
 /** Tiles judged a while after merging: they describe PRs merged earlier, old enough to tell. */
-const LAGGED = new Set(["reverted", "touchedAgain", "followUp"]);
+const LAGGED = new Set(["reverted", "touchedAgain", "followUp", "rewritten"]);
 
 export function Review(props: {
   model: ReviewModel;

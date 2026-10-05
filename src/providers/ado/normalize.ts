@@ -151,6 +151,9 @@ export function normalizeAdoPr(
           authoredAt: iso(commit.author?.date) ?? "",
           committedAt: iso(commit.committer?.date ?? commit.author?.date) ?? "",
           message: commit.comment ?? "",
+          ...(commit.additions !== undefined && { additions: commit.additions }),
+          ...(commit.deletions !== undefined && { deletions: commit.deletions }),
+          ...(commit.parents !== undefined && { parents: commit.parents }),
         }),
       )
       .filter((commit) => commit.authoredAt !== "")

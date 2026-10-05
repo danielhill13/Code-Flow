@@ -184,6 +184,8 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     followUpBy: null,
     followUpAt: null,
     reworkLines: rework(pr, firstReviewAt),
+    churnAddedLines: null,
+    rewrittenLines: null,
     truncated: pr.truncated,
     identities: identities(pr),
   };

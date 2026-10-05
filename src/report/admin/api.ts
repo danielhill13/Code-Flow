@@ -101,6 +101,14 @@ export type SyncedRepos = {
   branches: { name: string; prs: number }[];
 };
 
+/** A synced repo's local copy (D46): wanted or not, its size and when it was last fetched. */
+export type CopyRow = {
+  repo: string;
+  wanted: boolean;
+  bytes: number | null;
+  fetchedAt: string | null;
+};
+
 /** A stored repo no source selects any more, with how many PRs it holds. */
 export type Unmeasured = { id: string; fullName: string; provider: string; prs: number };
 
@@ -136,6 +144,10 @@ export interface AdminApi {
   prune(): Promise<{ removed: Unmeasured[] }>;
   /** Clears the stored PRs of these repos and syncs, so they're fetched whole again. */
   refetch(repos: string[]): Promise<{ cleared: Unmeasured[] }>;
+  /** The org's local copies (D46), and the installed git's version (null: none). */
+  copies(): Promise<{ git: string | null; copies: CopyRow[] }>;
+  /** Deletes the copies of repos no longer kept. */
+  cleanCopies(): Promise<{ removed: string[] }>;
   status(): Promise<SyncStatus>;
   syncNow(): Promise<SyncStatus>;
   repos(): Promise<SyncedRepos>;
@@ -193,6 +205,14 @@ export class ServerAdmin implements AdminApi {
 
   refetch(repos: string[]): Promise<{ cleared: Unmeasured[] }> {
     return call(this.#base, "/refetch", { method: "POST", body: { repos } });
+  }
+
+  copies(): Promise<{ git: string | null; copies: CopyRow[] }> {
+    return call(this.#base, "/copies");
+  }
+
+  cleanCopies(): Promise<{ removed: string[] }> {
+    return call(this.#base, "/copies-clean", { method: "POST", body: {} });
   }
 
   async remove(): Promise<void> {

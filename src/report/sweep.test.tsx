@@ -361,6 +361,20 @@ class FakeAdmin implements AdminApi {
     return { repos: [{ id: "R_9", fullName: "acme/old-tool", provider: "github", prs: 4 }] };
   }
 
+  async copies() {
+    return {
+      git: "git version 2.50.0",
+      copies: [
+        { repo: "acme/api", wanted: true, bytes: 52_428_800, fetchedAt: asOf },
+        { repo: "acme/legacy", wanted: false, bytes: 1_048_576, fetchedAt: asOf },
+      ],
+    };
+  }
+
+  async cleanCopies() {
+    return { removed: ["acme/legacy"] };
+  }
+
   async refetch() {
     return { cleared: [] };
   }
@@ -558,6 +572,9 @@ describe("the report, served", () => {
         "Project",
         "Stored, but no longer measured",
         "acme/old-tool",
+        "Local copies (optional)",
+        "50 MB",
+        "no longer kept",
       ],
       Branches: ["acme/legacy", "main, develop", "Promotion branches"],
       Bots: ["Also bots", "Bots whose reviews count", "Ignore comments matching"],

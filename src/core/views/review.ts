@@ -76,6 +76,7 @@ export const AFTER_TILES = [
   "reverted",
   "touchedAgain",
   "followUp",
+  "rewritten",
 ] as const;
 
 export function review(ctx: ViewContext, q: ViewQuery): ReviewModel {

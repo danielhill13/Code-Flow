@@ -74,13 +74,14 @@ export async function showPr(target: string, options: PrOptions): Promise<number
     }
     // Why a size is unknown, where the host's answer said: Azure DevOps's diff can be refused.
     let sizeWhy: string | undefined;
-    if (fact.linesByBucket === null) {
-      for (const version of store.latestPrs(fact.repoId)) {
-        const why = (version.payload as { filesError?: unknown }).filesError;
-        if (version.id === fact.id && typeof why === "string") sizeWhy = why;
-      }
+    let sizeFrom: string | undefined;
+    for (const version of store.latestPrs(fact.repoId)) {
+      if (version.id !== fact.id) continue;
+      const payload = version.payload as { filesError?: unknown; filesFrom?: unknown };
+      if (typeof payload.filesError === "string") sizeWhy = payload.filesError;
+      if (payload.filesFrom === "local copy") sizeFrom = "from the local copy";
     }
-    printPr(fact, print, { asOf, staleAfterDays: config.stale_after_days, sizeWhy });
+    printPr(fact, print, { asOf, staleAfterDays: config.stale_after_days, sizeWhy, sizeFrom });
     return 0;
   } finally {
     store.close();
@@ -115,7 +116,7 @@ async function orgOf(options: PrOptions, repo: string | undefined): Promise<Org>
 function printPr(
   pr: PrFact,
   print: Print,
-  context: { asOf: Date; staleAfterDays: number; sizeWhy?: string },
+  context: { asOf: Date; staleAfterDays: number; sizeWhy?: string; sizeFrom?: string },
 ): void {
   print(`${bold(`${pr.repo}#${pr.number}`)}  ${pr.title}`);
   print(dim(`  ${pr.url}`));
@@ -205,7 +206,8 @@ function printPr(
         "info",
         "Size",
         `${plural(pr.sizeLines ?? 0, "product line")} (${num(pr.addedLines ?? 0)} added) in ` +
-          `${plural(pr.productFiles ?? 0, "file")}${other.length > 0 ? dim(`; also ${other.join(", ")}`) : ""}`,
+          `${plural(pr.productFiles ?? 0, "file")}${other.length > 0 ? dim(`; also ${other.join(", ")}`) : ""}` +
+          (context.sizeFrom ? dim(` (${context.sizeFrom})`) : ""),
       ),
     );
   }
@@ -248,6 +250,15 @@ function printPr(
       `followed up by the author in #${pr.followUpBy} on ${when(pr.followUpAt)}`,
   ].filter(Boolean);
   if (later.length > 0) print(status("info", "Churn", later.join("; ")));
+  if (pr.churnAddedLines !== null && pr.rewrittenLines !== null) {
+    print(
+      status(
+        "info",
+        "Rewritten",
+        `${plural(pr.rewrittenLines, "line")} of the ${num(pr.churnAddedLines)} it added, within the churn window (local copy)`,
+      ),
+    );
+  }
 
   print(
     pr.truncated.length === 0

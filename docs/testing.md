@@ -131,6 +131,7 @@ here.
 | TC-121 | `sync --refetch` clears a repo's stored PRs and fetches them all again; a size comes from Azure DevOps's wrapped diff answer |
 | TC-122 | A PR size Azure DevOps won't give is unknown, never zero, and `pr` and `doctor` say what Azure DevOps answered |
 | TC-123 | A later sync checks each open Azure DevOps PR with one request, and reads again only one that moved |
+| TC-124 | With local copies set but no git, `doctor` says what to do and `sync` carries on through the API |
 
 ### Orgs, config and errors (`test/scenarios/orgs.test.ts`)
 
@@ -185,6 +186,7 @@ here.
 | TC-607 | An org not synced yet offers only its setup |
 | TC-608 | Org settings change the stale window and turn people views off |
 | TC-609 | The header says how fresh the data is and when it syncs next |
+| TC-616 | A local copy is chosen per repo in Setup › Repos, which says what it gives and costs, and lands in org.yml |
 
 ### First steps and Setup in the browser (`test/e2e/welcome.spec.ts`)
 

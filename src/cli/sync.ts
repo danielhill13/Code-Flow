@@ -3,10 +3,18 @@ import { relative } from "node:path";
 import { type AdoSource, isGitHub } from "../config/schema.ts";
 import type { Org } from "../config/workspace.ts";
 import { CodeflowError } from "../errors.ts";
+import {
+  adoCloneUrl,
+  copyOf,
+  githubCloneUrl,
+  measureLineChurn,
+  wantsCopy,
+} from "../pipeline/copies.ts";
 import { deriveFacts } from "../pipeline/derive.ts";
 import { forgetRepos } from "../pipeline/prune.ts";
 import { type AdoSourceResult, discoverAdo } from "../providers/ado/discover.ts";
-import { type AdoRepoOutcome, syncAdoRepo } from "../providers/ado/sync.ts";
+import { type AdoRepoOutcome, adoRepoId, syncAdoRepo } from "../providers/ado/sync.ts";
+import { updateCopy } from "../providers/git/git.ts";
 import { discoverRepos, sourceName } from "../providers/github/discover.ts";
 import { fetchFrom, type RepoOutcome, syncRepos, type WalkName } from "../providers/github/sync.ts";
 import { Store } from "../store/store.ts";
@@ -169,6 +177,57 @@ export async function syncOrg(
         );
       }
       print(status("ok", "Repos", `${plural(count, "repo")} selected`));
+
+      // Local copies first (D46): the Azure DevOps sync reads line counts from them.
+      const copies = new Map<string, string>();
+      const wanted = [
+        ...githubRepos
+          .filter((repo) => wantsCopy(config, repo.fullName) && session)
+          .map((repo) => ({
+            fullName: repo.fullName,
+            dir: copyOf(org, repo.id),
+            url: githubCloneUrl(config.github.api_url, repo.fullName),
+            access: {
+              authorization: `Basic ${Buffer.from(`x-access-token:${session?.token ?? ""}`).toString("base64")}`,
+            },
+            github: true,
+          })),
+        ...adoRepos
+          .filter(({ repo }) => wantsCopy(config, repo.fullName) && ado)
+          .map(({ repo, organization }) => ({
+            fullName: repo.fullName,
+            dir: copyOf(org, adoRepoId(repo)),
+            url: adoCloneUrl(ado?.client(organization).base ?? "", repo.project, repo.name),
+            access: { authorization: ado?.token.authorization },
+            github: false,
+          })),
+      ];
+      for (const copy of wanted) {
+        if (abort.signal.aborted) break;
+        progress.update(`${copy.fullName}: updating its local copy`);
+        const began = performance.now();
+        try {
+          await updateCopy(copy);
+          copies.set(copy.fullName, copy.dir);
+          progress.clear();
+          print(
+            status(
+              "ok",
+              "Local copy",
+              `${copy.fullName}: up to date (${durationSeconds((performance.now() - began) / 1000)})`,
+            ),
+          );
+        } catch (err) {
+          progress.clear();
+          print(
+            status(
+              "warn",
+              "Local copy",
+              `${copy.fullName}: ${(err as Error).message}. Sizes come from the host's API instead.`,
+            ),
+          );
+        }
+      }
       print();
 
       if (session && githubRepos.length > 0) {
@@ -202,6 +261,7 @@ export async function syncOrg(
           store,
           runId,
           repo,
+          copy: copies.get(repo.fullName),
           since: config.since,
           startedAt,
           signal: abort.signal,
@@ -217,6 +277,29 @@ export async function syncOrg(
         printOutcome(outcome, print);
         outcomes.push(outcome);
         if (outcome.interrupted) interrupted = true;
+      }
+
+      // Line churn, for merged PRs old enough to tell, from each local copy (D46).
+      const asOf = new Date(store.dataThrough() ?? Date.now());
+      for (const stored of store.repos()) {
+        const dir = copies.get(stored.fullName);
+        if (!dir || interrupted || abort.signal.aborted) continue;
+        const measured = await measureLineChurn({
+          store,
+          repo: stored,
+          config,
+          dir,
+          asOf,
+          signal: abort.signal,
+          onProgress: (done) =>
+            progress.update(`${stored.fullName}: line churn, ${plural(done, "PR")} measured`),
+        });
+        progress.clear();
+        if (measured > 0) {
+          print(
+            status("ok", "Line churn", `${stored.fullName}: ${plural(measured, "PR")} measured`),
+          );
+        }
       }
     } catch (err) {
       failure = err;

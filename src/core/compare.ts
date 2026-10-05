@@ -36,7 +36,7 @@ export function change(
   }
   if (previous === null) return { kind: "none", reason: "no earlier data" };
   if (current.value === null || previous.value === null) return { kind: "none", reason: "" };
-  if (metric.kind === "share") {
+  if (metric.kind === "share" || metric.kind === "ratio") {
     const points = (current.value - previous.value) * 100;
     return Math.abs(points) < SAME_POINTS ? { kind: "same" } : { kind: "points", value: points };
   }

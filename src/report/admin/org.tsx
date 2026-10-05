@@ -7,6 +7,7 @@ import { AdoStatus, GitHubStatus, PreviewTable, useStatus } from "../welcome.tsx
 import type {
   AdoCheck,
   AdoSettings,
+  CopyRow,
   GitHubCheck,
   GitHubSettings,
   RawSource,
@@ -38,6 +39,7 @@ type OrgRaw = {
   stale_after_days: number;
   churn_window_days: number;
   size_target_lines: number;
+  local_copies: string[];
   people_views: boolean;
 };
 
@@ -156,7 +158,130 @@ export function Repos(props: SectionProps) {
         <Saved show={org.saved} />
       </Form>
       <NoLongerMeasured {...props} saved={org.saved} />
+      <LocalCopies {...props} />
     </>
+  );
+}
+
+/**
+ * Which repos codeflow keeps a git copy of (decision D46): what it gives, what it costs, and each
+ * copy's size and freshness. Saved to org.yml's `local_copies`; copies are made at the next sync.
+ */
+function LocalCopies(props: SectionProps) {
+  const org = useOrg(props);
+  const [status, setStatus] = useState<{ git: string | null; copies: CopyRow[] } | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  useEffect(() => {
+    props.api.copies().then(setStatus, () => setStatus({ git: null, copies: [] }));
+  }, [props.api, org.saved]);
+  if (!org.value) return null;
+  const chosen = org.value.local_copies ?? [];
+  const unwanted = status?.copies.filter((c) => !c.wanted && c.bytes !== null) ?? [];
+  const mb = (bytes: number) => `${num(Math.max(1, Math.round(bytes / 1_048_576)))} MB`;
+  return (
+    <Form
+      title="Local copies (optional)"
+      problem={org.part.problem}
+      busy={org.part.busy}
+      onSave={org.save}
+      onCancel={org.reset}
+    >
+      <div class="wide-field vstack">
+        <p style={{ margin: 0 }}>
+          codeflow reads everything through GitHub's and Azure DevOps's APIs. For the repos you
+          choose here, it can also keep a copy of the repo's git history on this machine, and read
+          more from it:
+        </p>
+        <ul class="plain-list">
+          <li>
+            <b>Exact PR sizes on Azure DevOps</b>, with fewer requests (its API counts lines ten
+            files at a time).
+          </li>
+          <li>
+            <b>Changed after review on Azure DevOps</b>: its API doesn't give lines per commit.
+          </li>
+          <li>
+            <b>Lines rewritten soon</b>, on either host: of the lines a PR added, how many were
+            changed again within the churn window, line by line rather than file by file.
+          </li>
+        </ul>
+        <p class="muted" style={{ margin: 0 }}>
+          What it costs: the repo's source code is stored on this machine (in the org's data folder,
+          never shared or uploaded), and as much disk as a clone of the repo. The first sync
+          downloads its history; later syncs fetch only what's new. GitHub repos already get exact
+          sizes and rework from GitHub's API, so for them a copy adds only line-level churn.
+        </p>
+        {status && status.git === null && (
+          <p class="problem">
+            git isn't installed on this machine, or isn't on the PATH: local copies need it
+            (git-scm.com).
+          </p>
+        )}
+      </div>
+      <Picker
+        label="Keep a copy of"
+        options={repoOptions(props.meta?.repos ?? [])}
+        value={chosen}
+        onChange={(local_copies) => org.set({ local_copies })}
+        free="Add the pattern"
+        placeholder="No repos: search to choose some…"
+        hint="Repos, or patterns such as your-org/Project/*. Copies are made at the next sync."
+      />
+      {status && status.copies.length > 0 && (
+        <div class="wide-field table">
+          <div class="table-inner" style={{ "--min": "520px" }}>
+            <div class="row head" style={{ "--cols": "minmax(200px,2fr) 1fr 1fr" }}>
+              <span>Repo</span>
+              <span>Copy</span>
+              <span>Last fetched</span>
+            </div>
+            {status.copies.map((row) => (
+              <div
+                key={row.repo}
+                class="row dense"
+                style={{ "--cols": "minmax(200px,2fr) 1fr 1fr" }}
+              >
+                <span>{row.repo}</span>
+                <span class="soft">
+                  {row.bytes === null
+                    ? "made at the next sync"
+                    : row.wanted
+                      ? mb(row.bytes)
+                      : `${mb(row.bytes)}, no longer kept`}
+                </span>
+                <span class="soft">
+                  {row.fetchedAt ? new Date(row.fetchedAt).toLocaleString() : "—"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {unwanted.length > 0 && (
+        <div class="wide-field step-actions">
+          <button
+            type="button"
+            class="button"
+            onClick={async () => {
+              setProblem(null);
+              try {
+                const { removed } = await props.api.cleanCopies();
+                setNote(`Deleted the copies of ${removed.join(", ")}.`);
+                setStatus(await props.api.copies());
+              } catch (err) {
+                setProblem(message(err));
+              }
+            }}
+          >
+            Delete copies no longer kept ({mb(unwanted.reduce((n, c) => n + (c.bytes ?? 0), 0))})
+          </button>
+        </div>
+      )}
+      {note && <p class="muted wide-field">{note}</p>}
+      <Problem text={problem} />
+      <Saved show={org.saved} />
+    </Form>
   );
 }
 

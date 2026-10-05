@@ -372,12 +372,59 @@ export class Store {
   removeRepo(repoId: string): number {
     return transaction(this.#db, () => {
       const { changes } = this.#db.prepare("DELETE FROM raw_prs WHERE repo_id = ?").run(repoId);
-      for (const table of ["pr_facts", "derivations", "default_branches"]) {
+      for (const table of ["pr_facts", "derivations", "default_branches", "line_churn"]) {
         this.#db.prepare(`DELETE FROM ${table} WHERE repo_id = ?`).run(repoId);
       }
       this.#db.prepare("DELETE FROM repos WHERE id = ?").run(repoId);
       return Number(changes);
     });
+  }
+
+  // Line churn (decision D46)
+
+  /** A repo's line churn for one window length, by PR id. */
+  lineChurn(
+    repoId: string,
+    windowDays: number,
+  ): Map<string, { added: number | null; rewritten: number | null }> {
+    const rows = this.#db
+      .prepare(
+        "SELECT pr_id, added, rewritten FROM line_churn WHERE repo_id = ? AND window_days = ?",
+      )
+      .all(repoId, windowDays) as {
+      pr_id: string;
+      added: number | null;
+      rewritten: number | null;
+    }[];
+    return new Map(rows.map((r) => [r.pr_id, { added: r.added, rewritten: r.rewritten }]));
+  }
+
+  saveLineChurn(
+    repoId: string,
+    windowDays: number,
+    rows: readonly { prId: string; added: number | null; rewritten: number | null }[],
+    now = new Date(),
+  ): void {
+    if (rows.length === 0) return;
+    transaction(this.#db, () => {
+      const upsert = this.#db.prepare(
+        `INSERT INTO line_churn (pr_id, repo_id, window_days, added, rewritten, measured_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (pr_id, window_days) DO UPDATE
+         SET added = excluded.added, rewritten = excluded.rewritten, measured_at = excluded.measured_at`,
+      );
+      for (const row of rows) {
+        upsert.run(row.prId, repoId, windowDays, row.added, row.rewritten, now.toISOString());
+      }
+    });
+  }
+
+  /** Changes whenever the repo's line churn does: part of what its facts are derived from. */
+  lineChurnFingerprint(repoId: string): string {
+    const row = this.#db
+      .prepare("SELECT COUNT(*) AS n, MAX(measured_at) AS last FROM line_churn WHERE repo_id = ?")
+      .get(repoId) as { n: number; last: string | null };
+    return `${row.n}:${row.last ?? ""}`;
   }
 
   /** Changes whenever a PR version is added to the repo, since raw rows are only ever inserted. */

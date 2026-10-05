@@ -195,6 +195,26 @@ describe("an org spanning GitHub and Azure DevOps", () => {
       await ws.run("sync", "--refetch", id);
     }
   });
+
+  it("TC-124 local copies without git: doctor says what to do, and sync carries on through the API", async () => {
+    const file = "orgs/acme/org.yml";
+    const before = await ws.read(file);
+    await ws.write(file, `${before}\nlocal_copies: ["${ADO_ORG}/*/billing"]\n`);
+    try {
+      // This test's PATH holds node alone: no git, as on a machine without it.
+      const doctor = await ws.run("doctor");
+      expect(doctor.out).toMatch(/Local copies\s+git isn't installed, or isn't on the PATH/);
+      const sync = await ws.run("sync");
+      expect(sync.code, sync.out).toBe(0);
+      expect(sync.out).toMatch(
+        new RegExp(
+          `Local copy\\s+${ADO_ORG}/${ADO_PROJECT}/billing: git isn't installed[^\\n]*Sizes come from the host's API instead`,
+        ),
+      );
+    } finally {
+      await ws.write(file, before);
+    }
+  });
 });
 
 describe("an org only on Azure DevOps", () => {

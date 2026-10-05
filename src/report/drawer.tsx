@@ -161,6 +161,12 @@ export function Drawer(props: {
   }
   const churn = changedAgain(pr, asOf, props.churnDays);
   if (churn) facts.push(["Changed again", churn]);
+  if (pr.churnAddedLines !== null && pr.rewrittenLines !== null) {
+    facts.push([
+      "Lines rewritten",
+      `${num(pr.rewrittenLines)} of the ${num(pr.churnAddedLines)} it added, within ${props.churnDays} days (from the local copy)`,
+    ]);
+  }
   if (reverted) facts.push(["Reverted", reverted]);
   if (pr.reverts.length > 0) facts.push(["Reverts", pr.reverts.map((n) => `#${n}`).join(", ")]);
 

@@ -54,6 +54,8 @@ sets it up.
   `rateLimit { cost }`.
 - Every Azure DevOps call goes through `AdoClient`, which paces requests (one at a time, at most
   two a second, slower when the server's rate-limit headers say so). Never call its API around it.
+- Every git call goes through `src/providers/git/git.ts`, which passes the token only through
+  git's environment. Local copies are opt-in per repo (`local_copies`) and only ever fetch.
 - All SQL lives in `src/store/`. Schema changes are new entries appended to `migrations.ts`; never
   edit a migration that has shipped. Rows in `raw_prs` are only ever inserted, except that
   `Store.removeRepo` drops a whole repo the user asked to prune (decision D43).

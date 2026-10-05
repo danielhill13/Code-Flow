@@ -302,6 +302,11 @@ These hold everywhere. Each gets a test as it is built.
     (Azure DevOps), never zero.
 15. **Size is read against the org's target.** A merged PR of known size is within the target
     when its product lines are at most `size_target_lines` (400 by default).
+16. **A local copy reads what landed.** For a repo with a local copy, a completed PR's size is
+    its change on the target branch: a merge commit or squash against its first parent, a rebase
+    as its own commits in a row. Lines rewritten soon are its added product lines that `git
+    blame --first-parent` no longer gives to those commits on that branch at the end of the churn
+    window. A copy that can't say leaves the value null and the API's figure stands.
 
 ## Per-PR timeline
 

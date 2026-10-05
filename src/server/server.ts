@@ -33,8 +33,10 @@ import { botsOf, identitiesOf, type PersonRaw, suggestMerges } from "../core/ide
 import { ruleImpact } from "../core/preview.ts";
 import { ruleProblems } from "../core/rules.ts";
 import { CodeflowError } from "../errors.ts";
+import { copyOf, copyStatuses, removeUnwantedCopies } from "../pipeline/copies.ts";
 import { deriveFacts, deriveWith, measuredBranches } from "../pipeline/derive.ts";
 import { forgetRepos, pruneRepos, unmeasuredRepos } from "../pipeline/prune.ts";
+import { gitVersion, removeCopy } from "../providers/git/git.ts";
 import { Store } from "../store/store.ts";
 import {
   checkAdo,
@@ -67,6 +69,7 @@ export const EDITABLE = {
     "people_views",
     "churn_window_days",
     "size_target_lines",
+    "local_copies",
   ],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -180,8 +183,29 @@ async function handle(
       await options.scheduler.syncNow(name);
       return json(res, { cleared });
     }
-    case "POST prune":
-      return json(res, { removed: withStore(org, (store) => pruneRepos(store, org.config)) });
+    case "POST prune": {
+      const removed = withStore(org, (store) => pruneRepos(store, org.config));
+      for (const repo of removed) await removeCopy(copyOf(org, repo.id));
+      return json(res, { removed });
+    }
+    case "GET copies": {
+      if (!existsSync(org.dbPath)) return json(res, { git: await gitVersion(), copies: [] });
+      const store = Store.open(org.dbPath);
+      try {
+        return json(res, { git: await gitVersion(), copies: await copyStatuses(org, store) });
+      } finally {
+        store.close();
+      }
+    }
+    case "POST copies-clean": {
+      if (!existsSync(org.dbPath)) return json(res, { removed: [] });
+      const store = Store.open(org.dbPath);
+      try {
+        return json(res, { removed: await removeUnwantedCopies(org, store) });
+      } finally {
+        store.close();
+      }
+    }
     case "GET identities":
       return json(res, await identitiesFor(org));
     case "GET status": {

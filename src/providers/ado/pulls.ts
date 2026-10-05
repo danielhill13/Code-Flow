@@ -1,5 +1,6 @@
 // Reading Azure DevOps pull requests: pages of a repo's PRs, then everything about one PR that
 // its metrics need, fetched together as one stored version (decision D40).
+import { commitLines, git, landed, numstat, present } from "../git/git.ts";
 import type { AdoClient } from "./client.ts";
 import { iso } from "./normalize.ts";
 import type {
@@ -95,6 +96,8 @@ export async function fetchPr(
   pr: AdoPullRequest,
   /** The PR's threads, when the caller has just read them. */
   read?: AdoThread[],
+  /** The repo's local copy (D46): line counts are read there, not asked for. */
+  copy?: string,
 ): Promise<AdoPayload> {
   const base = `${repoPath(repo)}/pullRequests/${pr.pullRequestId}`;
   // One after another: the client paces every request (D41).
@@ -105,11 +108,25 @@ export async function fetchPr(
   });
   const truncated: string[] = [];
   if (commits.value.length >= MAX_COMMITS) truncated.push("commits");
-  const sized = await changedFiles(client, repo, base, iterations.value).catch(
-    (err: unknown): Sized => ({ error: err instanceof Error ? err.message : String(err) }),
-  );
+  // From the local copy when it holds the PR's commits; from Azure DevOps otherwise.
+  const local = copy ? await localFiles(copy, pr, commits.value).catch(() => null) : null;
+  const sized: Sized =
+    local ??
+    (await changedFiles(client, repo, base, iterations.value).catch(
+      (err: unknown): Sized => ({ error: err instanceof Error ? err.message : String(err) }),
+    ));
   const files = "files" in sized ? sized.files : null;
   if (files === null) truncated.push("files");
+  if (copy) {
+    const lines = await commitLines(
+      copy,
+      commits.value.map((c) => c.commitId),
+    ).catch(() => new Map());
+    for (const commit of commits.value) {
+      const known = lines.get(commit.commitId);
+      if (known) Object.assign(commit, known);
+    }
+  }
   return {
     pr,
     webUrl: `${client.base}/${encodeURIComponent(repo.project)}/_git/${encodeURIComponent(repo.name)}/pullrequest/${pr.pullRequestId}`,
@@ -118,8 +135,34 @@ export async function fetchPr(
     commits: commits.value,
     files,
     ...("error" in sized && { filesError: sized.error }),
+    ...(files !== null && { filesFrom: local ? ("local copy" as const) : ("api" as const) }),
     truncated,
   };
+}
+
+/**
+ * A PR's changed files from the local copy: a completed PR's as it landed on the target branch
+ * (merge commit, squash or rebase alike), an open PR's from where its branch left the target.
+ * Null when the copy doesn't hold the commits (an abandoned PR's branch, deleted).
+ */
+async function localFiles(
+  dir: string,
+  pr: AdoPullRequest,
+  commits: readonly AdoCommit[],
+): Promise<Sized | null> {
+  if (pr.status === "completed" && pr.lastMergeCommit) {
+    const merge = pr.lastMergeCommit.commitId;
+    if (!(await present(dir, [merge])).has(merge)) return null;
+    const subjects = commits.map((c) => (c.comment ?? "").split("\n")[0] ?? "");
+    const change = await landed(dir, merge, subjects);
+    return change ? { files: await numstat(dir, change.base, merge) } : null;
+  }
+  const source = pr.lastMergeSourceCommit?.commitId;
+  const target = pr.lastMergeTargetCommit?.commitId;
+  if (pr.status !== "active" || !source || !target) return null;
+  if ((await present(dir, [source, target])).size < 2) return null;
+  const from = (await git(["merge-base", target, source], { cwd: dir })).trim();
+  return { files: await numstat(dir, from, source) };
 }
 
 /** A PR's changed files with their lines, or why they couldn't be read. */

@@ -45,6 +45,8 @@ export type Session = {
   client: GitHubClient;
   login: string;
   budget: GraphqlBudget;
+  /** For git, to fetch local copies (D46): never written anywhere. */
+  token: string;
 };
 
 const TOKEN_KINDS: Record<TokenKind, string> = {
@@ -135,7 +137,7 @@ export async function connect(
       `${num(budget.remaining)} of ${num(budget.limit)} GraphQL points left, resets ${clock(budget.resetAt)}`,
     ),
   );
-  return { org, config, dbPath: org.dbPath, client, login, budget };
+  return { org, config, dbPath: org.dbPath, client, login, budget, token: token.value };
 }
 
 type ViewerData = {

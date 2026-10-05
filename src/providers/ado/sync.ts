@@ -58,6 +58,8 @@ export async function syncAdoRepo(options: {
   startedAt: string;
   signal?: AbortSignal;
   onProgress?: (walk: AdoWalk) => void;
+  /** The repo's local copy, if it has one (D46): line counts are read there. */
+  copy?: string;
 }): Promise<AdoRepoOutcome> {
   const { client, store, runId, repo, since, signal } = options;
   const id = adoRepoId(repo);
@@ -113,7 +115,7 @@ export async function syncAdoRepo(options: {
           if (batch.length > 0) store_(walk, batch, {});
           return null;
         }
-        batch.push(await fetchPr(client, repo, pr, reuse.get(pr.pullRequestId)));
+        batch.push(await fetchPr(client, repo, pr, reuse.get(pr.pullRequestId), options.copy));
         walk.prs += 1;
         if (batch.length === SAVE_EVERY) {
           store_(walk, batch, {});

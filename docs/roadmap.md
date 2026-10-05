@@ -9,7 +9,7 @@
 | 4 | Hosted track: `serve`, scheduler, GitHub App auth, Docker image | The same report is served, and the conformance suite passes on both tracks | |
 | 5 | Scale: concurrent sync, webhooks, anomaly flags | Runs within budget against hundreds of repos | |
 | 6 | Work items: Jira and Azure Boards links | Link coverage is reported; work-item cycle time works | |
-| 7 | Line-level churn and rework from git clones, opt-in per repo (file-level churn and rework after review are built: D44) | Line-level numbers show for opted-in repos | |
+| 7 | Local copies, opt-in per repo: Azure DevOps sizes and rework, line-level churn (D46) | Line-level numbers show for opted-in repos | Done |
 
 **Validation repo:** [usebruno/bruno](https://github.com/usebruno/bruno). It is public, so its
 data can go into test fixtures. In October 2026 it had about 4,400 PRs in total, 2,552 of them
@@ -39,7 +39,8 @@ none from June.
 - Review: reviewed, approved, reviews per PR, commented, re-pushed after review, changed after
   review (lines; GitHub only)
 - Stability: reverted within 30 days (merges under 30 days old are left out, not counted as fine);
-  changed again soon and followed up by the author, within the churn window (D44)
+  changed again soon and followed up by the author, within the churn window (D44); lines
+  rewritten soon, for repos with a local copy (D46)
 - Flow: abandoned, and open PRs now
 
 **Phase 3, so far.** The report follows the design handoff of October 2026: six tabs by

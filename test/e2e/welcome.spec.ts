@@ -111,8 +111,9 @@ test("TC-611 the org's repos, branches, bots and paths are edited in Setup, and 
   await page.getByLabel("Search leave out").press("Enter");
   await page.getByRole("button", { name: "Show what this measures" }).click();
   await expect(page.locator(".preview-repos")).toContainText("2 repos, 2 left out");
-  await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Saved to org.yml.")).toBeVisible();
+  const sources = page.locator("form").filter({ hasText: "Show what this measures" });
+  await sources.getByRole("button", { name: "Save" }).click();
+  await expect(sources.getByText("Saved to org.yml.")).toBeVisible();
   expect(await yml()).toMatch(/exclude:\s*\n?\s*-?\s*\[?\s*legacy/);
 
   await setup("Branches");

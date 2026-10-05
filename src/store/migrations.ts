@@ -80,6 +80,20 @@ const MIGRATIONS: readonly string[] = [
     derived_at  TEXT NOT NULL
   ) STRICT;
   `,
+  // 2: line-level churn from local copies (decision D46). Measured from git, after the window
+  // has passed, so it is kept apart from the PRs' raw versions; a row is per window length.
+  `
+  CREATE TABLE line_churn (
+    pr_id        TEXT NOT NULL,
+    repo_id      TEXT NOT NULL REFERENCES repos (id),
+    window_days  INTEGER NOT NULL,
+    added        INTEGER,                    -- product lines the PR added; null: git couldn't say
+    rewritten    INTEGER,
+    measured_at  TEXT NOT NULL,
+    PRIMARY KEY (pr_id, window_days)
+  ) STRICT;
+  CREATE INDEX line_churn_by_repo ON line_churn (repo_id);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

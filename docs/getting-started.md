@@ -80,7 +80,7 @@ Everything an org can be told is in the **Setup** tab, saved to its config files
 
 | Section | What it holds |
 | ------- | ------------- |
-| Repos | what the org measures, on GitHub and Azure DevOps, and from which day |
+| Repos | what the org measures, on GitHub and Azure DevOps, and from which day; optional local copies for exact Azure DevOps sizes and line-level churn |
 | Branches | which branches count, with a one-click fix when a repo's work lands on `develop` |
 | Bots | service accounts, bots whose reviews count, boilerplate comments to ignore |
 | Paths | which files are tests, docs or generated, so PR size counts product code |

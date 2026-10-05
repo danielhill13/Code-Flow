@@ -26,6 +26,7 @@ export type AdoPullRequest = {
   targetRefName: string;
   mergeStatus?: string;
   lastMergeCommit?: { commitId: string };
+  lastMergeTargetCommit?: { commitId: string };
   lastMergeSourceCommit?: { commitId: string };
   forkSource?: { name?: string };
   labels?: { name: string; active?: boolean }[];
@@ -73,6 +74,10 @@ export type AdoCommit = {
   author?: { name?: string; email?: string; date: string };
   committer?: { name?: string; email?: string; date: string };
   comment?: string;
+  /** Added by codeflow from a local copy (D46): the lines it changed, and its parents. */
+  additions?: number;
+  deletions?: number;
+  parents?: number;
 };
 
 /** What codeflow stores for one version of an Azure DevOps PR. */
@@ -87,6 +92,8 @@ export type AdoPayload = {
   files: { path: string; additions: number; deletions: number }[] | null;
   /** Why `files` is null, as Azure DevOps or codeflow put it. */
   filesError?: string;
+  /** Where the line counts came from: the repo's local copy (D46), or Azure DevOps's API. */
+  filesFrom?: "local copy" | "api";
   /** Lists cut short: "commits", "files". */
   truncated: string[];
 };

@@ -196,7 +196,12 @@ function toJson(result: Measurement, repos: string[]) {
         label: metric.label,
         group: metric.group,
         kind: metric.kind,
-        unit: "unit" in metric ? metric.unit : metric.kind === "share" ? "share" : "prs",
+        unit:
+          "unit" in metric
+            ? metric.unit
+            : metric.kind === "share" || metric.kind === "ratio"
+              ? "share"
+              : "prs",
         value,
         n,
         notApplicable,

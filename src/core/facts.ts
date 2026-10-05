@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 9;
+export const DERIVE_VERSION = 10;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -170,6 +170,13 @@ export type PrFact = {
    * target branch left out. Null when it wasn't reviewed, or the host doesn't give commit lines.
    */
   reworkLines: number | null;
+
+  /**
+   * Line-level churn, from a local copy (decision D46): of the product lines this PR added, how
+   * many were rewritten within the churn window. Null without a copy, or while too recent.
+   */
+  churnAddedLines: number | null;
+  rewrittenLines: number | null;
 
   /** Lists the provider cut short; values that depend on them are less certain. */
   truncated: Truncatable[];

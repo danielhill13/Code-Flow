@@ -43,6 +43,8 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
     const inputs = fingerprint({
       version: DERIVE_VERSION,
       raw: store.rawFingerprint(repo.id),
+      lineChurn: store.lineChurnFingerprint(repo.id),
+      churnDays: config.churn_window_days,
       measured,
       rules,
       groups,
@@ -53,6 +55,7 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
       store,
       repo,
       rulesFor(config, repo.fullName, measured, groups, engine),
+      store.lineChurn(repo.id, config.churn_window_days),
     );
     store.replaceFacts(repo.id, facts, inputs);
     derived += 1;
@@ -62,7 +65,13 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
 }
 
 /** One repo's facts from its stored PRs, under the given rules. Writes nothing. */
-export function deriveRepo(store: Store, repo: StoredRepo, rules: DeriveRules): PrFact[] {
+export function deriveRepo(
+  store: Store,
+  repo: StoredRepo,
+  rules: DeriveRules,
+  /** Line churn measured from the repo's local copy, by PR id (decision D46). */
+  lineChurn: ReadonlyMap<string, { added: number | null; rewritten: number | null }> = new Map(),
+): PrFact[] {
   const facts = new Map<string, PrFact>();
   const clues: RevertClues[] = [];
   const churn: ChurnClues[] = [];
@@ -76,6 +85,12 @@ export function deriveRepo(store: Store, repo: StoredRepo, rules: DeriveRules): 
   }
   linkReverts(clues, facts);
   linkChurn(churn, facts);
+  for (const [id, measured] of lineChurn) {
+    const fact = facts.get(id);
+    if (!fact || measured.added === null || measured.rewritten === null) continue;
+    fact.churnAddedLines = measured.added;
+    fact.rewrittenLines = measured.rewritten;
+  }
   return [...facts.values()];
 }
 
@@ -95,6 +110,7 @@ export function deriveWith(store: Store, config: Config): PrFact[] {
       store,
       repo,
       rulesFor(config, repo.fullName, measuredBranches(config, repo, engine), groups, engine),
+      store.lineChurn(repo.id, config.churn_window_days),
     ),
   );
 }
@@ -244,7 +260,7 @@ export function rulesFor(
   };
 }
 
-function normalize(repo: StoredRepo, payload: unknown, updatedAt: string): PrModel {
+export function normalize(repo: StoredRepo, payload: unknown, updatedAt: string): PrModel {
   switch (repo.provider) {
     case "github":
       return normalizePr(payload as GhPayload, { id: repo.id, fullName: repo.fullName });
