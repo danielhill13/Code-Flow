@@ -9,7 +9,7 @@
 // A PR fetched again with nothing new has the same version (pulls.ts versionOf), so the store
 // keeps one copy. Every request is paced by the client (D41).
 import type { Store } from "../../store/store.ts";
-import type { AdoClient } from "./client.ts";
+import { type AdoClient, AdoError } from "./client.ts";
 import { adoPrId } from "./normalize.ts";
 import { fetchPr, listPrs, openSignature, prThreads, versionOf } from "./pulls.ts";
 import type { AdoPayload, AdoPullRequest, AdoRepo } from "./types.ts";
@@ -23,6 +23,8 @@ export type AdoWalk = {
   newVersions: number;
   /** Open PRs found unchanged by one request, and so not read again. */
   unchanged?: number;
+  /** PRs Azure DevOps wouldn't give, with what it said: skipped so the rest still sync. */
+  skipped?: { number: number; error: string }[];
 };
 
 export type AdoRepoOutcome = {
@@ -37,6 +39,11 @@ const SAVE_EVERY = 5;
 
 /** Seconds of overlap with the last sync, so a PR closing as it started isn't missed. */
 const OVERLAP_MS = 60 * 60 * 1000;
+
+/** Whether an error is one PR's alone: Azure DevOps answered, just not with that PR's data. */
+function skippable(err: unknown): boolean {
+  return err instanceof AdoError && err.status !== 401 && err.status !== 429 && err.status !== 503;
+}
 
 /** The store's id for an Azure DevOps repo: its id, which survives renames. */
 export const adoRepoId = (repo: AdoRepo) => `ado:${repo.id}`;
@@ -115,7 +122,19 @@ export async function syncAdoRepo(options: {
           if (batch.length > 0) store_(walk, batch, {});
           return null;
         }
-        batch.push(await fetchPr(client, repo, pr, reuse.get(pr.pullRequestId), options.copy));
+        try {
+          batch.push(await fetchPr(client, repo, pr, reuse.get(pr.pullRequestId), options.copy));
+        } catch (err) {
+          // A refused token, or no network, stops the repo: nothing else would read either.
+          // One PR Azure DevOps won't give is skipped and reported, so it can't hold back every
+          // PR after it, sync after sync.
+          if (!skippable(err)) throw err;
+          walk.skipped = [
+            ...(walk.skipped ?? []),
+            { number: pr.pullRequestId, error: (err as Error).message },
+          ];
+          continue;
+        }
         walk.prs += 1;
         if (batch.length === SAVE_EVERY) {
           store_(walk, batch, {});

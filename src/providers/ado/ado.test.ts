@@ -278,6 +278,43 @@ describe("syncing an Azure DevOps repo", () => {
   });
   afterAll(() => server.stop());
 
+  it("finishes a backfill past a PR Azure DevOps won't give, and says which it skipped", async () => {
+    const store = Store.open(":memory:");
+    const {
+      repos: [repo],
+    } = await discoverAdo(client, {
+      kind: "ado",
+      organization: ADO_ORG,
+      project: "Platform",
+      include: ["billing"],
+      exclude: [],
+      forks: false,
+    });
+    const broken = repos[0]?.prs.find((p) => p.pr.status === "completed");
+    if (!repo || !broken) throw new Error("billing not found");
+    server.broken.add(broken.pr.pullRequestId);
+    try {
+      const outcome = await syncAdoRepo({
+        client,
+        store,
+        runId: store.startRun("sync"),
+        repo,
+        since: "2000-01-01",
+        startedAt: new Date().toISOString(),
+      });
+      expect(outcome.error).toBeUndefined();
+      const backfill = outcome.walks.find((w) => w.walk === "backfill");
+      expect(backfill?.skipped).toEqual([
+        { number: broken.pr.pullRequestId, error: expect.stringContaining("TF401180") },
+      ]);
+      // Done, so the next sync doesn't backfill again.
+      expect(store.syncState(adoRepoId(repo)).coveredSince).toBe("2000-01-01");
+      expect(store.repoSummaries()[0]?.prs).toBe((repos[0]?.prs.length ?? 0) - 1);
+    } finally {
+      server.broken.clear();
+    }
+  });
+
   it("backfills to `since`, then on each sync fetches only open PRs and what closed since", async () => {
     const store = Store.open(":memory:");
     const [source] = [

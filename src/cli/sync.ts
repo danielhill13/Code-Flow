@@ -398,6 +398,9 @@ function printOutcome(outcome: Outcome, print: Print): void {
   );
   const checked =
     unchanged > 0 ? `; ${plural(unchanged, "open PR")} unchanged, not read again` : "";
+  const skipped = (outcome.walks as { skipped?: { number: number; error: string }[] }[]).flatMap(
+    (walk) => walk.skipped ?? [],
+  );
   const walks = (outcome.walks as { walk: string; pages: number }[])
     .map((walk) => `${WALKS[walk.walk as WalkName] ?? walk.walk}: ${plural(walk.pages, "page")}`)
     .join(", ");
@@ -413,6 +416,19 @@ function printOutcome(outcome: Outcome, print: Print): void {
       `${name}: ${plural(prs, "PR")} fetched, ${num(added)} new or changed${checked} ${dim(`(${walks})`)}`,
     ),
   );
+  if (skipped.length > 0) {
+    const [first] = skipped;
+    print(
+      marked(
+        "warn",
+        `${name}: ${plural(skipped.length, "PR")} Azure DevOps wouldn't give, skipped: ` +
+          `${skipped
+            .slice(0, 5)
+            .map((s) => `#${s.number}`)
+            .join(", ")}${skipped.length > 5 ? "…" : ""} (${first?.error ?? ""})`,
+      ),
+    );
+  }
 }
 
 /** What the run record keeps about this run. */

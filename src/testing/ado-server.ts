@@ -25,6 +25,8 @@ export class AdoServer {
   readonly #noProjectScope: boolean;
   /** Set to refuse file diffs, as a server might: sizes can't be read. */
   refuseDiffs = false;
+  /** PRs whose details answer 404, as Azure DevOps can for one PR. */
+  readonly broken = new Set<number>();
   #server: Server | null = null;
 
   constructor(
@@ -196,6 +198,12 @@ export class AdoServer {
     if (kind === "pullRequests" && prId) {
       const payload = repo.prs.find((p) => String(p.pr.pullRequestId) === prId);
       if (!payload) return { status: 404, body: { message: "PR not found" } };
+      if (this.broken.has(payload.pr.pullRequestId) && sub === "commits") {
+        return {
+          status: 404,
+          body: { message: "TF401180: The requested pull request was not found." },
+        };
+      }
       switch (sub) {
         case "threads":
           return { status: 200, body: { value: payload.threads } };
