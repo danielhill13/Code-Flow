@@ -14,7 +14,7 @@ import {
 import type { DataSource, Meta } from "../core/source.ts";
 import type { ViewQuery } from "../core/views/context.ts";
 import { DEFAULT_SORT, type PrSet } from "../core/views/prs.ts";
-import { calendarChoices, grainOf, type WindowKey, windowOf } from "../core/windows.ts";
+import { grainOf, windowOf } from "../core/windows.ts";
 import type { AdminApi, SyncStatus } from "./admin/api.ts";
 import { Setup } from "./admin/setup.tsx";
 import { Drawer } from "./drawer.tsx";
@@ -29,61 +29,7 @@ import { Review } from "./tabs/review.tsx";
 import { Speed } from "./tabs/speed.tsx";
 import { type BreakdownChoice, capital, Segmented, when } from "./ui.tsx";
 import { FirstSync } from "./welcome.tsx";
-
-const WINDOWS: readonly { value: WindowKey; label: string }[] = [
-  { value: "30d", label: "30 d" },
-  { value: "60d", label: "60 d" },
-  { value: "90d", label: "90 d" },
-  { value: "mtd", label: "MTD" },
-  { value: "qtd", label: "QTD" },
-  { value: "ytd", label: "YTD" },
-];
-
-/** One calendar month, quarter or year, beside the quick windows: chosen, it shows its name. */
-function PeriodPicker(props: {
-  value: WindowKey;
-  from: string;
-  asOf: Date;
-  onChange: (key: WindowKey) => void;
-}) {
-  const { months, quarters, years } = calendarChoices(props.from, props.asOf);
-  const preset = WINDOWS.some((w) => w.value === props.value);
-  return (
-    <label class="control period-picker">
-      <span class="visually-hidden">A month, quarter or year</span>
-      <select
-        class={preset ? undefined : "chosen"}
-        value={preset ? "" : props.value}
-        onChange={(e) => {
-          if (e.currentTarget.value) props.onChange(e.currentTarget.value);
-        }}
-      >
-        <option value="">Period…</option>
-        <optgroup label="Months">
-          {months.map((m) => (
-            <option key={m.key} value={m.key}>
-              {m.label}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Quarters">
-          {quarters.map((q) => (
-            <option key={q.key} value={q.key}>
-              {q.label}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="Years">
-          {years.map((y) => (
-            <option key={y.key} value={y.key}>
-              {y.label}
-            </option>
-          ))}
-        </optgroup>
-      </select>
-    </label>
-  );
-}
+import { WindowMenu } from "./window-menu.tsx";
 
 const STATISTICS: readonly { value: number; label: string }[] = [
   { value: 0.5, label: "Median" },
@@ -282,20 +228,12 @@ function Report({
       <div class="controls" hidden={state.tab === "setup"}>
         <div class="wrap">
           {state.tab !== "compare" && state.tab !== "prs" && (
-            <>
-              <Segmented
-                label="Window"
-                options={WINDOWS}
-                value={state.window}
-                onChange={(w) => update({ window: w })}
-              />
-              <PeriodPicker
-                value={state.window}
-                from={meta.coveredFrom}
-                asOf={asOf}
-                onChange={(w) => update({ window: w })}
-              />
-            </>
+            <WindowMenu
+              value={state.window}
+              from={meta.coveredFrom}
+              asOf={asOf}
+              onChange={(w) => update({ window: w })}
+            />
           )}
           <Segmented
             label="Statistic"

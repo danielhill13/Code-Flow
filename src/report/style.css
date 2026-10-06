@@ -2088,19 +2088,119 @@ summary {
   font-size: 13px;
 }
 
-/* One calendar month, quarter or year, beside the quick windows. */
-.period-picker select {
-  font: inherit;
-  font-size: 12.5px;
-  padding: 4px 8px;
-  border: 1px solid var(--line2);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text2);
+/* The window: one button naming it, opening a small panel to choose another. */
+.window-control {
+  position: relative;
 }
 
-.period-picker select.chosen {
-  border-color: var(--accent);
-  color: var(--text);
+.window-button {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface2);
+  font-size: 12.5px;
   font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.window-button:hover {
+  background: var(--hover);
+}
+
+.window-button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.window-button .caret {
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.window-menu {
+  top: 34px;
+  left: 0;
+  width: min(420px, calc(100vw - 32px));
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.window-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.window-row .menu-title {
+  width: 60px;
+  white-space: nowrap;
+  flex: none;
+  padding: 0 2px;
+}
+
+.window-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  flex: 1;
+}
+
+.window-calendar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.window-column {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.window-column .menu-title {
+  padding: 0 8px 4px;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.window-item {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+
+.window-row .window-item {
+  border: 1px solid var(--line);
+  text-align: center;
+}
+
+.window-item:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.window-item:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.window-item[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
 }

@@ -21,6 +21,15 @@ async function press(page: Page, name: string): Promise<string> {
   return ready(page);
 }
 
+/** Chooses a window from the window menu: "30 days", "Month" (to date), "Q3 2026", … */
+async function pickWindow(page: Page, item: string): Promise<string> {
+  await page.locator(".window-button").click();
+  const menu = page.getByRole("dialog", { name: "Choose a window" });
+  await menu.getByRole("button", { name: item, exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  return ready(page);
+}
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
@@ -58,8 +67,8 @@ test("TC-502 every tab, window and statistic shows numbers, never broken values"
   for (const tab of TABS) {
     await openTab(page, tab);
     const windowed = tab !== "Compare" && tab !== "Pull requests";
-    for (const window of windowed ? ["30 d", "90 d", "MTD", "QTD", "YTD"] : [null]) {
-      if (window) await press(page, window);
+    for (const window of windowed ? ["30 days", "90 days", "Month", "Quarter", "Year"] : [null]) {
+      if (window) await pickWindow(page, window);
       for (const statistic of ["Median", "P75"]) {
         const text = await press(page, statistic);
         expect(text, `${tab} · ${window} · ${statistic}`).not.toMatch(BAD);
@@ -99,7 +108,7 @@ test("TC-504 the whole view lives in the URL: reload or share it and it comes ba
   await page.goto(REPORT);
   await ready(page);
   await openTab(page, "Review");
-  await press(page, "90 d");
+  await pickWindow(page, "90 days");
   await press(page, "P75");
   const before = await press(page, "Internal");
   const url = page.url();
@@ -164,29 +173,41 @@ test("TC-511 a window can be a period to date, or one month, quarter or year, an
 }) => {
   await page.goto(REPORT);
   await ready(page);
-  await page.getByRole("button", { name: "MTD", exact: true }).click();
+  // One button names the window; its menu holds every choice.
+  await expect(page.locator(".window-button")).toHaveText(/Last 30 days/);
+  await pickWindow(page, "Month");
+  await expect(page.locator(".window-button")).toHaveText(/Month to date/);
   await expect(page.locator(".heading p")).toContainText("month to date");
 
-  const period = page.getByLabel("A month, quarter or year");
-  const month =
-    (await period.locator("optgroup[label='Months'] option").nth(1).getAttribute("value")) ?? "";
-  expect(month).toMatch(/^\d{4}-\d{2}$/);
-  await period.selectOption(month);
-  const text = await ready(page);
-  expect(text).not.toMatch(BAD);
-  expect(page.url()).toContain(`w=${month}`);
-  await expect(page.getByRole("button", { name: "MTD", exact: true })).toHaveAttribute(
+  await page.locator(".window-button").click();
+  const menu = page.getByRole("dialog", { name: "Choose a window" });
+  await expect(menu.getByRole("button", { name: "Month", exact: true })).toHaveAttribute(
     "aria-pressed",
-    "false",
+    "true",
   );
+  // Escape closes it, changing nothing.
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+
+  const quarter = (await page.evaluate(() => {
+    const now = new Date();
+    return `Q${Math.floor(now.getUTCMonth() / 3) + 1} ${now.getUTCFullYear()}`;
+  })) as string;
+  const text = await pickWindow(page, quarter);
+  expect(text).not.toMatch(BAD);
+  expect(page.url()).toMatch(/w=\d{4}-Q[1-4]/);
+  await expect(page.locator(".window-button")).toHaveText(new RegExp(quarter));
 
   await page.reload();
   await ready(page);
-  await expect(page.getByLabel("A month, quarter or year")).toHaveValue(month);
-  const year =
-    (await period.locator("optgroup[label='Years'] option").first().getAttribute("value")) ?? "";
-  await period.selectOption(year);
-  expect(await ready(page)).not.toMatch(BAD);
+  await expect(page.locator(".window-button")).toHaveText(new RegExp(quarter));
+  const year = String(new Date().getUTCFullYear() - 1);
+  await page.locator(".window-button").click();
+  const years = page.getByRole("dialog", { name: "Choose a window" });
+  if ((await years.getByRole("button", { name: year, exact: true }).count()) > 0) {
+    await years.getByRole("button", { name: year, exact: true }).click();
+    expect(await ready(page)).not.toMatch(BAD);
+  }
 });
 
 test("TC-506 the theme the viewer picks stays picked", async ({ page }) => {
