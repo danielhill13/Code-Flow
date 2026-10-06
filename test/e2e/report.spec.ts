@@ -58,7 +58,7 @@ test("TC-502 every tab, window and statistic shows numbers, never broken values"
   for (const tab of TABS) {
     await openTab(page, tab);
     const windowed = tab !== "Compare" && tab !== "Pull requests";
-    for (const window of windowed ? ["30 d", "90 d", "YTD"] : [null]) {
+    for (const window of windowed ? ["30 d", "90 d", "MTD", "QTD", "YTD"] : [null]) {
       if (window) await press(page, window);
       for (const statistic of ["Median", "P75"]) {
         const text = await press(page, statistic);
@@ -157,6 +157,36 @@ test("TC-510 what is selected is listed first when the picker opens again", asyn
   const first = again.locator("fieldset").filter({ hasText: "Repos" }).locator("label").first();
   await expect(first).toHaveText(last);
   await expect(first.locator("input")).toBeChecked();
+});
+
+test("TC-511 a window can be a period to date, or one month, quarter or year, and stays in the link", async ({
+  page,
+}) => {
+  await page.goto(REPORT);
+  await ready(page);
+  await page.getByRole("button", { name: "MTD", exact: true }).click();
+  await expect(page.locator(".heading p")).toContainText("month to date");
+
+  const period = page.getByLabel("A month, quarter or year");
+  const month =
+    (await period.locator("optgroup[label='Months'] option").nth(1).getAttribute("value")) ?? "";
+  expect(month).toMatch(/^\d{4}-\d{2}$/);
+  await period.selectOption(month);
+  const text = await ready(page);
+  expect(text).not.toMatch(BAD);
+  expect(page.url()).toContain(`w=${month}`);
+  await expect(page.getByRole("button", { name: "MTD", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+
+  await page.reload();
+  await ready(page);
+  await expect(page.getByLabel("A month, quarter or year")).toHaveValue(month);
+  const year =
+    (await period.locator("optgroup[label='Years'] option").first().getAttribute("value")) ?? "";
+  await period.selectOption(year);
+  expect(await ready(page)).not.toMatch(BAD);
 });
 
 test("TC-506 the theme the viewer picks stays picked", async ({ page }) => {

@@ -18,7 +18,7 @@ import {
   type PrSet,
   type PrSort,
 } from "../core/views/prs.ts";
-import { WINDOW_KEYS, type WindowKey } from "../core/windows.ts";
+import { isWindowKey, type WindowKey } from "../core/windows.ts";
 
 export type Tab = "overview" | "speed" | "review" | "flow" | "compare" | "prs" | "setup";
 
@@ -99,9 +99,7 @@ export function readState(hash: string): ReportState {
       person: params.getAll("person"),
     },
     by: readBreakdown(get("by")),
-    window: (WINDOW_KEYS as readonly string[]).includes(get("w") ?? "")
-      ? (get("w") as WindowKey)
-      : DEFAULT_STATE.window,
+    window: isWindowKey(get("w") ?? "") ? (get("w") as WindowKey) : DEFAULT_STATE.window,
     percentile: (PERCENTILES as readonly number[]).includes(percentile) ? percentile : 0.5,
     contributors: (CONTRIBUTORS as readonly string[]).includes(get("who") ?? "")
       ? (get("who") as Contributors)

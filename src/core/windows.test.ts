@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { bucketsOf, covers, grainOf, shiftBack, windowOf } from "./windows.ts";
+import {
+  bucketsOf,
+  calendarChoices,
+  covers,
+  grainOf,
+  isWindowKey,
+  shiftBack,
+  windowOf,
+} from "./windows.ts";
 
 // A Saturday evening, with milliseconds, as a sync's start time looks.
 const asOf = new Date("2026-10-03T00:12:08.928Z");
@@ -27,8 +35,107 @@ describe("windowOf", () => {
     expect(previous).toEqual({
       start: "2025-01-01T00:00:00Z",
       end: "2025-10-03T00:12:08Z",
-      label: "the same span of 2025",
+      label: "the same days of 2025",
     });
+  });
+});
+
+describe("periods to date, and calendar periods [rule 7]", () => {
+  it("compares month and quarter to date with the same days of the one before", () => {
+    expect(windowOf("mtd", asOf)).toMatchObject({
+      current: {
+        start: "2026-10-01T00:00:00Z",
+        end: "2026-10-03T00:12:08Z",
+        label: "month to date",
+      },
+      previous: {
+        start: "2026-09-01T00:00:00Z",
+        end: "2026-09-03T00:12:08Z",
+        label: "the same days of September 2026",
+      },
+    });
+    expect(windowOf("qtd", asOf)).toMatchObject({
+      current: { start: "2026-10-01T00:00:00Z", label: "quarter to date" },
+      previous: { start: "2026-07-01T00:00:00Z", end: "2026-07-03T00:12:08Z" },
+    });
+    // March 31 to date: all of February, no further.
+    expect(windowOf("mtd", new Date("2026-03-31T12:00:00Z")).previous).toMatchObject({
+      start: "2026-02-01T00:00:00Z",
+      end: "2026-03-01T00:00:00Z",
+    });
+    // A quarter to date in January compares with the previous year's last quarter.
+    expect(windowOf("qtd", new Date("2026-01-10T00:00:00Z")).previous).toMatchObject({
+      start: "2025-10-01T00:00:00Z",
+      label: "the same days of Q4 2025",
+    });
+  });
+
+  it("takes a whole month, quarter or year, against the one before", () => {
+    expect(windowOf("2026-09", asOf)).toMatchObject({
+      current: {
+        start: "2026-09-01T00:00:00Z",
+        end: "2026-10-01T00:00:00Z",
+        label: "September 2026",
+      },
+      previous: {
+        start: "2026-08-01T00:00:00Z",
+        end: "2026-09-01T00:00:00Z",
+        label: "August 2026",
+      },
+    });
+    expect(windowOf("2026-Q1", asOf)).toMatchObject({
+      current: { start: "2026-01-01T00:00:00Z", end: "2026-04-01T00:00:00Z", label: "Q1 2026" },
+      previous: { start: "2025-10-01T00:00:00Z", label: "Q4 2025" },
+    });
+    expect(windowOf("2025", asOf)).toMatchObject({
+      current: { start: "2025-01-01T00:00:00Z", end: "2026-01-01T00:00:00Z", label: "2025" },
+      previous: { label: "2024" },
+    });
+  });
+
+  it("runs a period not over yet to the data, against the same days of the one before", () => {
+    expect(windowOf("2026-10", asOf)).toMatchObject({
+      current: { end: "2026-10-03T00:12:08Z", label: "October 2026 so far" },
+      previous: { start: "2026-09-01T00:00:00Z", end: "2026-09-03T00:12:08Z" },
+    });
+  });
+
+  it("reads quarters by week and years by month", () => {
+    expect(grainOf(windowOf("2026-Q3", asOf))).toBe("week");
+    expect(grainOf(windowOf("2026-Q1", asOf))).toBe("week");
+    expect(grainOf(windowOf("2025", asOf))).toBe("month");
+    expect(bucketsOf(windowOf("2025", asOf))).toHaveLength(12);
+  });
+
+  it("knows a window's key, and offers each period the data reaches", () => {
+    for (const key of ["30d", "mtd", "qtd", "ytd", "2026-09", "2026-Q3", "2025"]) {
+      expect(isWindowKey(key)).toBe(true);
+    }
+    for (const key of ["2026-13", "2026-Q5", "7d", "26", "2026-9"])
+      expect(isWindowKey(key)).toBe(false);
+    const { months, quarters, years } = calendarChoices("2025-11-15", asOf);
+    expect(months.map((m) => m.key)).toEqual([
+      "2026-10",
+      "2026-09",
+      "2026-08",
+      "2026-07",
+      "2026-06",
+      "2026-05",
+      "2026-04",
+      "2026-03",
+      "2026-02",
+      "2026-01",
+      "2025-12",
+      "2025-11",
+    ]);
+    expect(quarters.map((q) => q.label)).toEqual([
+      "Q4 2026",
+      "Q3 2026",
+      "Q2 2026",
+      "Q1 2026",
+      "Q4 2025",
+    ]);
+    expect(years.map((y) => y.key)).toEqual(["2026", "2025"]);
   });
 });
 
@@ -50,7 +157,7 @@ describe("bucketsOf", () => {
     });
   });
 
-  it("reads year to date by month once 13 weeks have passed, and by week before", () => {
+  it("reads year to date by month once 14 weeks have passed, and by week before", () => {
     const october = windowOf("ytd", asOf);
     expect(grainOf(october)).toBe("month");
     const months = bucketsOf(october);

@@ -192,7 +192,8 @@ different depths:
 
 - **Selection** is any mix of teams, groups, repos and people (D26, D30), shown as crumbs in
   the header and built with a picker. Tables break it down by team, each kind of group, or repo.
-- **Window** is 30, 60 or 90 days, or year to date, ending when the data does (D19). Compare uses
+- **Window** is 30, 60 or 90 days, month, quarter or year to date, ending when the data does
+  (D19), or one calendar month, quarter or year (D47). Compare uses
   calendar periods instead.
 - **Statistic** is the median or P75, everywhere. Predictability adds P85; Compare adds P25 and
   P75 for the middle half.

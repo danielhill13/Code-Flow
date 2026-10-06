@@ -2087,3 +2087,20 @@ summary {
   gap: 4px;
   font-size: 13px;
 }
+
+/* One calendar month, quarter or year, beside the quick windows. */
+.period-picker select {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 4px 8px;
+  border: 1px solid var(--line2);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text2);
+}
+
+.period-picker select.chosen {
+  border-color: var(--accent);
+  color: var(--text);
+  font-weight: 500;
+}

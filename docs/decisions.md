@@ -359,3 +359,11 @@ can't read. A new metric kind, `ratio`, sums lines over PRs, so a large PR weigh
 do. Opt-in, because a copy puts the repo's source code on the machine; the token reaches git only
 through its environment. The API-only route remains the default.
 
+**D47 · 2026-10-06 · Periods to date, and any month, quarter or year.** Beside the rolling 30,
+60 and 90 days and year to date, a window can be month or quarter to date, or one calendar month,
+quarter or year (`w=2026-09`, `w=2026-Q3`, `w=2025` in the link; the Period menu lists those the
+data reaches). Each compares with the one before of its kind: a whole period with the whole one
+before, a period still running (to date, or the current month chosen by name) with the same days
+of the one before, so a partial span is never set against a whole one (rule 7). Trends are weekly
+up to 14 weeks, so every quarter reads by week and every year by month. Supersedes D19's list.
+

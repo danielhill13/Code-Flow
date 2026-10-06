@@ -172,6 +172,7 @@ here.
 | TC-508 | Stale PRs are shown on Flow apart from those open now, and listed on request |
 | TC-509 | Changes read as a neutral increase or decrease, in one unit |
 | TC-510 | What is selected is listed first when the picker opens again |
+| TC-511 | A window can be a period to date (MTD, QTD, YTD), or one month, quarter or year, and stays in the link |
 
 ### Setup in the served app (`test/e2e/serve.spec.ts`)
 
