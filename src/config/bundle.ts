@@ -44,6 +44,7 @@ const SETTINGS = [
   "churn_window_days",
   "size_target_lines",
   "local_copies",
+  "ticket_pattern",
 ];
 
 const KEYS: Record<Part, readonly string[]> = {

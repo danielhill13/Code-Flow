@@ -367,3 +367,13 @@ before, a period still running (to date, or the current month chosen by name) wi
 of the one before, so a partial span is never set against a whole one (rule 7). Trends are weekly
 up to 14 weeks, so every quarter reads by week and every year by month. Supersedes D19's list.
 
+**D48 · 2026-10-06 · A fix that lands twice counts once.** A defect fixed into `prod` is often
+brought to `develop` by a second PR from a differently named branch, so neither a promotion rule
+nor a branch rule can tell it's the same work. The org names its ticket IDs (`ticket_pattern`, a
+regular expression whose capture group, if any, is the ID); a PR's tickets are read from its head
+branch, title and description. In derive, across a repo, a counted merged PR whose ticket an
+earlier counted PR already landed on a different branch is excluded as `duplicate`, naming that
+PR. Only a different branch: several PRs for one ticket into the same branch are a story built in
+parts, each its own work. Off unless set. Linked Azure DevOps work items would be more exact than
+text, at one more request per PR; text first, since the IDs are in the branch and title.
+

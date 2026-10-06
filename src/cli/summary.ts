@@ -150,6 +150,8 @@ function printSummary(
       `${plural(result.excluded.promotion, "promotion")} between long-lived branches`,
     result.excluded.bot && `${plural(result.excluded.bot, "PR")} by bots`,
     result.excluded.rule && `${plural(result.excluded.rule, "PR")} left out by the org's rules`,
+    result.excluded.duplicate &&
+      `${plural(result.excluded.duplicate, "PR")} landing a ticket already landed on another branch`,
   ].filter(Boolean);
   if (excluded.length > 0)
     print(dim(`Not counted, though merged in the period: ${excluded.join(", ")}`));

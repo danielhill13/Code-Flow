@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 10;
+export const DERIVE_VERSION = 11;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -13,9 +13,10 @@ export const DERIVE_VERSION = 10;
  * - `base`: it targets a branch that is not measured, such as a feature branch (stacked work);
  * - `promotion`: its head is a long-lived branch of the same repo, so it moves work that was
  *   already counted when it first landed (a promotion or back-merge);
+ * - `duplicate`: an earlier PR with the same ticket landed on another branch (D48);
  * - `rule`: one of the org's rules says not to count it (`excludedBy` names the rule).
  */
-export type Exclusion = "bot" | "base" | "promotion" | "rule";
+export type Exclusion = "bot" | "base" | "promotion" | "rule" | "duplicate";
 
 /** A review that counts as review: by someone other than the author, while the PR was open. */
 export type ReviewEntry = {
@@ -81,6 +82,10 @@ export type PrFact = {
   exclusion: Exclusion | null;
   /** The rule that left it out, when `exclusion` is "rule". */
   excludedBy: string | null;
+  /** Ticket IDs its head branch and title name, by the org's `ticket_pattern` (D48). */
+  tickets: string[];
+  /** The earlier PR that landed its ticket on another branch, when it's a duplicate. */
+  duplicateOf: number | null;
   /** The ids of every org rule that applied to the PR (core/rules.ts). */
   rules: string[];
 

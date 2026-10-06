@@ -3,6 +3,7 @@ import picomatch from "picomatch";
 import { asRule, type Config, loginsOf } from "../config/schema.ts";
 import { type ChurnClues, churnClues, linkChurn } from "../core/churn.ts";
 import { DEFAULT_PROMOTION_BRANCHES, type DeriveRules, derivePr } from "../core/derive.ts";
+import { linkDuplicates } from "../core/duplicates.ts";
 import { DERIVE_VERSION, type PrFact } from "../core/facts.ts";
 import { attribute, type Groups, NO_GROUPS, personOf } from "../core/groups.ts";
 import type { PrModel } from "../core/model.ts";
@@ -44,6 +45,7 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
       version: DERIVE_VERSION,
       raw: store.rawFingerprint(repo.id),
       lineChurn: store.lineChurnFingerprint(repo.id),
+      tickets: config.ticket_pattern ?? null,
       churnDays: config.churn_window_days,
       measured,
       rules,
@@ -85,6 +87,7 @@ export function deriveRepo(
   }
   linkReverts(clues, facts);
   linkChurn(churn, facts);
+  linkDuplicates(facts.values());
   for (const [id, measured] of lineChurn) {
     const fact = facts.get(id);
     if (!fact || measured.added === null || measured.rewritten === null) continue;
@@ -249,6 +252,7 @@ export function rulesFor(
   };
   const classify = pathClassifier(own.paths);
   return {
+    ticketPattern: config.ticket_pattern ? new RegExp(config.ticket_pattern, "i") : null,
     isMeasuredBranch: (_repo, branch) => isMeasured(branch),
     isPromotionBranch: (branch) => isPromotion(branch),
     classify,

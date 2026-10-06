@@ -259,6 +259,9 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "ticket_pattern": {
+          "type": "string"
         }
       },
       "additionalProperties": false

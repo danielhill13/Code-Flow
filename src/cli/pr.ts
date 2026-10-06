@@ -16,6 +16,8 @@ const EXCLUSIONS: Record<Exclusion, (pr: PrFact) => string> = {
   base: (pr) => `it targets ${pr.baseBranch}, which isn't a measured branch`,
   promotion: (pr) => `it promotes ${pr.headBranch}, a long-lived branch, rather than adding work`,
   rule: (pr) => `rule ${pr.excludedBy} says not to count it`,
+  duplicate: (pr) =>
+    `#${pr.duplicateOf} already landed ${pr.tickets.join(", ")} on another branch: the same fix again`,
 };
 
 /** How codeflow reads one PR: every derived value next to the timestamps it came from. */

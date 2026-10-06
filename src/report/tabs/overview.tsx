@@ -218,6 +218,8 @@ function NoteLine({ note, state }: { note: Note; state: ReportState }) {
         note.promotion > 0 && `${prs(note.promotion)} promoting work between long-lived branches`,
         note.bot > 0 && `${prs(note.bot)} by bots`,
         note.rule > 0 && `${prs(note.rule)} left out by the org's rules`,
+        note.duplicate > 0 &&
+          `${prs(note.duplicate)} landing a ticket already landed on another branch`,
       ].filter(Boolean);
       return <>Not counted: {parts.join(", ")}.</>;
     }

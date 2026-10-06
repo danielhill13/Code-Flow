@@ -38,7 +38,7 @@ describe("measure", () => {
     ];
     const result = measure(facts, march, { asOf });
     expect(result.values.find((v) => v.key === "merged")).toMatchObject({ value: 3, n: 3 });
-    expect(result.excluded).toEqual({ bot: 1, base: 1, promotion: 0, rule: 0 });
+    expect(result.excluded).toEqual({ bot: 1, base: 1, promotion: 0, rule: 0, duplicate: 0 });
   });
 
   it("hides a median resting on fewer than 10 PRs [rule 6]", () => {

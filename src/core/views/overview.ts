@@ -46,7 +46,14 @@ export type ScopeRow = {
 
 /** A fact a reader should know before trusting the numbers. Never a judgment. */
 export type Note =
-  | { kind: "excluded"; base: number; promotion: number; bot: number; rule: number }
+  | {
+      kind: "excluded";
+      base: number;
+      promotion: number;
+      bot: number;
+      rule: number;
+      duplicate: number;
+    }
   | { kind: "concentration"; phase: Phase; pr: { id: string; number: number }; share: number }
   | { kind: "outside"; external: number; open: number }
   | { kind: "tooFew"; rows: { name: string; merged: number }[] }
@@ -91,7 +98,9 @@ export function overview(ctx: ViewContext, q: ViewQuery): OverviewModel {
 
   const notes: Note[] = [];
   const out = excluded(slice.facts, window.current);
-  if (out.base + out.promotion + out.bot + out.rule > 0) notes.push({ kind: "excluded", ...out });
+  if (out.base + out.promotion + out.bot + out.rule + out.duplicate > 0) {
+    notes.push({ kind: "excluded", ...out });
+  }
   for (const share of shares ?? []) {
     if (share.largestShare >= CONCENTRATION_SHARE) {
       const pr = merged.find((m) => m.number === share.largestPr);

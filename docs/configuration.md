@@ -198,6 +198,21 @@ churn_window_days: 30    # product files changed again within this many days of 
   PRs old enough to tell, beside **changed after review** (lines pushed after the first review;
   GitHub only). See decision D44.
 
+## ticket_pattern
+
+```yaml
+ticket_pattern: '\b(?:ADO-)?(\d{5})\b'   # your ticket IDs; the part in brackets is the ID
+```
+
+When a fix lands on one measured branch (a defect into `prod`) and the same fix is later brought
+to another from a differently named branch (into `develop`), only the first counts. codeflow
+knows them for one fix by the ticket ID both name, in the branch name, the title or the
+description. The pattern is a regular expression, ignoring case; with a capture group, the group
+is the ID, so the example reads `ADO-12340` and a bare `12340` as one ticket. The later PR shows
+"Not counted: an earlier PR landed the same ticket on another branch", naming it. Several PRs for
+one ticket into the same branch all count: a story built in parts is separate work. Unset or
+empty: none are looked for. Also in Setup › Settings. See decision D48.
+
 ## local_copies
 
 ```yaml

@@ -23,6 +23,7 @@ const EXCLUSIONS = {
   bot: "Not counted: a bot opened it.",
   base: "Not counted: it merged into a branch that isn't measured.",
   promotion: "Not counted: it promotes work between long-lived branches.",
+  duplicate: "Not counted: an earlier PR landed the same ticket on another branch.",
 } as const;
 
 /**

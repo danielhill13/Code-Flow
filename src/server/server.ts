@@ -70,6 +70,7 @@ export const EDITABLE = {
     "churn_window_days",
     "size_target_lines",
     "local_copies",
+    "ticket_pattern",
   ],
 } as const satisfies Record<string, readonly string[]>;
 

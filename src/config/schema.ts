@@ -421,6 +421,13 @@ const settingsShape = {
    * the repo's source code on this machine.
    */
   local_copies: z.array(Pattern).default([]),
+  /**
+   * The org's ticket IDs, as a regular expression (ignoring case), such as ADO-\d+ (D48); with a
+   * capture group, the group is the ID, so \b(?:ADO-)?(\d{5})\b reads "ADO-12340" and "12340"
+   * as one ticket. A PR names its tickets in its head branch, title or description; one whose ticket an earlier PR already landed
+   * on another measured branch is a duplicate and isn't counted again. Unset: none are looked for.
+   */
+  ticket_pattern: Regex.optional(),
 };
 
 /** What to measure, before an org exists: what the web app's first steps ask for. */

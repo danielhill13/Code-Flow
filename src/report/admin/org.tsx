@@ -40,6 +40,7 @@ type OrgRaw = {
   churn_window_days: number;
   size_target_lines: number;
   local_copies: string[];
+  ticket_pattern?: string;
   people_views: boolean;
 };
 
@@ -873,6 +874,15 @@ export function Settings(props: SectionProps) {
             onInput={(e) => org.set({ size_target_lines: Number(e.currentTarget.value) })}
           />
         </Field>
+        <Text
+          label="Ticket IDs, to count a fix once"
+          value={value.ticket_pattern ?? ""}
+          onChange={(ticket_pattern) => org.set({ ticket_pattern: ticket_pattern.trim() })}
+          placeholder="\b(?:ADO-)?(\d{5})\b"
+          hint={
+            "How your ticket IDs look, as a regular expression; the part in brackets is the ID, so ADO-12340 and 12340 are one ticket. A PR names them in its branch, title or description. When a ticket's fix lands on one branch (prod) and later on another (develop), only the first counts. Several PRs for one ticket into the same branch all count. Empty: off."
+          }
+        />
         <Field
           label="Changed again within (days)"
           hint="A merged PR whose product files another PR changes within this many days counts as changed again soon (churn)."

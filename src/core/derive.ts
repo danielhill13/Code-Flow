@@ -1,3 +1,4 @@
+import { ticketsOf } from "./duplicates.ts";
 import type { Exclusion, OpenState, PrFact, ReviewEntry, WaitingOn } from "./facts.ts";
 import type { Attribution } from "./groups.ts";
 import type { Actor, Comment, PrModel, Review } from "./model.ts";
@@ -21,6 +22,8 @@ export type DeriveRules = {
   attribute: (pr: { repo: string; author: string; createdAt: string }) => Attribution;
   /** The person a login belongs to (core/groups.ts, personOf): reviews count by person. */
   personOf: (login: string) => string;
+  /** The org's ticket IDs, such as ADO-\d+ (D48); null: duplicates aren't looked for. */
+  ticketPattern?: RegExp | null;
 };
 
 /**
@@ -139,6 +142,8 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     ...belongs(where),
     internal: ruled.internal,
     ...inclusion(pr, authorIsBot, rules, ruled),
+    tickets: ticketsOf(pr, rules.ticketPattern ?? null),
+    duplicateOf: null,
     rules: ruled.applied,
     createdAt: pr.createdAt,
     startAt,
