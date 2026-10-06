@@ -45,6 +45,7 @@ const SETTINGS = [
   "size_target_lines",
   "local_copies",
   "ticket_pattern",
+  "duplicates_by_work_item",
 ];
 
 const KEYS: Record<Part, readonly string[]> = {

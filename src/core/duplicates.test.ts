@@ -81,3 +81,38 @@ describe("duplicates: one ticket landed on two branches [rule 17]", () => {
     expect(plain.counted).toBe(true);
   });
 });
+
+describe("duplicates by linked work items [rule 17]", () => {
+  const linked = (number: number, base: string, day: string, workItems: string[], on: boolean) =>
+    prFact(
+      {
+        number,
+        baseBranch: base,
+        headBranch: `topic/${number}`,
+        title: "No ticket in the title",
+        mergedAt: at(`${day} 10:00`),
+        closedAt: at(`${day} 10:00`),
+        workItems,
+      },
+      deriveRules({
+        isMeasuredBranch: (_repo, branch) => branch === "prod" || branch === "develop",
+        workItemTickets: on,
+      }),
+    );
+
+  it("knows one fix by a work item both PRs link, while the org says so", () => {
+    const fix = linked(1, "prod", "03-04", ["12340"], true);
+    const again = linked(2, "develop", "03-06", ["12340", "999"], true);
+    linkDuplicates([fix, again]);
+    expect(again).toMatchObject({ counted: false, exclusion: "duplicate", duplicateOf: 1 });
+    expect(again.tickets).toEqual(["12340", "999"]);
+  });
+
+  it("ignores links stored earlier once the org turns it off", () => {
+    const fix = linked(1, "prod", "03-04", ["12340"], false);
+    const again = linked(2, "develop", "03-06", ["12340"], false);
+    linkDuplicates([fix, again]);
+    expect(again.counted).toBe(true);
+    expect(again.tickets).toEqual([]);
+  });
+});

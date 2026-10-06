@@ -45,7 +45,7 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
       version: DERIVE_VERSION,
       raw: store.rawFingerprint(repo.id),
       lineChurn: store.lineChurnFingerprint(repo.id),
-      tickets: config.ticket_pattern ?? null,
+      tickets: [config.ticket_pattern ?? null, config.duplicates_by_work_item],
       churnDays: config.churn_window_days,
       measured,
       rules,
@@ -253,6 +253,7 @@ export function rulesFor(
   const classify = pathClassifier(own.paths);
   return {
     ticketPattern: config.ticket_pattern ? new RegExp(config.ticket_pattern, "i") : null,
+    workItemTickets: config.duplicates_by_work_item,
     isMeasuredBranch: (_repo, branch) => isMeasured(branch),
     isPromotionBranch: (branch) => isPromotion(branch),
     classify,

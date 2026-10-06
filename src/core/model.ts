@@ -90,6 +90,8 @@ export type PrModel = {
   /** Inline review threads. Only their number is known (see decision D12). */
   reviewThreads: number;
   files: ChangedFile[];
+  /** Work items linked to the PR, by id, where the host links them (Azure DevOps; D49). */
+  workItems?: string[];
   events: PrEvent[];
   /** The provider's own line totals, which count every file. */
   additions: number;

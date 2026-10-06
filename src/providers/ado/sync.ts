@@ -67,6 +67,8 @@ export async function syncAdoRepo(options: {
   onProgress?: (walk: AdoWalk) => void;
   /** The repo's local copy, if it has one (D46): line counts are read there. */
   copy?: string;
+  /** Ask each PR read for its linked work items (D49). */
+  workItems?: boolean;
 }): Promise<AdoRepoOutcome> {
   const { client, store, runId, repo, since, signal } = options;
   const id = adoRepoId(repo);
@@ -123,7 +125,16 @@ export async function syncAdoRepo(options: {
           return null;
         }
         try {
-          batch.push(await fetchPr(client, repo, pr, reuse.get(pr.pullRequestId), options.copy));
+          batch.push(
+            await fetchPr(
+              client,
+              repo,
+              pr,
+              reuse.get(pr.pullRequestId),
+              options.copy,
+              options.workItems,
+            ),
+          );
         } catch (err) {
           // A refused token, or no network, stops the repo: nothing else would read either.
           // One PR Azure DevOps won't give is skipped and reported, so it can't hold back every

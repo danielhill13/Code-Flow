@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 11;
+export const DERIVE_VERSION = 12;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -82,7 +82,7 @@ export type PrFact = {
   exclusion: Exclusion | null;
   /** The rule that left it out, when `exclusion` is "rule". */
   excludedBy: string | null;
-  /** Ticket IDs its head branch and title name, by the org's `ticket_pattern` (D48). */
+  /** Its tickets: IDs its branch, title or description name (D48), and linked work items (D49). */
   tickets: string[];
   /** The earlier PR that landed its ticket on another branch, when it's a duplicate. */
   duplicateOf: number | null;

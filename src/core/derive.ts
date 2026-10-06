@@ -24,6 +24,8 @@ export type DeriveRules = {
   personOf: (login: string) => string;
   /** The org's ticket IDs, such as ADO-\d+ (D48); null: duplicates aren't looked for. */
   ticketPattern?: RegExp | null;
+  /** Whether a PR's linked work items are tickets too (D49). */
+  workItemTickets?: boolean;
 };
 
 /**
@@ -142,7 +144,12 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     ...belongs(where),
     internal: ruled.internal,
     ...inclusion(pr, authorIsBot, rules, ruled),
-    tickets: ticketsOf(pr, rules.ticketPattern ?? null),
+    tickets: [
+      ...new Set([
+        ...ticketsOf(pr, rules.ticketPattern ?? null),
+        ...(rules.workItemTickets ? (pr.workItems ?? []) : []),
+      ]),
+    ].sort(),
     duplicateOf: null,
     rules: ruled.applied,
     createdAt: pr.createdAt,

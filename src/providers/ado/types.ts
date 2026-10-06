@@ -92,6 +92,8 @@ export type AdoPayload = {
   files: { path: string; additions: number; deletions: number }[] | null;
   /** Why `files` is null, as Azure DevOps or codeflow put it. */
   filesError?: string;
+  /** Linked work items' ids, when the org links fixes by work item (D49); absent: not asked. */
+  workItems?: string[];
   /** Where the line counts came from: the repo's local copy (D46), or Azure DevOps's API. */
   filesFrom?: "local copy" | "api";
   /** Lists cut short: "commits", "files". */

@@ -377,3 +377,12 @@ PR. Only a different branch: several PRs for one ticket into the same branch are
 parts, each its own work. Off unless set. Linked Azure DevOps work items would be more exact than
 text, at one more request per PR; text first, since the IDs are in the branch and title.
 
+**D49 · 2026-10-06 · Fixes linked by work item, one request per PR read.** Linked work items are
+more exact than ticket IDs in text. Three ways to read them were weighed: per PR
+(`pullRequests/{id}/workitems`), the PR fetched singly with its refs (the same cost), and from the
+work item side (a query for work items changed since `since`, then their links 200 at a time). The
+last is fewest requests for a small project, but walks an organization's work items, which can
+number in the hundreds of thousands, and needs Work Items (Read). So codeflow asks each PR it
+reads, when `duplicates_by_work_item` is on: one more request per PR, once, with Code (Read)
+alone. Links join the PR's tickets (D48). Stored links are ignored while the setting is off.
+

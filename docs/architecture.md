@@ -308,9 +308,10 @@ These hold everywhere. Each gets a test as it is built.
     as its own commits in a row. Lines rewritten soon are its added product lines that `git
     blame --first-parent` no longer gives to those commits on that branch at the end of the churn
     window. A copy that can't say leaves the value null and the API's figure stands.
-17. **A fix counts once.** With `ticket_pattern` set, a counted merged PR is a duplicate, and not
-    counted, when an earlier counted PR in the same repo naming one of its tickets (in its branch,
-    title or description) merged into a different branch. PRs for one ticket into one branch all
+17. **A fix counts once.** A PR's tickets are the IDs `ticket_pattern` finds in its branch, title
+    or description, and, with `duplicates_by_work_item`, its linked Azure DevOps work items. A
+    counted merged PR is a duplicate, and not counted, when an earlier counted PR in the same repo
+    sharing one of its tickets merged into a different branch. PRs for one ticket into one branch all
     count.
 
 ## Per-PR timeline

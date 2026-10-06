@@ -54,6 +54,7 @@ since: 2025-10-01
       churn_window_days: 30,
       size_target_lines: 400,
       local_copies: [],
+      duplicates_by_work_item: false,
       people: {},
       teams: {},
       groups: {},

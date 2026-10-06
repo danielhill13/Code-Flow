@@ -41,6 +41,7 @@ type OrgRaw = {
   size_target_lines: number;
   local_copies: string[];
   ticket_pattern?: string;
+  duplicates_by_work_item: boolean;
   people_views: boolean;
 };
 
@@ -882,6 +883,15 @@ export function Settings(props: SectionProps) {
           hint={
             "How your ticket IDs look, as a regular expression; the part in brackets is the ID, so ADO-12340 and 12340 are one ticket. A PR names them in its branch, title or description. When a ticket's fix lands on one branch (prod) and later on another (develop), only the first counts. Several PRs for one ticket into the same branch all count. Empty: off."
           }
+        />
+        <Choice
+          label="Azure DevOps: count a fix once by its work items"
+          value={value.duplicates_by_work_item}
+          onChange={(on) => org.set({ duplicates_by_work_item: on ?? false })}
+          unset="Off (the default)"
+          yes="On"
+          no="Off"
+          hint="On: PRs linked to the same work item are one fix, as a ticket ID in the title is. Each PR read asks for its links: one more request per PR, once (Setup › Sync › Fetch repos again reads PRs synced before)."
         />
         <Field
           label="Changed again within (days)"

@@ -278,6 +278,46 @@ describe("syncing an Azure DevOps repo", () => {
   });
   afterAll(() => server.stop());
 
+  it("asks each PR read for its linked work items only when the org links fixes by them", async () => {
+    const source = {
+      kind: "ado" as const,
+      organization: ADO_ORG,
+      project: "Platform",
+      include: ["billing"],
+      exclude: [],
+      forks: false,
+    };
+    const {
+      repos: [repo],
+    } = await discoverAdo(client, source);
+    const first = repos[0]?.prs[0];
+    if (!repo || !first) throw new Error("billing not found");
+    first.workItems = ["12340"];
+    const asked = () => server.calls.filter((c) => c.endsWith("/workitems")).length;
+    const sync = async (workItems: boolean) => {
+      const store = Store.open(":memory:");
+      const before = asked();
+      await syncAdoRepo({
+        client,
+        store,
+        runId: store.startRun("sync"),
+        repo,
+        since: "2000-01-01",
+        startedAt: new Date().toISOString(),
+        workItems,
+      });
+      return { store, calls: asked() - before };
+    };
+    expect((await sync(false)).calls).toBe(0);
+    const on = await sync(true);
+    expect(on.calls).toBe(repos[0]?.prs.length);
+    const stored = [...on.store.latestPrs()].find(
+      (v) => (v.payload as AdoPayload).pr.pullRequestId === first.pr.pullRequestId,
+    );
+    expect((stored?.payload as AdoPayload | undefined)?.workItems).toEqual(["12340"]);
+    delete first.workItems;
+  });
+
   it("finishes a backfill past a PR Azure DevOps won't give, and says which it skipped", async () => {
     const store = Store.open(":memory:");
     const {

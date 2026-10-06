@@ -98,6 +98,8 @@ export async function fetchPr(
   read?: AdoThread[],
   /** The repo's local copy (D46): line counts are read there, not asked for. */
   copy?: string,
+  /** Ask for the PR's linked work items (D49): one more request. */
+  workItems = false,
 ): Promise<AdoPayload> {
   const base = `${repoPath(repo)}/pullRequests/${pr.pullRequestId}`;
   // One after another: the client paces every request (D41).
@@ -108,6 +110,14 @@ export async function fetchPr(
   });
   const truncated: string[] = [];
   if (commits.value.length >= MAX_COMMITS) truncated.push("commits");
+  // Linked work items, when asked: refs only, one request. A PR whose links can't be read is
+  // kept without them rather than failing.
+  const linked = workItems
+    ? await client
+        .get<{ value: { id: string | number }[] }>(`${base}/workitems`)
+        .then((r) => (r.value ?? []).map((w) => String(w.id)))
+        .catch(() => undefined)
+    : undefined;
   // From the local copy when it holds the PR's commits; from Azure DevOps otherwise.
   const local = copy ? await localFiles(copy, pr, commits.value).catch(() => null) : null;
   const sized: Sized =
@@ -134,6 +144,7 @@ export async function fetchPr(
     iterations: iterations.value,
     commits: commits.value,
     files,
+    ...(linked && { workItems: linked }),
     ...("error" in sized && { filesError: sized.error }),
     ...(files !== null && { filesFrom: local ? ("local copy" as const) : ("api" as const) }),
     truncated,

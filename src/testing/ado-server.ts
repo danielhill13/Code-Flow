@@ -205,6 +205,11 @@ export class AdoServer {
         };
       }
       switch (sub) {
+        case "workitems":
+          return {
+            status: 200,
+            body: { count: 0, value: (payload.workItems ?? []).map((id) => ({ id, url: "" })) },
+          };
         case "threads":
           return { status: 200, body: { value: payload.threads } };
         case "commits":

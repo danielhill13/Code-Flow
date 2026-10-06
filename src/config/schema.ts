@@ -428,6 +428,11 @@ const settingsShape = {
    * on another measured branch is a duplicate and isn't counted again. Unset: none are looked for.
    */
   ticket_pattern: Regex.optional(),
+  /**
+   * Azure DevOps: a fix is known by its linked work items too (D49). Each PR read asks for its
+   * links: one more request per PR, once; unchanged PRs aren't read again.
+   */
+  duplicates_by_work_item: z.boolean().default(false),
 };
 
 /** What to measure, before an org exists: what the web app's first steps ask for. */

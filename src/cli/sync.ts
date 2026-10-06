@@ -262,6 +262,7 @@ export async function syncOrg(
           runId,
           repo,
           copy: copies.get(repo.fullName),
+          workItems: config.duplicates_by_work_item,
           since: config.since,
           startedAt,
           signal: abort.signal,

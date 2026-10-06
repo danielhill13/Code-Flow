@@ -163,6 +163,7 @@ export function normalizeAdoPr(
     comments: comments.sort((a, b) => a.at.localeCompare(b.at)),
     reviewThreads: inlineThreads,
     files,
+    ...(raw.workItems && { workItems: raw.workItems }),
     events: events.sort((a, b) => a.at.localeCompare(b.at)),
     additions: files.reduce((n, f) => n + f.additions, 0),
     deletions: files.reduce((n, f) => n + f.deletions, 0),

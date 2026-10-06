@@ -262,6 +262,10 @@
         },
         "ticket_pattern": {
           "type": "string"
+        },
+        "duplicates_by_work_item": {
+          "default": false,
+          "type": "boolean"
         }
       },
       "additionalProperties": false

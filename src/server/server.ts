@@ -71,6 +71,7 @@ export const EDITABLE = {
     "size_target_lines",
     "local_copies",
     "ticket_pattern",
+    "duplicates_by_work_item",
   ],
 } as const satisfies Record<string, readonly string[]>;
 

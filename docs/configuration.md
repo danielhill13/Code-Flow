@@ -213,6 +213,17 @@ is the ID, so the example reads `ADO-12340` and a bare `12340` as one ticket. Th
 one ticket into the same branch all count: a story built in parts is separate work. Unset or
 empty: none are looked for. Also in Setup › Settings. See decision D48.
 
+On Azure DevOps, a fix can be known by its linked work items instead, or as well:
+
+```yaml
+duplicates_by_work_item: true   # PRs linked to the same work item are one fix
+```
+
+Each PR codeflow reads then asks for its links: one more request per PR, once, since an unchanged
+PR isn't read again. Nothing walks the organization's work items. PRs synced before it was turned
+on gain their links when fetched again (Setup › Sync › Fetch repos again). Turned off, stored links
+are ignored. See decision D49.
+
 ## local_copies
 
 ```yaml
