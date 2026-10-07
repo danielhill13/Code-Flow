@@ -188,6 +188,7 @@ here.
 | TC-608 | Org settings change the stale window and turn people views off |
 | TC-609 | The header says how fresh the data is and when it syncs next |
 | TC-616 | A local copy is chosen per repo in Setup › Repos, which says what it gives and costs, and lands in org.yml |
+| TC-617 | A long selection shortens in the header and never overlaps its neighbours, from wide desktop to phone |
 
 ### First steps and Setup in the browser (`test/e2e/welcome.spec.ts`)
 

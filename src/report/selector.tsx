@@ -121,10 +121,7 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
       {narrowed.map((facet) => {
         const values = valuesFor(choices, selection, facet);
         return (
-          <span
-            key={facet.id}
-            style={{ display: "flex", alignItems: "center", gap: "2px", position: "relative" }}
-          >
+          <span key={facet.id} class="crumb-facet">
             <span class="crumb-sep">/</span>
             <button
               type="button"
@@ -133,7 +130,7 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
               title={`${facet.one}: ${values.map((v) => labelOf(facet, v)).join(", ")}`}
               onClick={() => setMenu(menu === facet.id ? null : facet.id)}
             >
-              {listed(values.map((v) => labelOf(facet, v)))}
+              <span class="crumb-text">{listed(values.map((v) => labelOf(facet, v)))}</span>
               <span class="caret">▾</span>
             </button>
             {menu === facet.id && (
@@ -165,7 +162,7 @@ export function SelectionBar({ choices, state }: { choices: Choices; state: Repo
         );
       })}
       {pickable && (
-        <span style={{ position: "relative" }}>
+        <span class="crumb-change">
           <button
             type="button"
             class="crumb placeholder"

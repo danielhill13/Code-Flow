@@ -222,3 +222,80 @@ test("TC-616 a local copy is chosen per repo in Setup, with what it gives and co
   );
   await expect(card).toContainText("made at the next sync");
 });
+
+test("TC-617 a long selection shortens in the header, and never runs over its neighbours", async ({
+  page,
+}) => {
+  // The link as the report writes it: dimensions in order, no tab for the default one.
+  const link = (org: string, selection: [string, string][]) =>
+    `${URL}/orgs/${org}/#${new URLSearchParams(selection)}`;
+  const selections = [
+    // Several dimensions at once: two teams and two repos.
+    link("acme", [
+      ["team", "Platform"],
+      ["team", "Product"],
+      ["repo", "acme-co/api"],
+      ["repo", "acme-co/legacy"],
+    ]),
+    // Long Azure DevOps repo names.
+    link("company", [
+      ["repo", "contoso/Platform/billing"],
+      ["repo", "contoso/Platform/portal"],
+      ["repo", "acme-co/api"],
+    ]),
+  ];
+  for (const url of selections) {
+    for (const [width, height] of [
+      [1280, 800],
+      [1100, 800],
+      [900, 800],
+      [390, 800],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await page.goto(url);
+      await ready(page);
+      await expect(page.locator(".crumb-facet > .crumb").first()).toHaveAttribute("title", /.+/);
+
+      // No two parts of the header share any space, and nothing makes the page scroll sideways.
+      const header = await page.evaluate(() => {
+        const parts = [...(document.querySelector(".bar-row")?.children ?? [])]
+          .map((el) => {
+            const b = el.getBoundingClientRect();
+            return {
+              name: el.className || el.tagName,
+              l: b.left,
+              // Content that overflows its box still covers what's beside it: count its extent.
+              r: Math.max(b.right, b.left + el.scrollWidth),
+              t: b.top,
+              b: b.bottom,
+            };
+          })
+          .filter((p) => p.r - p.l > 1 && p.b - p.t > 1);
+        const sideways =
+          document.documentElement.scrollWidth - document.documentElement.clientWidth;
+        return { parts, sideways };
+      });
+      expect(header.sideways, `${width}px scrolls sideways`).toBeLessThanOrEqual(0);
+      for (const [i, a] of header.parts.entries()) {
+        for (const b of header.parts.slice(i + 1)) {
+          const across = Math.min(a.r, b.r) - Math.max(a.l, b.l);
+          const down = Math.min(a.b, b.b) - Math.max(a.t, b.t);
+          expect(
+            across > 1 && down > 1,
+            `${width}px: "${a.name}" overlaps "${b.name}" (${Math.round(across)} × ${Math.round(down)} px)`,
+          ).toBe(false);
+        }
+      }
+      // "Change…" is whole and can be used.
+      await page.getByRole("button", { name: "Change…" }).click();
+      const picker = page.getByRole("dialog", { name: "Select what to look at" });
+      await expect(picker).toBeVisible();
+      // Escape closes it; pressed again until it has, since the dialog is listening a moment
+      // after it appears.
+      await expect(async () => {
+        await page.keyboard.press("Escape");
+        await expect(picker).toHaveCount(0, { timeout: 500 });
+      }).toPass();
+    }
+  }
+});
