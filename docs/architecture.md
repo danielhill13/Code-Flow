@@ -313,6 +313,11 @@ These hold everywhere. Each gets a test as it is built.
     counted merged PR is a duplicate, and not counted, when an earlier counted PR in the same repo
     sharing one of its tickets merged into a different branch. PRs for one ticket into one branch all
     count.
+18. **Pickup starts when the PR is ready for review.** A PR opened as a draft is ready when it was
+    published (GitHub's ready-for-review event; on Azure DevOps its publish thread, or the system
+    comment "published the pull request"), not when it was opened: the draft's time is coding. A PR
+    opened ready and later sent back to draft was ready when it opened. A review during the draft
+    makes pickup 0, never negative.
 
 ## Per-PR timeline
 

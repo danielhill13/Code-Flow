@@ -374,6 +374,12 @@ rules:
     when: { labels: [chore], title: "^chore" }
     then: { count: false }
 
+  - id: no-test-automation
+    description: Test automation's PRs carry #0000 in the title.
+    scope: { repos: ["your-org/YourProject/app"] }   # only the repos where that's true
+    when: { title: '#0000\b' }                       # single quotes keep \b as written
+    then: { count: false }
+
   - id: legacy-branches
     scope: { repos: ["your-org/legacy-*"] }
     then: { measured_branches: [develop] }

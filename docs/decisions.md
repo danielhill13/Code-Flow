@@ -386,3 +386,12 @@ number in the hundreds of thousands, and needs Work Items (Read). So codeflow as
 reads, when `duplicates_by_work_item` is on: one more request per PR, once, with Code (Read)
 alone. Links join the PR's tickets (D48). Stored links are ignored while the setting is off.
 
+**D50 · 2026-10-13 · A draft's publish time on Azure DevOps.** Pickup already started at publish
+for a PR opened as a draft: GitHub reports ready-for-review and convert-to-draft events, and
+`readyTime` reads them. Azure DevOps has no such event in its PR object, only its threads, whose
+property names for a draft change were taken from its documentation and not seen in a real
+organization. So derive also reads Azure DevOps's own system comments ("X published the pull
+request", "X marked the pull request as a draft"), by their English wording, and never counts one
+change twice. A person's own comment never counts: only system comments do. `codeflow pr` shows
+"opened" and "ready" apart, to check one.
+

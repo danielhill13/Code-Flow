@@ -75,7 +75,7 @@ describe("derivePr: the timeline", () => {
     expectPhasesToAddUp(fact);
   });
 
-  it("counts draft time as coding: pickup starts when the PR became ready", () => {
+  it("counts draft time as coding: pickup starts when the PR became ready [rule 18]", () => {
     const fact = derive({
       draft: false,
       events: [{ type: "ready_for_review", at: at("03-03 10:00") }],
@@ -85,7 +85,7 @@ describe("derivePr: the timeline", () => {
     expectPhasesToAddUp(fact);
   });
 
-  it("treats a PR that opened ready, then went back to draft, as ready at creation", () => {
+  it("treats a PR that opened ready, then went back to draft, as ready at creation [rule 18]", () => {
     const fact = derive({
       events: [
         { type: "converted_to_draft", at: at("03-02 12:00") },
@@ -95,7 +95,7 @@ describe("derivePr: the timeline", () => {
     expect(fact.readyAt).toBe(at("03-02 10:00"));
   });
 
-  it("makes pickup zero, not negative, when review came during the draft", () => {
+  it("makes pickup zero, not negative, when review came during the draft [rule 18]", () => {
     const fact = derive({
       events: [{ type: "ready_for_review", at: at("03-03 10:00") }],
       reviews: [review(bob, "03-02 12:00"), review(bob, "03-03 11:00", "approved")],

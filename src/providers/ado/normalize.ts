@@ -102,6 +102,19 @@ export function normalizeAdoPr(
     }
   }
 
+  // Azure DevOps also writes the change as a system comment ("X published the pull request",
+  // "X marked the pull request as a draft"). Read too, so a PR opened as a draft still gets its
+  // publish time if the thread's properties aren't the ones above (D50). Not counted twice.
+  for (const thread of raw.threads) {
+    for (const comment of thread.comments) {
+      if (comment.commentType !== "system" || comment.isDeleted) continue;
+      const at = iso(thread.publishedDate ?? comment.publishedDate);
+      const type = draftChange(comment.content ?? "");
+      if (!at || !type || events.some((e) => e.type === type && e.at === at)) continue;
+      events.push({ type, at });
+    }
+  }
+
   // Each push after the one that opened the PR brings new commits: what GitHub calls a push to
   // the branch, and what starts another round of review.
   for (const iteration of raw.iterations.slice(1)) {
@@ -169,6 +182,18 @@ export function normalizeAdoPr(
     deletions: files.reduce((n, f) => n + f.deletions, 0),
     truncated,
   };
+}
+
+/**
+ * What a system comment says about a draft: published (ready for review), or put back to draft.
+ * Matched on Azure DevOps's own wording, which is in English whatever the org's language.
+ */
+function draftChange(content: string): "ready_for_review" | "converted_to_draft" | null {
+  if (/\bpublished\b.*\b(pull request|PR)\b/i.test(content)) return "ready_for_review";
+  if (/\b(marked|converted|changed|set|moved)\b.*\b(pull request|PR)\b.*\bdraft\b/i.test(content)) {
+    return "converted_to_draft";
+  }
+  return null;
 }
 
 /** A person by their sign-in, lowercased, so the same address always matches. */

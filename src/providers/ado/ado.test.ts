@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { derivePr } from "../../core/derive.ts";
 import { Store } from "../../store/store.ts";
 import { AdoServer } from "../../testing/ado-server.ts";
+import { deriveRules } from "../../testing/factories.ts";
 import { ADO_ORG, adoLogin, contosoRepos } from "../../testing/scenario.ts";
 import { AdoClient, type AdoToken, PACE_MS, resolveAdoToken } from "./client.ts";
 import { discoverAdo, selectAdoRepos } from "./discover.ts";
@@ -496,5 +498,91 @@ describe("an Azure DevOps PR's line counts", () => {
     expect(await changedFiles(client, repo, base, iterations)).toEqual({
       error: expect.stringContaining("gave no diff for 10 files"),
     });
+  });
+});
+
+describe("an Azure DevOps PR opened as a draft [rule 18]", () => {
+  const [billing] = contosoRepos(Date.parse("2026-06-01T00:00:00Z"));
+  const repo = { id: "ado:repo-billing", fullName: `${ADO_ORG}/Platform/billing` };
+  const template = billing?.prs.find((p) => p.pr.status === "completed" && p.threads.length > 0);
+  if (!template) throw new Error("scenario lacks a completed PR");
+  const author = template.pr.createdBy;
+  const rui = { displayName: "Rui", uniqueName: "rui@acme.example" };
+  const created = "2026-03-02T10:00:00Z";
+  const published = "2026-03-03T10:00:00Z";
+  const reviewed = "2026-03-03T12:00:00Z";
+
+  /** The scenario's PR, rebuilt: created at `created`, with only the threads given. */
+  const payload = (threads: AdoPayload["threads"], isDraft = false): AdoPayload => ({
+    ...template,
+    pr: { ...template.pr, creationDate: created, closedDate: "2026-03-05T10:00:00Z", isDraft },
+    commits: template.commits.map((c) => ({ ...c, author: { date: "2026-03-01T10:00:00Z" } })),
+    iterations: template.iterations.slice(0, 1),
+    threads: [
+      ...threads,
+      {
+        id: 90,
+        publishedDate: reviewed,
+        comments: [{ id: 1, author: rui, publishedDate: reviewed, commentType: "system" }],
+        properties: {
+          CodeReviewThreadType: { $value: "VoteUpdate" },
+          CodeReviewVoteResult: { $value: 10 },
+        },
+      },
+    ],
+  });
+  const systemThread = (
+    id: number,
+    at: string,
+    content: string,
+  ): AdoPayload["threads"][number] => ({
+    id,
+    publishedDate: at,
+    comments: [{ id: 1, author, content, publishedDate: at, commentType: "system" }],
+  });
+  const read = (p: AdoPayload) => normalizeAdoPr(p, repo, versionOf(p));
+  const fact = (p: AdoPayload) => derivePr(read(p), deriveRules());
+
+  it("starts pickup when it was published, read from Azure DevOps's own system comment", () => {
+    const p = payload([systemThread(10, published, "Ana published the pull request")]);
+    expect(read(p).events).toContainEqual({ type: "ready_for_review", at: published });
+    expect(fact(p)).toMatchObject({ readyAt: published, pickupHours: 2 });
+  });
+
+  it("reads the thread's property too, and counts one publish once", () => {
+    const byProperty: AdoPayload["threads"][number] = {
+      ...systemThread(11, published, "Ana published the pull request"),
+      properties: {
+        CodeReviewThreadType: { $value: "IsDraftUpdated" },
+        CodeReviewIsDraft: { $value: "false" },
+      },
+    };
+    const p = payload([byProperty, systemThread(12, published, "Ana published the pull request")]);
+    expect(read(p).events.filter((e) => e.type === "ready_for_review")).toHaveLength(1);
+    expect(fact(p).readyAt).toBe(published);
+  });
+
+  it("counts a PR that opened ready, then went back to draft, as ready at creation", () => {
+    const p = payload([
+      systemThread(13, "2026-03-02T12:00:00Z", "Ana marked the pull request as a draft"),
+    ]);
+    expect(fact(p).readyAt).toBe(created);
+  });
+
+  it("ignores a person's own comment that only says published", () => {
+    const talk: AdoPayload["threads"][number] = {
+      id: 14,
+      publishedDate: published,
+      comments: [
+        {
+          id: 1,
+          author: rui,
+          content: "I published the pull request docs",
+          publishedDate: published,
+          commentType: "text",
+        },
+      ],
+    };
+    expect(read(payload([talk])).events.some((e) => e.type === "ready_for_review")).toBe(false);
   });
 });
