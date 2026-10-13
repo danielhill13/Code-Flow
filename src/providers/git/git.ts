@@ -6,6 +6,7 @@
 // The token reaches git through its environment (GIT_CONFIG_*), never a file or the command line,
 // so it isn't stored with the copy or visible in the process list.
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
@@ -25,7 +26,7 @@ export type GitAccess = { authorization?: string };
 /** Runs git; its error says what git said, without the token. */
 export async function git(
   args: readonly string[],
-  options: { cwd?: string; access?: GitAccess; timeoutMs?: number } = {},
+  options: { cwd?: string; access?: GitAccess; timeoutMs?: number; input?: string } = {},
 ): Promise<string> {
   const env: Record<string, string | undefined> = {
     ...process.env,
@@ -42,20 +43,28 @@ export async function git(
     env.GIT_CONFIG_VALUE_1 = "";
   }
   try {
-    const { stdout } = await run("git", [...args], {
+    const pending = run("git", [...args], {
       cwd: options.cwd,
       env,
       maxBuffer: 512 * 1024 * 1024,
       timeout: options.timeoutMs ?? 0,
       windowsHide: true,
     });
+    if (options.input !== undefined) pending.child.stdin?.end(options.input);
+    const { stdout } = await pending;
     return stdout;
   } catch (err) {
     const e = err as NodeJS.ErrnoException & { stderr?: string };
     if (e.code === "ENOENT") {
       throw new GitError("git isn't installed, or isn't on the PATH: local copies need it.");
     }
-    const said = (e.stderr ?? e.message).trim().split("\n").slice(-2).join(" ");
+    // The last two lines say why. A branch name can run to hundreds of characters: shortened.
+    const said = (e.stderr ?? e.message)
+      .trim()
+      .split("\n")
+      .slice(-2)
+      .map((line) => (line.length > 240 ? `${line.slice(0, 100)}…${line.slice(-100)}` : line))
+      .join(" ");
     throw new GitError(
       `git ${args[0]}: ${said.replace(/Authorization: \S+ \S+/g, "Authorization: …")}`,
     );
@@ -76,30 +85,140 @@ export function copyPath(root: string, repoId: string): string {
   return join(root, `${repoId.replace(/[^A-Za-z0-9._-]+/g, "_")}.git`);
 }
 
+/** Where a copy keeps its branches: one ref each, named by a hash of the branch's name. */
+const BRANCH_REFS = "refs/codeflow/h/";
+
+/**
+ * Where a branch is kept in a copy (decision D52). Not under its own name: a branch name can be
+ * any length, with a path part past what a file system allows, or differ from another only in
+ * case, and git keeps a ref as a file; Windows stops at 260 characters of path. Hashed, every
+ * ref has a short name of one length, and none can clash with another.
+ */
+export function branchRef(name: string): string {
+  return `${BRANCH_REFS}${createHash("sha1").update(name).digest("hex").slice(0, 20)}`;
+}
+
+/** The branches the remote has, by name: one request. */
+export async function remoteBranches(url: string, access: GitAccess): Promise<string[]> {
+  const out = await git(["ls-remote", "--heads", url], { access });
+  return out
+    .split("\n")
+    .map((line) => line.split("\t")[1] ?? "")
+    .filter((ref) => ref.startsWith("refs/heads/"))
+    .map((ref) => ref.slice("refs/heads/".length));
+}
+
 /**
  * Makes the copy current: created the first time, then fetched (only what's new). Every branch,
  * and on GitHub every PR's head, so commits of PRs whose branches are gone are still there.
+ * Branches are kept by hashed name (branchRef), so no branch name can stop an update.
  */
 export async function updateCopy(options: {
   dir: string;
   url: string;
   access: GitAccess;
   github: boolean;
-}): Promise<void> {
-  const { dir } = options;
+}): Promise<{ branches: number }> {
+  const { dir, url, access } = options;
   if (!existsSync(join(dir, "HEAD"))) {
     await mkdir(dir, { recursive: true });
     await git(["init", "--bare", "--quiet", dir]);
-    await git(["remote", "add", "origin", options.url], { cwd: dir });
-  } else {
-    await git(["remote", "set-url", "origin", options.url], { cwd: dir });
   }
-  const refspecs = ["+refs/heads/*:refs/heads/*"];
-  if (options.github) refspecs.push("+refs/pull/*/head:refs/pull/*/head");
-  await git(["fetch", "--quiet", "--prune", "--no-tags", "origin", ...refspecs], {
-    cwd: dir,
-    access: options.access,
-  });
+  // Git for Windows stops at 260 characters of path unless told otherwise; a copy deep in a
+  // workspace can pass it without any long branch name.
+  await git(["config", "core.longpaths", "true"], { cwd: dir });
+
+  const specs = (names: readonly string[]) => [
+    ...names.map((name) => `+refs/heads/${name}:${branchRef(name)}`),
+    ...(options.github ? ["+refs/pull/*/head:refs/pull/*/head"] : []),
+  ];
+  let branches = await remoteBranches(url, access);
+  const fetchAll = async () => {
+    const wanted = specs(branches);
+    if (wanted.length > 0) await fetchRefspecs(dir, url, wanted, access);
+  };
+  try {
+    await fetchAll();
+  } catch (err) {
+    // A branch deleted between listing and fetching: list again, once.
+    if (!/couldn't find remote ref/i.test((err as Error).message)) throw err;
+    branches = await remoteBranches(url, access);
+    await fetchAll();
+  }
+  await tidyRefs(dir, new Set(branches.map(branchRef)));
+  return { branches: branches.length };
+}
+
+/**
+ * Fetches refspecs from a URL, read from stdin so any number fit; from arguments, in batches
+ * that fit a command line, for a git too old for --stdin.
+ */
+export async function fetchRefspecs(
+  dir: string,
+  url: string,
+  specs: readonly string[],
+  access: GitAccess,
+  useStdin = true,
+): Promise<void> {
+  const base = ["fetch", "--quiet", "--no-tags"];
+  if (useStdin) {
+    try {
+      await git([...base, "--stdin", url], { cwd: dir, access, input: `${specs.join("\n")}\n` });
+      return;
+    } catch (err) {
+      if (!/unknown option/i.test((err as Error).message)) throw err;
+    }
+  }
+  // Windows allows about 32,000 characters of command line.
+  let batch: string[] = [];
+  let length = 0;
+  for (const spec of [...specs, null]) {
+    if (spec === null || length + spec.length > 20_000) {
+      if (batch.length > 0) await git([...base, url, ...batch], { cwd: dir, access });
+      batch = [];
+      length = 0;
+    }
+    if (spec !== null) {
+      batch.push(spec);
+      length += spec.length + 1;
+    }
+  }
+}
+
+/**
+ * Drops what a copy no longer needs: branches the remote deleted, and what an earlier codeflow
+ * kept (refs by branch name, and a remote's tracking refs), which were never updated again and
+ * which no branch name can any longer make fail. Run after the fetch, so those refs still told
+ * the server what the copy had while it ran.
+ */
+async function tidyRefs(dir: string, keep: ReadonlySet<string>): Promise<void> {
+  const out = await git(
+    ["for-each-ref", "--format=%(refname)", BRANCH_REFS, "refs/heads/", "refs/remotes/"],
+    { cwd: dir },
+  );
+  const drop = out
+    .split("\n")
+    .filter(Boolean)
+    .filter((ref) => !ref.startsWith(BRANCH_REFS) || !keep.has(ref));
+  if (drop.length > 0) {
+    await git(["update-ref", "--stdin"], {
+      cwd: dir,
+      input: `${drop.map((ref) => `delete ${ref}`).join("\n")}\n`,
+    });
+  }
+  // The remote an earlier codeflow added: nothing fetches from it now.
+  await git(["config", "--remove-section", "remote.origin"], { cwd: dir }).catch(() => "");
+}
+
+/** A branch's tip in the copy: by its hashed name, or by name in a copy made before D52. */
+async function branchTip(dir: string, name: string): Promise<string | null> {
+  for (const ref of [branchRef(name), `refs/heads/${name}`]) {
+    const tip = await git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], {
+      cwd: dir,
+    }).catch(() => "");
+    if (tip.trim()) return tip.trim();
+  }
+  return null;
 }
 
 /** Removes a repo's copy. */
@@ -283,13 +402,12 @@ export async function rewrittenLines(
   const change = await landed(dir, options.mergeCommit, options.prCommitSubjects);
   if (!change) return null;
   const until = new Date(Date.parse(options.mergedAt) + options.days * 86_400_000).toISOString();
+  const tip = await branchTip(dir, options.branch);
+  if (!tip) return null;
   const later = (
-    await git(
-      ["rev-list", "-1", "--first-parent", `--before=${until}`, `refs/heads/${options.branch}`],
-      {
-        cwd: dir,
-      },
-    ).catch(() => "")
+    await git(["rev-list", "-1", "--first-parent", `--before=${until}`, tip], {
+      cwd: dir,
+    }).catch(() => "")
   ).trim();
   if (!later) return null;
   // The branch then must hold the PR: otherwise it was never on this line of history.

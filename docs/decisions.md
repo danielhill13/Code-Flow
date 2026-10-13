@@ -409,3 +409,25 @@ set offers (`cols=` in the link, the title always shown), and don't reload the l
 is a new fact, every file the PR changed (null when the host cut the list short), beside product
 files; DERIVE_VERSION 13.
 
+
+
+**D52 · 2026-10-13 · A copy keeps branches by hashed name.** A copy fetched `+refs/heads/*:refs/heads/*`
+(and, through a remote, `refs/remotes/origin/*`), which makes git write one file per branch, its
+path the copy's folder plus the branch name. A branch whose name can't be a file here (a path part
+over 255 bytes; on Windows a path over 260 characters, which `core.longpaths` is off for by
+default) made git fail with "cannot lock ref … File name too long", exit non-zero and, in the
+git tested, leave the copy with no refs at all though the objects had arrived. `updateCopy` threw,
+sync dropped the repo's copy for that run, and every PR fell back to Azure DevOps's API (capped at
+300 files, ten files a request); the next sync, with no refs to tell the server what it had,
+fetched the whole history again whenever anything upstream changed. Now one `ls-remote --heads`
+lists the branches and each is fetched, by explicit refspec read from stdin (batched for a git
+without `--stdin`), into `refs/codeflow/h/<20 hex of sha1(name)>`: short, one length, no case
+collisions or file/directory clashes. Fetching straight from the address means no remote and no
+tracking refs. Pruning is codeflow's own (`update-ref --stdin`, after the fetch). A copy made
+before is brought up to date in place: its old by-name refs still tell the server what it has
+while the fetch runs, then they and the remote's configuration are removed. A branch deleted
+between listing and fetching gets one retry. `core.longpaths` is also set. Looking a branch up
+(for line churn) goes by the hashed name, then, for a copy not yet migrated, the name itself.
+Alternatives weighed: reftable (git 2.45+; it stored the long name, but existing copies would need
+migrating), and skipping the offending branches with a negative refspec, which drops the commits
+only they hold.

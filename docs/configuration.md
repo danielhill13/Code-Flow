@@ -246,7 +246,10 @@ also keeps a copy of the repo's git history on this machine (a bare clone in
 GitHub already gives exact sizes and lines per commit, so for a GitHub repo a copy adds only
 line-level churn. The cost: the repo's source code on this machine, and as much disk as a clone.
 It needs git installed. The token codeflow already uses reaches git through its environment, never
-a file, and a copy only ever fetches. Setup › Repos › Local copies chooses repos, shows each
+a file, and a copy only ever fetches. A copy keeps each branch under a short name made from a hash
+of the branch's name, so no branch name, however long or oddly cased, can stop it updating (git
+keeps a ref as a file, and a name past what the file system or Windows' 260-character path limit
+allows used to leave a copy with no refs at all). Setup › Repos › Local copies chooses repos, shows each
 copy's size and last fetch, and deletes copies no longer kept; `codeflow prune` deletes a pruned
 repo's copy too. A copy that can't be fetched is reported in the sync, which carries on through
 the API. See decision D46.

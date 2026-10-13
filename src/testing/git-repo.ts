@@ -1,7 +1,7 @@
 // Real git repos for tests of local copies (decision D46): built with the git CLI in a temporary
 // folder, with fixed dates, so tests can check sizes and churn against what git itself says.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -44,6 +44,24 @@ export class GitRepo {
     this.at(when, "add", "-A");
     this.at(when, "commit", "--quiet", "-m", message);
     return this.at(when, "rev-parse", "HEAD");
+  }
+
+  /**
+   * A branch git won't create here, because its name can't be a file: as a remote with a ref
+   * database (or a packed one) holds it. Written to packed-refs directly.
+   */
+  packedBranch(name: string, sha: string): void {
+    this.run("pack-refs", "--all", "--prune");
+    const file = join(this.dir, ".git", "packed-refs");
+    const kept = existsSync(file)
+      ? readFileSync(file, "utf8")
+          .split("\n")
+          .filter((line) => line && !line.startsWith("#"))
+      : [];
+    writeFileSync(
+      file,
+      `# pack-refs with: peeled fully-peeled \n${[...kept, `${sha} refs/heads/${name}`].join("\n")}\n`,
+    );
   }
 
   /** `n` numbered lines, each marked with `tag`. */

@@ -126,6 +126,96 @@ describe("an Azure DevOps repo with a local copy [rule 16]", () => {
   });
 });
 
+describe("an Azure DevOps PR with hundreds of files, in a repo with a branch name too long to store [rule 16]", () => {
+  const FILES = 320; // past the 300 files Azure DevOps's own API is asked about
+  const long = `story/develop/${"x".repeat(300)}`;
+  const repo = new GitRepo();
+  repo.commit("2026-03-01T10:00:00Z", "Start", { "src/a.ts": "a\n" });
+  repo.run("checkout", "--quiet", "-b", "wide");
+  const wide = repo.commit(
+    "2026-03-02T10:00:00Z",
+    "Touch a lot",
+    Object.fromEntries(
+      Array.from({ length: FILES }, (_, i) => [`src/gen/f${i}.ts`, `${i}\n${i}\n`]),
+    ),
+  );
+  repo.run("checkout", "--quiet", "main");
+  repo.at("2026-03-05T10:00:00Z", "merge", "--quiet", "--no-ff", "-m", "Merge PR 1: wide", "wide");
+  const merge = repo.run("rev-parse", "HEAD");
+  repo.run("checkout", "--quiet", "-b", "scratch");
+  const stranded = repo.commit("2026-03-06T10:00:00Z", "Only on the long branch", {
+    "src/s.ts": "s\n",
+  });
+  repo.run("checkout", "--quiet", "main");
+  repo.run("branch", "-D", "scratch");
+  repo.packedBranch(long, stranded);
+
+  const [billing] = contosoRepos(Date.parse("2026-06-01T00:00:00Z"));
+  const template = billing?.prs.find((p) => p.pr.status === "completed");
+  if (!billing || !template) throw new Error("scenario lacks a completed PR");
+  const payload: AdoPayload = {
+    ...template,
+    pr: {
+      ...template.pr,
+      creationDate: "2026-03-02T09:00:00Z",
+      closedDate: "2026-03-05T10:00:00Z",
+      lastMergeCommit: { commitId: merge },
+    },
+    commits: [{ commitId: wide, comment: "Touch a lot", author: { date: "2026-03-02T10:00:00Z" } }],
+    files: [{ path: "src/gen/f0.ts", additions: 1, deletions: 1 }],
+  };
+  const server = new AdoServer([{ ...billing, prs: [payload] }]);
+  let client: AdoClient;
+  beforeAll(async () => {
+    const url = await server.start();
+    client = new AdoClient({
+      url,
+      organization: ADO_ORG,
+      token: {
+        authorization: `Basic ${Buffer.from(`:${server.token}`).toString("base64")}`,
+        source: "",
+        kind: "personal access token",
+      },
+    });
+  });
+  afterAll(() => server.stop());
+
+  it("is sized in full from the copy, which a branch name no longer stops from updating", async () => {
+    const dir = join(mkdtempSync(join(tmpdir(), "codeflow-wide-")), "billing.git");
+    await updateCopy({ dir, url: repo.dir, access: {}, github: false });
+
+    const store = Store.open(":memory:");
+    const {
+      repos: [adoRepo],
+    } = await discoverAdo(client, {
+      kind: "ado",
+      organization: ADO_ORG,
+      project: "Platform",
+      include: ["billing"],
+      exclude: [],
+      forks: false,
+    });
+    if (!adoRepo) throw new Error("billing not found");
+    const calls = server.calls.length;
+    await syncAdoRepo({
+      client,
+      store,
+      runId: store.startRun("sync"),
+      repo: adoRepo,
+      since: "2026-01-01",
+      startedAt: "2026-06-01T00:00:00Z",
+      copy: dir,
+    });
+    // Azure DevOps was never asked for the files or their lines.
+    expect(server.calls.slice(calls).some((c) => /filediffs|\/changes$/.test(c))).toBe(false);
+    const [stored] = [...store.latestPrs()];
+    const saved = stored?.payload as AdoPayload;
+    expect(saved.filesFrom).toBe("local copy");
+    expect(saved.files).toHaveLength(FILES);
+    expect(saved.files?.reduce((n, f) => n + f.additions, 0)).toBe(FILES * 2);
+  });
+});
+
 describe("which repos have a local copy, and where git fetches them", () => {
   it("follows local_copies patterns, ignoring case", () => {
     const config = { local_copies: ["acme/api", "contoso/*/billing*"] };
