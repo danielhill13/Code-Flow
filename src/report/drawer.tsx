@@ -134,6 +134,12 @@ export function Drawer(props: {
         ? `Unknown: ${hostOf(pr.url)} didn't give every file's lines`
         : `${num(pr.sizeLines)} lines of product code`,
     ],
+    [
+      "Files changed",
+      pr.filesChanged === null
+        ? "Unknown"
+        : `${num(pr.filesChanged)}${pr.productFiles === null || pr.productFiles === pr.filesChanged ? "" : `, ${num(pr.productFiles)} of them product code`}`,
+    ],
     ["Reviews", pr.reviews === 0 ? "None" : `${num(pr.reviews)} by ${names(pr.reviewers, [], 4)}`],
     [
       "Re-pushed",

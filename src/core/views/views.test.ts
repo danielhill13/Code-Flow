@@ -9,7 +9,7 @@ import { compare } from "./compare.ts";
 import { lagged, Slice, type ViewContext, type ViewQuery } from "./context.ts";
 import { flow, openCount } from "./flow.ts";
 import { overview } from "./overview.ts";
-import { type PrFilter, prList } from "./prs.ts";
+import { AVAILABLE_COLUMNS, COLUMNS, columnsFor, type PrFilter, prList } from "./prs.ts";
 import { review } from "./review.ts";
 import { speed } from "./speed.ts";
 
@@ -342,6 +342,40 @@ describe("prList", () => {
     expect(openList([{ kind: "state", state: "draft" }])).toBe(1);
     expect(openList([{ kind: "waiting", reviewer: "BOB" }])).toBe(1);
     expect(openList([{ kind: "age", band: "3mo" }])).toBe(1);
+  });
+
+  it("covers the periods asked for, any of them, by when a PR merged or closed [rule 8]", () => {
+    const total = (periods: string[], set: "merged" | "abandoned" | "open" = "merged") =>
+      prList(ctx, {
+        ...base,
+        set,
+        filters: [],
+        periods,
+        sort: { key: set === "abandoned" ? "closed" : "merged", dir: "desc" },
+      }).total;
+    expect(total(["2026-09"])).toBe(15);
+    expect(total(["2026-08"])).toBe(3);
+    // Two periods at once: what merged in either, and nothing twice.
+    expect(total(["2026-08", "2026-09"])).toBe(18);
+    expect(total(["2026-09", "30d"])).toBe(15);
+    expect(total(["30d"])).toBe(15);
+    expect(total(["60d"])).toBe(18);
+    expect(total([])).toBe(18);
+    expect(total(["2026-09"], "abandoned")).toBe(1);
+    expect(total(["2026-08"], "abandoned")).toBe(0);
+    // Open lists are as of now, whatever periods are asked for.
+    expect(total(["2026-08"], "open")).toBe(3);
+  });
+
+  it("shows the columns chosen among those a set offers, the title always, in its own order", () => {
+    expect(columnsFor("merged", null)).toEqual([...COLUMNS.merged]);
+    expect(columnsFor("merged", ["files", "author"])).toEqual(["title", "author", "files"]);
+    // A column the set doesn't offer is dropped: no merge date on an open PR.
+    expect(columnsFor("open", ["merged", "files"])).toEqual(["title", "files"]);
+    expect(AVAILABLE_COLUMNS.merged).toContain("files");
+    for (const set of ["merged", "open", "stale", "abandoned"] as const) {
+      expect(COLUMNS[set].every((c) => AVAILABLE_COLUMNS[set].includes(c))).toBe(true);
+    }
   });
 
   it("lists abandoned PRs by when they closed", () => {

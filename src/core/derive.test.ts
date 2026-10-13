@@ -539,6 +539,23 @@ describe("rework: lines changed after the first review [rule 14]", () => {
   });
 });
 
+describe("files changed", () => {
+  const file = (path: string) => ({ path, additions: 4, deletions: 1 });
+
+  it("counts every file the PR changed, tests and docs too, beside the product files", () => {
+    const fact = prFact({
+      files: [file("src/a.ts"), file("src/b.ts"), file("src/a.test.ts"), file("README.md")],
+    });
+    expect(fact).toMatchObject({ filesChanged: 4, productFiles: 2 });
+    expect(prFact({ files: [] })).toMatchObject({ filesChanged: 0, productFiles: 0 });
+  });
+
+  it("is unknown, not a count of the files seen, when the host cut the list short [rule 4]", () => {
+    const fact = prFact({ files: [file("src/a.ts")], truncated: ["files"] });
+    expect(fact).toMatchObject({ filesChanged: null, productFiles: null, sizeLines: null });
+  });
+});
+
 describe("the size target [rule 15]", () => {
   it("counts PRs at or under the org's target, and says nothing of PRs of unknown size", () => {
     const metric = metricOf("withinSize");

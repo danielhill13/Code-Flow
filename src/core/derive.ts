@@ -309,10 +309,16 @@ function phases(t: {
 function size(
   pr: PrModel,
   rules: DeriveRules,
-): Pick<PrFact, "sizeLines" | "addedLines" | "productFiles" | "linesByBucket"> {
+): Pick<PrFact, "sizeLines" | "addedLines" | "productFiles" | "filesChanged" | "linesByBucket"> {
   // A partial file list would understate size: flag it rather than estimate (rule 4).
   if (pr.truncated.includes("files")) {
-    return { sizeLines: null, addedLines: null, productFiles: null, linesByBucket: null };
+    return {
+      sizeLines: null,
+      addedLines: null,
+      productFiles: null,
+      filesChanged: null,
+      linesByBucket: null,
+    };
   }
   const linesByBucket = Object.fromEntries(BUCKETS.map((bucket) => [bucket, 0])) as Record<
     Bucket,
@@ -328,7 +334,13 @@ function size(
       productFiles += 1;
     }
   }
-  return { sizeLines: linesByBucket.product, addedLines, productFiles, linesByBucket };
+  return {
+    sizeLines: linesByBucket.product,
+    addedLines,
+    productFiles,
+    filesChanged: pr.files.length,
+    linesByBucket,
+  };
 }
 
 /**

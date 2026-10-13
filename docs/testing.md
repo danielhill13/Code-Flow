@@ -173,6 +173,8 @@ here.
 | TC-509 | Changes read as a neutral increase or decrease, in one unit |
 | TC-510 | What is selected is listed first when the picker opens again |
 | TC-511 | A window can be a period to date (MTD, QTD, YTD), or one month, quarter or year, and stays in the link |
+| TC-618 | The PR list covers the periods chosen, two quarters at once, each PR counted once; Open lists are as of now |
+| TC-619 | The PR list shows the columns chosen, files changed among them, and keeps them in the link |
 
 ### Setup in the served app (`test/e2e/serve.spec.ts`)
 

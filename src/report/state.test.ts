@@ -40,9 +40,24 @@ const views: ReportState[] = [
         { kind: "state", state: "waiting" },
         { kind: "waiting", reviewer: "devon" },
       ],
+      periods: [],
+      columns: null,
       sort: { key: "age", dir: "desc" },
     },
     pr: "PR_kwDO123",
+  },
+  {
+    // Two quarters side by side, and the columns the reader chose.
+    ...DEFAULT_STATE,
+    tab: "prs",
+    list: {
+      from: "",
+      set: "merged",
+      filters: [],
+      periods: ["2026-Q2", "2026-Q3"],
+      columns: ["number", "title", "author", "merged", "size", "files"],
+      sort: { key: "files", dir: "desc" },
+    },
   },
   { ...DEFAULT_STATE, tab: "setup" },
 ];

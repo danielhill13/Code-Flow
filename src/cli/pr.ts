@@ -209,6 +209,9 @@ function printPr(
         "Size",
         `${plural(pr.sizeLines ?? 0, "product line")} (${num(pr.addedLines ?? 0)} added) in ` +
           `${plural(pr.productFiles ?? 0, "file")}${other.length > 0 ? dim(`; also ${other.join(", ")}`) : ""}` +
+          (pr.filesChanged !== null && pr.filesChanged !== pr.productFiles
+            ? dim(` (${plural(pr.filesChanged, "file")} changed in all)`)
+            : "") +
           (context.sizeFrom ? dim(` (${context.sizeFrom})`) : ""),
       ),
     );

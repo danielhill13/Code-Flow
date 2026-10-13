@@ -20,7 +20,7 @@ import { Setup } from "./admin/setup.tsx";
 import { Drawer } from "./drawer.tsx";
 import { tabHref } from "./links.ts";
 import { SelectionBar } from "./selector.tsx";
-import { type ReportState, readState, TABS, writeState } from "./state.ts";
+import { listPeriods, type ReportState, readState, TABS, writeState } from "./state.ts";
 import { Compare, CompareControls, comparePick } from "./tabs/compare.tsx";
 import { Flow } from "./tabs/flow.tsx";
 import { Overview } from "./tabs/overview.tsx";
@@ -29,7 +29,7 @@ import { Review } from "./tabs/review.tsx";
 import { Speed } from "./tabs/speed.tsx";
 import { type BreakdownChoice, capital, Segmented, when } from "./ui.tsx";
 import { FirstSync } from "./welcome.tsx";
-import { WindowMenu } from "./window-menu.tsx";
+import { PeriodsMenu, WindowMenu } from "./window-menu.tsx";
 
 const STATISTICS: readonly { value: number; label: string }[] = [
   { value: 0.5, label: "Median" },
@@ -102,7 +102,10 @@ function Report({
     percentile: state.percentile,
   };
   const pick = comparePick(state.compare, meta.coveredFrom, asOf);
-  const listKey = JSON.stringify([state.selection, state.contributors, state.list]);
+  // The columns only change what is shown, not which PRs: they don't reload the list, close the
+  // table under the reader, or start it again from the first page.
+  const { columns: _shown, ...listData } = state.list;
+  const listKey = JSON.stringify([state.selection, state.contributors, listData]);
   useEffect(() => setLimit(PAGE), [listKey]);
 
   const key = JSON.stringify([
@@ -110,7 +113,7 @@ function Report({
     state.tab,
     query,
     state.tab === "compare" ? [pick.a, pick.b] : null,
-    state.tab === "prs" ? [state.list, limit] : null,
+    state.tab === "prs" ? [listData, limit] : null,
   ]);
   const loaded = useAsync(async () => ({ key, model: await loadModel() }), key);
   // A model loaded for another tab or query is never shown under this one.
@@ -135,6 +138,7 @@ function Report({
           contributors: state.contributors,
           set: state.list.set,
           filters: state.list.filters,
+          periods: listPeriods(state),
           sort: state.list.sort,
           limit,
         });
@@ -235,6 +239,22 @@ function Report({
               onChange={(w) => update({ window: w })}
             />
           )}
+          {state.tab === "prs" &&
+            (listPeriods(state).length > 0 &&
+            (state.list.set === "merged" || state.list.set === "abandoned") ? (
+              <PeriodsMenu
+                value={listPeriods(state)}
+                from={meta.coveredFrom}
+                asOf={asOf}
+                onChange={(periods) => update({ list: { ...state.list, periods } })}
+              />
+            ) : (
+              <span class="controls-note">
+                {listPeriods(state).length === 0
+                  ? "The span you opened this list from. Remove its filter to choose periods."
+                  : "Open and stale PRs are as of now."}
+              </span>
+            ))}
           <Segmented
             label="Statistic"
             options={STATISTICS}
@@ -301,11 +321,15 @@ function Report({
             }}
             onList={(list) => update({ list })}
             onSet={(set: PrSet) =>
+              // A new set starts clean: no trail, no filters, the columns it opens with. Its
+              // periods stay, as what the reader chose to look at.
               update({
                 list: {
+                  ...state.list,
                   from: "",
                   set,
-                  filters: set === "open" ? [] : [{ kind: "span", ...window.current }],
+                  filters: [],
+                  columns: null,
                   sort: DEFAULT_SORT[set],
                 },
               })

@@ -7,6 +7,7 @@ import { metricOf } from "../metrics.ts";
 import { inPeriod } from "../periods.ts";
 import { byContributors, type Contributors, type Selection, selects } from "../selection.ts";
 import { isStale, quietDays } from "../stale.ts";
+import { type WindowKey, windowOf } from "../windows.ts";
 import { metricContext, type ViewContext } from "./context.ts";
 import { AGE_BANDS, ageDays, inAgeBand, OPEN_STATES } from "./flow.ts";
 import { inBand, SIZE_BANDS, type SizeBand } from "./speed.ts";
@@ -47,6 +48,7 @@ export type PrColumn =
   | "mergeWait"
   | "timeToApproval"
   | "size"
+  | "files"
   | "reviews"
   | "state"
   | "quiet";
@@ -58,6 +60,11 @@ export type PrQuery = {
   contributors: Contributors;
   set: PrSet;
   filters: PrFilter[];
+  /**
+   * The periods a merged or closed list covers: a PR counts if it merged (or closed) in any of
+   * them. Open and stale lists are as of now, and take none. Empty: no time limit.
+   */
+  periods?: WindowKey[];
   sort: PrSort;
   /** Rows to return, from the top. */
   limit: number;
@@ -78,12 +85,46 @@ export const COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "review",
     "mergeWait",
     "size",
+    "files",
     "reviews",
   ],
-  open: ["number", "title", "author", "age", "state", "size", "reviews"],
-  stale: ["number", "title", "author", "age", "quiet", "state", "reviews"],
-  abandoned: ["number", "title", "author", "closed", "age", "size", "reviews"],
+  open: ["number", "title", "author", "age", "state", "size", "files", "reviews"],
+  stale: ["number", "title", "author", "age", "quiet", "state", "files", "reviews"],
+  abandoned: ["number", "title", "author", "closed", "age", "size", "files", "reviews"],
 };
+
+/**
+ * Every column a set can show, in the order they appear: what the reader chooses from. The title
+ * is always shown. `waiting` (open lists) follows `state` and isn't chosen on its own.
+ */
+export const AVAILABLE_COLUMNS: Record<PrSet, readonly PrColumn[]> = {
+  merged: [
+    "number",
+    "title",
+    "author",
+    "merged",
+    "age",
+    "cycle",
+    "coding",
+    "pickup",
+    "review",
+    "mergeWait",
+    "timeToApproval",
+    "size",
+    "files",
+    "reviews",
+  ],
+  open: ["number", "title", "author", "age", "quiet", "state", "size", "files", "reviews"],
+  stale: ["number", "title", "author", "age", "quiet", "state", "size", "files", "reviews"],
+  abandoned: ["number", "title", "author", "closed", "age", "size", "files", "reviews"],
+};
+
+/** The columns a list shows: the reader's choice among those the set offers, or its defaults. */
+export function columnsFor(set: PrSet, chosen: readonly PrColumn[] | null): PrColumn[] {
+  if (chosen === null) return [...COLUMNS[set]];
+  const wanted = new Set<PrColumn>([...chosen, "title"]);
+  return AVAILABLE_COLUMNS[set].filter((column) => wanted.has(column));
+}
 
 /** The order a set opens in when nothing else is asked for. */
 export const DEFAULT_SORT: Record<PrSet, PrSort> = {
@@ -116,6 +157,13 @@ export function prTest(
   const scoped = selects(q.selection, ctx.choices);
   const kept = byContributors(q.contributors);
   const tests = q.filters.map((filter) => filterTest(ctx, q.set, filter));
+  // Merged and closed lists cover the periods asked for; open and stale ones are as of now.
+  const spans = (q.periods ?? []).map((key) => windowOf(key, ctx.asOf).current);
+  if (spans.length > 0 && (q.set === "merged" || q.set === "abandoned")) {
+    tests.push((pr) =>
+      spans.some((span) => inPeriod(span, q.set === "merged" ? pr.mergedAt : pr.closedAt)),
+    );
+  }
   const stale = (pr: PrFact) => isStale(pr, ctx.asOf, ctx.staleAfterDays);
   const inSet = (pr: PrFact) =>
     pr.state === STATE[q.set] && (q.set === "stale" ? stale(pr) : !stale(pr));
@@ -191,6 +239,8 @@ function sortValue(key: PrColumn, pr: PrFact, asOf: Date): number | string | nul
       return pr.timeToApprovalHours;
     case "size":
       return pr.sizeLines;
+    case "files":
+      return pr.filesChanged;
     case "reviews":
       return pr.reviews;
     case "state":

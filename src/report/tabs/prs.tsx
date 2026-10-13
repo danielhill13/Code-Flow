@@ -4,16 +4,20 @@ import { isCatchAll, isInternal } from "../../core/selection.ts";
 import { quietDays } from "../../core/stale.ts";
 import { ageDays } from "../../core/views/flow.ts";
 import {
+  AVAILABLE_COLUMNS,
   COLUMNS,
+  columnsFor,
   filterLabel,
   OPEN_STATE_LABELS,
   type PrColumn,
   type PrListModel,
   type PrSet,
 } from "../../core/views/prs.ts";
+import { ColumnsMenu } from "../columns-menu.tsx";
 import { prHref } from "../links.ts";
-import type { ListState, ReportState } from "../state.ts";
+import { type ListState, listPeriods, type ReportState } from "../state.ts";
 import { Segmented, shortDate } from "../ui.tsx";
+import { windowName } from "../window-menu.tsx";
 
 /** A column as the table shows it. `waiting` is display only: it has no order of its own. */
 type Column = { key: PrColumn | "waiting"; label: string; width: string };
@@ -32,14 +36,36 @@ const COLUMN: Record<PrColumn | "waiting", Omit<Column, "key">> = {
   mergeWait: { label: "Merge wait", width: "84px" },
   timeToApproval: { label: "To approval", width: "84px" },
   size: { label: "Size", width: "64px" },
+  files: { label: "Files", width: "58px" },
   reviews: { label: "Reviews", width: "64px" },
   state: { label: "State", width: "150px" },
   quiet: { label: "Quiet for", width: "84px" },
   waiting: { label: "Waiting on", width: "minmax(190px,.7fr)" },
 };
 
+/** What each column is called in the columns menu. */
+const COLUMN_NAME: Record<PrColumn, string> = {
+  number: "Number",
+  title: "Title",
+  author: "Author",
+  merged: "Merged on",
+  closed: "Closed on",
+  age: "Age",
+  cycle: "Cycle time",
+  coding: "Coding",
+  pickup: "Pickup",
+  review: "Review time",
+  mergeWait: "Merge wait",
+  timeToApproval: "Time to approval",
+  size: "Size (product lines)",
+  files: "Files changed",
+  reviews: "Reviews",
+  state: "State",
+  quiet: "Quiet for",
+};
+
 function columnsOf(list: ListState): Column[] {
-  const keys: (PrColumn | "waiting")[] = [...COLUMNS[list.set]];
+  const keys: (PrColumn | "waiting")[] = columnsFor(list.set, list.columns);
   if (list.set === "open") keys.splice(keys.indexOf("state") + 1, 0, "waiting");
   // A list sorted by a column it doesn't show gets that column, after the title.
   if (!keys.includes(list.sort.key)) keys.splice(keys.indexOf("author") + 1, 0, list.sort.key);
@@ -67,6 +93,15 @@ export function PullRequests(props: {
 }) {
   const { model, state, asOf, onList } = props;
   const { list } = state;
+  const periods = listPeriods(state);
+  // What time the list covers, in words: nothing for a list from a number (its chip says), and
+  // "as of now" for the sets that are open now.
+  const scope =
+    periods.length === 0
+      ? ""
+      : list.set === "merged" || list.set === "abandoned"
+        ? `${list.set === "merged" ? "merged" : "closed"} in ${periods.map((key) => windowName(key, asOf)).join(" + ")}`
+        : "as of now";
   const columns = columnsOf(list);
   const grid = columns.map((c) => c.width).join(" ");
   const sortBy = (key: PrColumn) =>
@@ -91,6 +126,7 @@ export function PullRequests(props: {
       >
         <span class="muted" style={{ fontSize: "12.5px" }}>
           {list.from ? `From ${list.from} ›` : "Showing"}
+          {scope && ` ${scope}`}
         </span>
         {list.filters.map((filter, i) => (
           <span key={`${filter.kind}${i}`} class="chip">
@@ -116,8 +152,27 @@ export function PullRequests(props: {
             onChange={props.onSet}
           />
         </div>
-        <span class="num" style={{ marginLeft: "auto", fontSize: "13px", fontWeight: 600 }}>
-          {num(model.total)} {model.total === 1 ? "pull request" : "pull requests"}
+        <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "14px" }}>
+          <ColumnsMenu
+            options={AVAILABLE_COLUMNS[list.set].map((key) => ({
+              key,
+              label: COLUMN_NAME[key],
+              locked: key === "title",
+            }))}
+            shown={columnsFor(list.set, list.columns)}
+            isDefault={list.columns === null}
+            onChange={(shown) => {
+              // Choosing what the set opens with is the same as choosing nothing.
+              const same =
+                shown.length === COLUMNS[list.set].length &&
+                COLUMNS[list.set].every((key) => shown.includes(key));
+              onList({ ...list, columns: same ? null : shown });
+            }}
+            onReset={() => onList({ ...list, columns: null })}
+          />
+          <span class="num" style={{ fontSize: "13px", fontWeight: 600 }}>
+            {num(model.total)} {model.total === 1 ? "pull request" : "pull requests"}
+          </span>
         </span>
       </section>
 
@@ -240,6 +295,8 @@ function Cell(props: { column: PrColumn | "waiting"; pr: PrFact; sorted: boolean
       return plain(hours(pr.timeToApprovalHours));
     case "size":
       return plain(pr.sizeLines === null ? "—" : num(pr.sizeLines));
+    case "files":
+      return plain(pr.filesChanged === null ? "—" : num(pr.filesChanged));
     case "reviews":
       return plain(num(pr.reviews));
     case "state":

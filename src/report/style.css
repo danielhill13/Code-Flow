@@ -2250,3 +2250,71 @@ summary {
   color: var(--text);
   font-weight: 600;
 }
+
+/* The periods panel (the PR list): a hint on top, Done below. */
+.window-hint {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 0 2px;
+}
+
+.window-done {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+/* The columns menu on a table's header card. */
+.columns-control {
+  position: relative;
+}
+
+.columns-menu {
+  top: 34px;
+  right: 0;
+  left: auto;
+  min-width: 220px;
+  max-height: none;
+  overflow: visible;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The options scroll on their own, so Reset and Done are always in view. */
+.columns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: min(46vh, 360px);
+  overflow-y: auto;
+}
+
+.columns-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.columns-option:hover {
+  background: var(--hover);
+}
+
+.columns-option input:disabled + span {
+  color: var(--text3);
+}
+
+.columns-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  margin-top: 6px;
+  padding-top: 8px;
+}

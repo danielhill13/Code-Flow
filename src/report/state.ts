@@ -11,6 +11,7 @@ import {
   type Selection,
 } from "../core/selection.ts";
 import {
+  AVAILABLE_COLUMNS,
   DEFAULT_SORT,
   PR_SETS,
   type PrColumn,
@@ -48,6 +49,14 @@ export type ListState = {
   from: string;
   set: PrSet;
   filters: PrFilter[];
+  /**
+   * The periods a merged or closed list covers, such as two quarters; empty: the report's window.
+   * A list opened from a number covers that number's span instead (a span filter), and ignores
+   * these. Open and stale lists are as of now.
+   */
+  periods: WindowKey[];
+  /** The columns shown; null: the set's defaults. */
+  columns: PrColumn[] | null;
   sort: PrSort;
 };
 
@@ -75,7 +84,14 @@ export const DEFAULT_STATE: ReportState = {
   percentile: 0.5,
   contributors: "all",
   compare: { grain: "quarter", a: null, b: null },
-  list: { from: "", set: "merged", filters: [], sort: DEFAULT_SORT.merged },
+  list: {
+    from: "",
+    set: "merged",
+    filters: [],
+    periods: [],
+    columns: null,
+    sort: DEFAULT_SORT.merged,
+  },
   pr: null,
 };
 
@@ -113,6 +129,8 @@ export function readState(hash: string): ReportState {
       from: get("from") ?? "",
       set,
       filters: params.getAll("f").flatMap((text) => readFilter(text)),
+      periods: [...new Set(params.getAll("p").filter(isWindowKey))],
+      columns: readColumns(get("cols")),
       sort: readSort(get("sort")) ?? DEFAULT_SORT[set],
     },
     pr: get("pr"),
@@ -138,10 +156,19 @@ export function writeState(state: ReportState): string {
     if (state.list.from) params.set("from", state.list.from);
     params.set("set", state.list.set);
     for (const filter of state.list.filters) params.append("f", writeFilter(filter));
+    for (const period of state.list.periods) params.append("p", period);
+    if (state.list.columns) params.set("cols", state.list.columns.join(","));
     params.set("sort", `${state.list.sort.dir === "desc" ? "-" : ""}${state.list.sort.key}`);
   }
   if (state.pr) params.set("pr", state.pr);
   return `#${params.toString()}`;
+}
+
+/** The columns a link names, in the order they were written; null for none (the defaults). */
+function readColumns(text: string | null): PrColumn[] | null {
+  if (text === null) return null;
+  const known = new Set<string>(Object.values(AVAILABLE_COLUMNS).flat());
+  return text.split(",").filter((name): name is PrColumn => known.has(name));
 }
 
 function writeFilter(filter: PrFilter): string {
@@ -188,23 +215,8 @@ function readFilter(text: string): PrFilter[] {
   }
 }
 
-const SORTABLE: readonly PrColumn[] = [
-  "number",
-  "title",
-  "author",
-  "merged",
-  "closed",
-  "age",
-  "cycle",
-  "coding",
-  "pickup",
-  "review",
-  "mergeWait",
-  "timeToApproval",
-  "size",
-  "reviews",
-  "state",
-];
+/** Every column a list can be sorted by: each one a list can show. */
+const SORTABLE: readonly PrColumn[] = [...new Set(Object.values(AVAILABLE_COLUMNS).flat())];
 
 function readSort(text: string | null): PrSort | null {
   if (!text) return null;
@@ -217,4 +229,13 @@ function readSort(text: string | null): PrSort | null {
 function readBreakdown(text: string | null): Breakdown | null {
   if (text === "team" || text === "repo") return text;
   return text?.startsWith("group:") && text.length > "group:".length ? (text as Breakdown) : null;
+}
+
+/**
+ * The periods a PR list covers: the ones chosen, or the report's window; none when the list came
+ * from a number and holds exactly that number's span (a span filter), which nothing may widen.
+ */
+export function listPeriods(state: ReportState): WindowKey[] {
+  if (state.list.filters.some((filter) => filter.kind === "span")) return [];
+  return state.list.periods.length > 0 ? state.list.periods : [state.window];
 }

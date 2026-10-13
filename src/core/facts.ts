@@ -5,7 +5,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 12;
+export const DERIVE_VERSION = 13;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -119,6 +119,8 @@ export type PrFact = {
   /** Product lines added. */
   addedLines: number | null;
   productFiles: number | null;
+  /** Every file the PR changed, tests and docs included; null when the host cut the list short. */
+  filesChanged: number | null;
   linesByBucket: Record<Bucket, number> | null;
 
   // Review by people other than the author (bots only when config names them as reviewers).

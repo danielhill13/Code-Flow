@@ -210,6 +210,114 @@ test("TC-511 a window can be a period to date, or one month, quarter or year, an
   }
 });
 
+/** How many PRs the list says it holds. */
+async function listed(page: Page): Promise<number> {
+  const text = await page
+    .locator(".card .num", { hasText: /pull request/ })
+    .first()
+    .innerText();
+  return Number(text.replace(/\D/g, ""));
+}
+
+test("TC-618 the PR list covers the periods chosen, two quarters at once", async ({ page }) => {
+  await page.goto(REPORT);
+  await ready(page);
+  await openTab(page, "Pull requests");
+
+  // With nothing chosen the list covers the report's window, and says so.
+  await expect(page.locator(".window-button")).toHaveText(/Last 30 days/);
+  await expect(page.locator("main")).toContainText("merged in Last 30 days");
+
+  // The two most recent quarters the menu offers: key them as the link does ("2026-Q3").
+  await page.locator(".window-button").click();
+  const menu = page.getByRole("dialog", { name: "Choose periods" });
+  const quarters = (await menu.locator(".window-column").nth(1).locator("button").allInnerTexts())
+    .map((label) => /Q([1-4]) (\d{4})/.exec(label))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => ({ label: `Q${m[1]} ${m[2]}`, key: `${m[2]}-Q${m[1]}` }));
+  expect(quarters.length).toBeGreaterThan(1);
+  const [a, b] = quarters.slice(0, 2);
+  if (!a || !b) throw new Error("fewer than two quarters offered");
+  await page.keyboard.press("Escape");
+
+  // Each on its own, from the link.
+  const countFor = async (key: string) => {
+    await page.goto(`${REPORT}#tab=prs&set=merged&p=${key}&sort=-merged`);
+    await ready(page);
+    return listed(page);
+  };
+  const first = await countFor(a.key);
+  const second = await countFor(b.key);
+  expect(first + second).toBeGreaterThan(0);
+
+  // Both at once, by the menu: it stays open for the second pick, and each PR counts once.
+  await page.goto(`${REPORT}#tab=prs&set=merged&p=${a.key}&sort=-merged`);
+  await ready(page);
+  await page.locator(".window-button").click();
+  await menu.getByRole("button", { name: b.label, exact: true }).click();
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("button", { name: `✓ ${b.label}`, exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await ready(page);
+  expect(page.url()).toContain(`p=${a.key}`);
+  expect(page.url()).toContain(`p=${b.key}`);
+  await expect(page.locator(".window-button")).toContainText(`${a.label} + ${b.label}`);
+  expect(await listed(page)).toBe(first + second);
+
+  // One is always left: unticking the last period does nothing.
+  await page.locator(".window-button").click();
+  await menu.getByRole("button", { name: `✓ ${b.label}`, exact: true }).click();
+  await menu.getByRole("button", { name: `✓ ${a.label}`, exact: true }).click();
+  await expect(menu.getByRole("button", { name: `✓ ${a.label}`, exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  expect(await listed(page)).toBe(first);
+
+  // Open PRs are as of now: the periods don't apply, and the page says so.
+  await page.getByRole("button", { name: "Open", exact: true }).click();
+  await ready(page);
+  await expect(page.locator(".controls-note")).toContainText("as of now");
+});
+
+test("TC-619 the PR list shows the columns chosen, files changed among them", async ({ page }) => {
+  await page.goto(REPORT);
+  await ready(page);
+  await openTab(page, "Pull requests");
+  const header = page.locator(".row.head").first();
+
+  // Files changed is a column of the list, with a number for each PR.
+  await expect(header).toContainText("Files");
+  const files = await page.locator("a.row.dense").first().locator("span").allInnerTexts();
+  expect(files.some((text) => /^\d+$/.test(text.trim()))).toBe(true);
+
+  // Choose columns: hide Files and Merge wait, show Time to approval; it stays in the link.
+  await page.getByRole("button", { name: /^Columns/ }).click();
+  const menu = page.getByRole("dialog", { name: "Choose columns" });
+  await expect(menu.getByRole("checkbox", { name: "Title" })).toBeDisabled();
+  await menu.getByRole("checkbox", { name: "Files changed" }).uncheck();
+  await menu.getByRole("checkbox", { name: "Merge wait" }).uncheck();
+  await menu.getByRole("checkbox", { name: "Time to approval" }).check();
+  await page.keyboard.press("Escape");
+  await ready(page);
+  expect(page.url()).toContain("cols=");
+  await expect(header).not.toContainText("Files");
+  await expect(header).not.toContainText("Merge wait");
+  await expect(header).toContainText("To approval");
+
+  // A reload shows the same columns: they are in the link.
+  await page.reload();
+  await ready(page);
+  await expect(page.locator(".row.head").first()).toContainText("To approval");
+
+  // Reset returns what the list opens with.
+  await page.getByRole("button", { name: /^Columns/ }).click();
+  await page.getByRole("button", { name: "Reset to default" }).click();
+  await page.keyboard.press("Escape");
+  await ready(page);
+  expect(page.url()).not.toContain("cols=");
+  await expect(page.locator(".row.head").first()).toContainText("Files");
+  await expect(page.locator(".row.head").first()).toContainText("Merge wait");
+});
+
 test("TC-506 the theme the viewer picks stays picked", async ({ page }) => {
   await page.goto(REPORT);
   await ready(page);

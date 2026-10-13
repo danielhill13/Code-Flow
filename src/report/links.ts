@@ -49,13 +49,15 @@ export function metricList(
     from,
     set,
     filters: [...filters, ...extra],
+    periods: [],
+    columns: null,
     sort: { key: SORT_BY[key] ?? "merged", dir: "desc" },
   };
 }
 
 /** A list of PRs by set, with any filters. */
 export function setList(set: PrSet, from: string, filters: PrFilter[] = []): ListState {
-  return { from, set, filters, sort: DEFAULT_SORT[set] };
+  return { from, set, filters, periods: [], columns: null, sort: DEFAULT_SORT[set] };
 }
 
 export const listHref = (state: ReportState, list: ListState) =>

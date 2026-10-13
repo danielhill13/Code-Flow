@@ -395,3 +395,17 @@ request", "X marked the pull request as a draft"), by their English wording, and
 change twice. A person's own comment never counts: only system comments do. `codeflow pr` shows
 "opened" and "ready" apart, to check one.
 
+**D51 · 2026-10-13 · The PR list has its own periods, columns and file counts.** The Pull
+requests tab had no time scope of its own (only a number's link gave it one) and fixed columns.
+Now a merged or closed list covers *periods*: the report's window by default, or any set the
+reader picks (two quarters, a quarter and a month) in a panel of the same shape as the window
+panel, with checkboxes; a PR counts if it merged (or closed) in any, once. They are a list setting
+(`p=` in the link), not the report's window, because the metric tabs compare a window with the one
+before it, which two separate quarters have no meaning for; Compare already sets two periods
+against each other. A list opened from a number keeps that number's own span and ignores periods:
+the number's PRs are exactly those (rule 8), and a lagged number (reverts) covers a span the
+window doesn't. Open and stale lists are as of now. Columns are the reader's choice among those a
+set offers (`cols=` in the link, the title always shown), and don't reload the list. Files changed
+is a new fact, every file the PR changed (null when the host cut the list short), beside product
+files; DERIVE_VERSION 13.
+
