@@ -136,7 +136,10 @@ export function Repos(props: SectionProps) {
           onChange={setSources}
           repos={[...(props.meta?.repos ?? []), ...seen]}
         />
-        <Field label="Measure from" hint="PRs active on or after this day.">
+        <Field
+          label="Measure from"
+          hint="PRs merged or closed on or after this day, however long before they were opened, plus any still open. Moving it earlier, or the first sync after an update, reads the ones not stored yet."
+        >
           <input
             type="date"
             value={since}

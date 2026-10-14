@@ -64,6 +64,12 @@ export class AdoServer {
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
+  /** Takes a PR out again, for a test that added one. */
+  remove(repoName: string, pullRequestId: number): void {
+    const repo = this.#repos.find((r) => r.name === repoName);
+    if (repo) repo.prs = repo.prs.filter((p) => p.pr.pullRequestId !== pullRequestId);
+  }
+
   /** Adds a PR, or replaces the one with its id. */
   put(repoName: string, payload: AdoPayload): void {
     const repo = this.#repos.find((r) => r.name === repoName);

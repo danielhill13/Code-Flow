@@ -318,6 +318,11 @@ These hold everywhere. Each gets a test as it is built.
     comment "published the pull request"), not when it was opened: the draft's time is coding. A PR
     opened ready and later sent back to draft was ready when it opened. A review during the draft
     makes pickup 0, never negative.
+19. **Measure from means merged or closed from.** A PR merged or closed on or after `since` is read
+    whatever day it was opened, and a PR opened since is read whatever its state, as is any PR still
+    open. On Azure DevOps, which lists PRs by when they were opened, a second walk reads those
+    closed since `since`; a repo that synced before it existed reads the ones it missed on its next
+    sync, and a PR already stored as closed is never read again.
 
 ## Per-PR timeline
 

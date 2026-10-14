@@ -141,7 +141,7 @@ export function renderConfig(input: {
         : []),
     ]),
     "",
-    "# Measure pull requests active on or after this date.",
+    "# Measure pull requests merged or closed on or after this date (and any still open).",
     `since: ${scalar(input.since)}`,
     "",
   ].join("\n");

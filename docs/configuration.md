@@ -74,10 +74,16 @@ GitHub's: `contoso/Platform/*`. Disabled and empty Azure DevOps repos are always
 since: 2025-10-01
 ```
 
-The first day to measure. Sync fetches every PR updated on or after it, plus older PRs that are
-still open. No number is shown for any time before it, because that stretch would hold only the
-older PRs that happened to change later. Moving it earlier extends the next sync; moving it later
-needs no sync.
+The first day to measure. Sync fetches every PR merged or closed on or after it, however long
+before that it was opened, plus older PRs that are still open. No number is shown for any time
+before it, because that stretch would hold only the older PRs that happened to change later.
+Moving it earlier extends the next sync; moving it later needs no sync.
+
+On GitHub that is every PR updated on or after the day, which includes any merged or closed since.
+Azure DevOps lists PRs by when they were opened, so sync reads those, and then, separately, every
+PR closed since the day, which finds one opened before it and merged after it (decision D53). A
+repo synced before that walk existed reads the ones it missed on its next sync, once; nothing
+already stored is read again.
 
 ## github
 
@@ -108,7 +114,7 @@ all accessible organizations.
 Azure DevOps can't list PRs by when they last changed, so each sync checks every open PR with
 one request (its threads, which hold votes and comments; the list itself shows pushes, title and
 draft) and reads again only those that moved, plus the PRs closed since the last sync; the first
-sync reads every PR created since `since`. Reading a PR takes about five requests (its threads,
+sync reads every PR created since `since`, and every PR closed since it. Reading a PR takes about five requests (its threads,
 pushes, commits and files), plus one for every ten files' line counts, which is as many as Azure
 DevOps answers at once; a PR changing more than 300 files has an unknown size. codeflow
 sends them one at a time, at most two a second, and slows down further when Azure DevOps's

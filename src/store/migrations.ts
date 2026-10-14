@@ -94,6 +94,11 @@ const MIGRATIONS: readonly string[] = [
   ) STRICT;
   CREATE INDEX line_churn_by_repo ON line_churn (repo_id);
   `,
+  // 3: Azure DevOps lists PRs by when they were opened, so a PR opened before \`since\` and merged
+  // after it was missed. This records how far back the PRs closed since a date have been read.
+  `
+  ALTER TABLE repos ADD COLUMN closed_since TEXT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

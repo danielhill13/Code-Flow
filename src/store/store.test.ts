@@ -68,6 +68,7 @@ describe("repos", () => {
       headNewest: null,
       openSwept: false,
       sweepCursor: null,
+      closedSince: null,
     });
   });
 

@@ -16,6 +16,11 @@ export type SyncState = {
   headNewest: string | null;
   openSwept: boolean;
   sweepCursor: string | null;
+  /**
+   * Azure DevOps: the PRs closed since this date have all been read, whenever they were opened
+   * (decision D53). Null for a repo synced before that was kept.
+   */
+  closedSince: string | null;
 };
 
 export type RepoRecord = {
@@ -84,6 +89,7 @@ const STATE_COLUMNS = {
   headNewest: "head_newest",
   openSwept: "open_swept",
   sweepCursor: "sweep_cursor",
+  closedSince: "closed_since",
 } as const satisfies Record<keyof SyncState, string>;
 
 /** Another machine's processes can't be checked, so its lock is trusted for this long. */
@@ -259,7 +265,8 @@ export class Store {
   syncState(repoId: string): SyncState {
     const row = this.#db
       .prepare(
-        `SELECT watermark, covered_since, tail_cursor, head_cursor, head_newest, open_swept, sweep_cursor
+        `SELECT watermark, covered_since, tail_cursor, head_cursor, head_newest, open_swept, sweep_cursor,
+           closed_since
          FROM repos WHERE id = ?`,
       )
       .get(repoId) as SyncStateRow | undefined;
@@ -272,6 +279,7 @@ export class Store {
       headNewest: row.head_newest,
       openSwept: row.open_swept === 1,
       sweepCursor: row.sweep_cursor,
+      closedSince: row.closed_since,
     };
   }
 
@@ -312,6 +320,16 @@ export class Store {
       this.#setSyncState(repoId, state);
       return added;
     });
+  }
+
+  /** The numbers of a repo's PRs stored as merged or closed: final, so never read again. */
+  closedPrNumbers(repoId: string): Set<number> {
+    const rows = this.#db
+      .prepare(
+        "SELECT DISTINCT number FROM raw_prs WHERE repo_id = ? AND state IN ('MERGED', 'CLOSED')",
+      )
+      .all(repoId) as { number: number }[];
+    return new Set(rows.map((row) => row.number));
   }
 
   /**
@@ -561,6 +579,7 @@ type SyncStateRow = {
   head_newest: string | null;
   open_swept: number;
   sweep_cursor: string | null;
+  closed_since: string | null;
 };
 
 type RawPrRow = {

@@ -431,3 +431,16 @@ between listing and fetching gets one retry. `core.longpaths` is also set. Looki
 Alternatives weighed: reftable (git 2.45+; it stored the long name, but existing copies would need
 migrating), and skipping the offending branches with a negative refspec, which drops the commits
 only they hold.
+
+**D53 · 2026-10-14 · Measure from means merged or closed from.** "Measure from" was documented as
+PRs active on or after the day. GitHub's walk is by last update, so a PR opened before the day and
+merged after it is read. Azure DevOps cannot list PRs by update, and its backfill walked them by
+creation date, stopping at the first one older than the day: a PR opened before it and merged after
+it was never read, unless it was still open, or closed after the sync that first ran (the walk of
+PRs closed since the last sync). So a measured period could miss PRs merged in it. A second
+backfill walk reads PRs closed (completed or abandoned) since the day, by Azure DevOps's own closed
+filter, and skips any PR already stored as closed, so a repeat or a walk cut short costs a list
+request per 100 PRs, not their details. `closed_since` (schema 3) records the day it has reached,
+null for a repo synced before; that repo's next sync runs the walk once, with no clearing of
+anything and no Fetch repos again. Moving the day earlier runs both backfills for the added range.
+

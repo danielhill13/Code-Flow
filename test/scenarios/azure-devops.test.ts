@@ -215,6 +215,34 @@ describe("an org spanning GitHub and Azure DevOps", () => {
       await ws.write(file, before);
     }
   });
+
+  it("TC-125 a resync brings in a PR opened before Measure from and merged after it [rule 19]", async () => {
+    if (!ws.ado) throw new Error("no fake Azure DevOps");
+    const billing = ado[0];
+    const template = billing?.prs.find((p) => p.pr.status === "completed");
+    if (!template) throw new Error("scenario lacks a completed PR");
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+    // Opened three weeks before `since`, merged a week after it.
+    const opened = `${day(Date.parse(since) - 21 * 86_400_000)}T10:00:00Z`;
+    const merged = `${day(Date.parse(since) + 7 * 86_400_000)}T10:00:00Z`;
+    ws.ado.put("billing", {
+      ...template,
+      pr: { ...template.pr, pullRequestId: 9001, creationDate: opened, closedDate: merged },
+    });
+    const id = `${ADO_ORG}/${ADO_PROJECT}/billing#9001`;
+    try {
+      // Synced before it was there (or before the walk that finds it existed): it isn't known.
+      expect((await ws.run("pr", id)).code).not.toBe(0);
+      const resync = await ws.run("sync", "--refetch", `${ADO_ORG}/${ADO_PROJECT}/billing`);
+      expect(resync.code, resync.out).toBe(0);
+      const shown = await ws.run("pr", id);
+      expect(shown.code, shown.out).toBe(0);
+      expect(shown.out).toMatch(/merged into main/);
+    } finally {
+      ws.ado.remove("billing", 9001);
+      await ws.run("sync", "--refetch", `${ADO_ORG}/${ADO_PROJECT}/billing`);
+    }
+  });
 });
 
 describe("an org only on Azure DevOps", () => {

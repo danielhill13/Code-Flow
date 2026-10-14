@@ -132,6 +132,7 @@ here.
 | TC-122 | A PR size Azure DevOps won't give is unknown, never zero, and `pr` and `doctor` say what Azure DevOps answered |
 | TC-123 | A later sync checks each open Azure DevOps PR with one request, and reads again only one that moved |
 | TC-124 | With local copies set but no git, `doctor` says what to do and `sync` carries on through the API |
+| TC-125 | A resync brings in an Azure DevOps PR opened before Measure from and merged after it |
 
 ### Orgs, config and errors (`test/scenarios/orgs.test.ts`)
 

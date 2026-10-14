@@ -3,6 +3,9 @@
 //
 // - backfill: the first time (or when `since` moves earlier), every PR created since `since`,
 //   newest first, resumable from the page it stopped at (`tailCursor` holds the offset);
+// - closed backfill: the same times, every PR closed (merged or abandoned) since `since`, however
+//   long before it was opened: the creation order above never reaches a PR opened before `since`
+//   and merged after it (decision D53);
 // - open PRs: every active PR, whatever its age, since any of them may have moved;
 // - closed since: PRs completed or abandoned since the last sync started (`watermark`).
 //
@@ -14,7 +17,7 @@ import { adoPrId } from "./normalize.ts";
 import { fetchPr, listPrs, openSignature, prThreads, versionOf } from "./pulls.ts";
 import type { AdoPayload, AdoPullRequest, AdoRepo } from "./types.ts";
 
-export type AdoWalkName = "backfill" | "open PRs" | "closed since";
+export type AdoWalkName = "backfill" | "closed backfill" | "open PRs" | "closed since";
 
 export type AdoWalk = {
   walk: AdoWalkName;
@@ -162,6 +165,9 @@ export async function syncAdoRepo(options: {
       const walk: AdoWalk = { walk: "backfill", pages: 0, prs: 0, newVersions: 0 };
       walks.push(walk);
       let skip = Number(state.tailCursor ?? 0);
+      // A closed PR already stored (the closed walk reads those, whenever they were opened) is
+      // final: not read again because it was opened inside a range now added.
+      const final = store.closedPrNumbers(id);
       for (;;) {
         const page = await listPrs(client, repo, { status: "all", skip });
         walk.pages += 1;
@@ -169,7 +175,8 @@ export async function syncAdoRepo(options: {
           (pr) =>
             pr.creationDate.slice(0, 10) >= since &&
             // Extending further back: what's newer is stored already.
-            (!extending || pr.creationDate.slice(0, 10) < (state.coveredSince ?? "")),
+            (!extending || pr.creationDate.slice(0, 10) < (state.coveredSince ?? "")) &&
+            !final.has(pr.pullRequestId),
         );
         const oldest = page.prs.at(-1)?.creationDate.slice(0, 10);
         const done = page.next === null || (oldest !== undefined && oldest < since);
@@ -184,6 +191,31 @@ export async function syncAdoRepo(options: {
         if (done) break;
         skip = page.next ?? skip;
       }
+    }
+
+    // 1b. Every PR closed since `since`, whenever it was opened: the walk above, by creation, never
+    // reaches one opened before `since` and merged after it. A repo synced before this walk
+    // existed has no `closedSince`, so its next sync reads those it missed. Only PRs not stored
+    // as closed are read, so a repeat, or a walk cut short, costs a list request per 100.
+    if (state.closedSince === null || since < state.closedSince) {
+      const walk: AdoWalk = { walk: "closed backfill", pages: 0, prs: 0, newVersions: 0 };
+      walks.push(walk);
+      const known = store.closedPrNumbers(id);
+      const from = `${since}T00:00:00Z`;
+      for (const status of ["completed", "abandoned"] as const) {
+        let skip: number | null = 0;
+        while (skip !== null) {
+          const page = await listPrs(client, repo, { status, skip, closedSince: from });
+          walk.pages += 1;
+          // Checked here too: a server that ignores the date filter mustn't cost every PR's details.
+          const missing = page.prs.filter(
+            (pr) => (pr.closedDate ?? "") >= from && !known.has(pr.pullRequestId),
+          );
+          if ((await details(walk, missing, {})) === null) return { ...outcome, interrupted: true };
+          skip = page.next;
+        }
+      }
+      store.savePage(id, [], runId, { closedSince: since });
     }
 
     // 2. Every open PR: any of them may have changed since the last sync. Azure DevOps can't say

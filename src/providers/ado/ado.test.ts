@@ -320,6 +320,129 @@ describe("syncing an Azure DevOps repo", () => {
     delete first.workItems;
   });
 
+  describe("measuring from a day [rule 19]", () => {
+    const billing = repos[0];
+    const template = billing?.prs.find((p) => p.pr.status === "completed");
+    if (!billing || !template) throw new Error("scenario lacks a completed PR");
+    const source = {
+      kind: "ado" as const,
+      organization: ADO_ORG,
+      project: "Platform",
+      include: ["billing"],
+      exclude: [],
+      forks: false,
+    };
+    /** A PR with its own dates, put on the server until `done`. */
+    const made = (
+      id: number,
+      status: "completed" | "abandoned",
+      created: string,
+      closed: string,
+    ) => {
+      server.put("billing", {
+        ...template,
+        pr: {
+          ...template.pr,
+          pullRequestId: id,
+          status,
+          creationDate: `${created}T10:00:00Z`,
+          closedDate: `${closed}T10:00:00Z`,
+        },
+      });
+      return id;
+    };
+    const done = () => {
+      for (const id of [9001, 9002, 9003, 9004]) server.remove("billing", id);
+    };
+    const sync = async (store: Store, since: string) => {
+      const {
+        repos: [repo],
+      } = await discoverAdo(client, source);
+      if (!repo) throw new Error("billing not found");
+      const outcome = await syncAdoRepo({
+        client,
+        store,
+        runId: store.startRun("sync"),
+        repo,
+        since,
+        startedAt: new Date().toISOString(),
+      });
+      expect(outcome.error).toBeUndefined();
+      return { outcome, id: adoRepoId(repo) };
+    };
+    const storedNumbers = (store: Store) => new Set([...store.latestPrs()].map((v) => v.number));
+    const threadReads = (id: number) =>
+      server.calls.filter((c) => c.endsWith(`/pullRequests/${id}/threads`)).length;
+    const walks = (outcome: { walks: { walk: string }[] }) => outcome.walks.map((w) => w.walk);
+
+    it("reads a PR merged or abandoned since that day, though it was opened before it", async () => {
+      // Opened before 2026-01-01, and: merged after it; abandoned after it; closed before it.
+      const mergedAfter = made(9001, "completed", "2025-12-10", "2026-02-05");
+      const abandonedAfter = made(9003, "abandoned", "2025-11-20", "2026-01-15");
+      const closedBefore = made(9002, "completed", "2025-12-10", "2025-12-20");
+      try {
+        const store = Store.open(":memory:");
+        const { outcome } = await sync(store, "2026-01-01");
+        expect(walks(outcome)).toContain("closed backfill");
+        const stored = storedNumbers(store);
+        expect(stored.has(mergedAfter)).toBe(true);
+        expect(stored.has(abandonedAfter)).toBe(true);
+        expect(stored.has(closedBefore)).toBe(false);
+      } finally {
+        done();
+      }
+    });
+
+    it("reads them on the next sync of a repo synced before, once, and reads nothing twice", async () => {
+      const store = Store.open(":memory:");
+      // As the repo was: backfilled by creation date, with those PRs not yet on the server.
+      const first = await sync(store, "2026-01-01");
+      store.savePage(first.id, [], store.startRun("sync"), { closedSince: null });
+      expect(store.syncState(first.id)).toMatchObject({ coveredSince: "2026-01-01" });
+      const missed = made(9001, "completed", "2025-12-10", "2026-02-05");
+      const also = made(9003, "abandoned", "2025-11-20", "2026-01-15");
+      try {
+        const again = await sync(store, "2026-01-01");
+        // The creation walk is done: only the closed one runs.
+        expect(walks(again.outcome)).not.toContain("backfill");
+        expect(walks(again.outcome)).toContain("closed backfill");
+        expect(storedNumbers(store).has(missed)).toBe(true);
+        expect(storedNumbers(store).has(also)).toBe(true);
+        expect(store.syncState(first.id).closedSince).toBe("2026-01-01");
+
+        // Nothing more to find: no repeat of the walk, and no PR read again.
+        const reads = [threadReads(missed), threadReads(also)];
+        const third = await sync(store, "2026-01-01");
+        expect(walks(third.outcome)).not.toContain("closed backfill");
+        expect([threadReads(missed), threadReads(also)]).toEqual(reads);
+      } finally {
+        done();
+      }
+    });
+
+    it("reads PRs closed in between when the day moves earlier, and only those", async () => {
+      const kept = made(9001, "completed", "2025-12-10", "2026-02-05");
+      const between = made(9004, "completed", "2025-10-01", "2025-11-15");
+      const before = made(9002, "completed", "2025-09-01", "2025-09-20");
+      try {
+        const store = Store.open(":memory:");
+        await sync(store, "2026-01-01");
+        expect(storedNumbers(store).has(kept)).toBe(true);
+        expect(storedNumbers(store).has(between)).toBe(false);
+        const keptReads = threadReads(kept);
+
+        const earlier = await sync(store, "2025-11-01");
+        expect(walks(earlier.outcome)).toContain("closed backfill");
+        expect(storedNumbers(store).has(between)).toBe(true);
+        expect(storedNumbers(store).has(before)).toBe(false);
+        // The one already stored wasn't read again.
+        expect(threadReads(kept)).toBe(keptReads);
+      } finally {
+        done();
+      }
+    });
+  });
+
   it("finishes a backfill past a PR Azure DevOps won't give, and says which it skipped", async () => {
     const store = Store.open(":memory:");
     const {

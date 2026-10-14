@@ -292,7 +292,7 @@ function Steps({ info }: { info: WorkspaceInfo }) {
           />
           <Field
             label="Measure from"
-            hint="PRs active on or after this day. A year back is a good start."
+            hint="PRs merged or closed on or after this day, however long before they were opened, plus any still open. A year back is a good start."
           >
             <input
               type="date"
