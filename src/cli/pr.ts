@@ -79,9 +79,16 @@ export async function showPr(target: string, options: PrOptions): Promise<number
     let sizeFrom: string | undefined;
     for (const version of store.latestPrs(fact.repoId)) {
       if (version.id !== fact.id) continue;
-      const payload = version.payload as { filesError?: unknown; filesFrom?: unknown };
+      const payload = version.payload as {
+        filesError?: unknown;
+        filesFrom?: unknown;
+        copyNote?: unknown;
+      };
       if (typeof payload.filesError === "string") sizeWhy = payload.filesError;
       if (payload.filesFrom === "local copy") sizeFrom = "from the local copy";
+      else if (payload.filesFrom === "api" && typeof payload.copyNote === "string") {
+        sizeFrom = `from Azure DevOps, not the local copy, which ${payload.copyNote}`;
+      }
     }
     printPr(fact, print, { asOf, staleAfterDays: config.stale_after_days, sizeWhy, sizeFrom });
     return 0;

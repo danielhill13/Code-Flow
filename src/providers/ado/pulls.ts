@@ -118,13 +118,28 @@ export async function fetchPr(
         .then((r) => (r.value ?? []).map((w) => String(w.id)))
         .catch(() => undefined)
     : undefined;
-  // From the local copy when it holds the PR's commits; from Azure DevOps otherwise.
-  const local = copy ? await localFiles(copy, pr, commits.value).catch(() => null) : null;
-  const sized: Sized =
+  // From the local copy when it holds the PR's commits; from Azure DevOps otherwise. Why the copy
+  // didn't serve is kept (copyNote), so a missing size can be explained (decision D54).
+  let local: Sized | null = null;
+  let copyNote: string | undefined;
+  if (copy) {
+    try {
+      const read = await localFiles(copy, pr, commits.value);
+      if ("why" in read) copyNote = read.why;
+      else local = read;
+    } catch (err) {
+      copyNote = `couldn't be read: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  }
+  let sized: Sized =
     local ??
     (await changedFiles(client, repo, base, iterations.value).catch(
       (err: unknown): Sized => ({ error: err instanceof Error ? err.message : String(err) }),
     ));
+  // Both failed: say both.
+  if ("error" in sized && copyNote) {
+    sized = { error: `${sized.error}; and the local copy ${copyNote}` };
+  }
   const files = "files" in sized ? sized.files : null;
   if (files === null) truncated.push("files");
   if (copy) {
@@ -145,6 +160,7 @@ export async function fetchPr(
     commits: commits.value,
     files,
     ...(linked && { workItems: linked }),
+    ...(copyNote && { copyNote }),
     ...("error" in sized && { filesError: sized.error }),
     ...(files !== null && { filesFrom: local ? ("local copy" as const) : ("api" as const) }),
     truncated,
@@ -160,18 +176,30 @@ async function localFiles(
   dir: string,
   pr: AdoPullRequest,
   commits: readonly AdoCommit[],
-): Promise<Sized | null> {
-  if (pr.status === "completed" && pr.lastMergeCommit) {
-    const merge = pr.lastMergeCommit.commitId;
-    if (!(await present(dir, [merge])).has(merge)) return null;
+): Promise<Sized | { why: string }> {
+  if (pr.status === "completed") {
+    const merge = pr.lastMergeCommit?.commitId;
+    if (!merge) return { why: "has no merge commit for it: Azure DevOps names none" };
+    if (!(await present(dir, [merge])).has(merge)) {
+      return {
+        why: `doesn't hold its merge commit ${merge.slice(0, 8)}: the branch it landed on isn't in the copy, or the copy was last fetched before it`,
+      };
+    }
     const subjects = commits.map((c) => (c.comment ?? "").split("\n")[0] ?? "");
     const change = await landed(dir, merge, subjects);
-    return change ? { files: await numstat(dir, change.base, merge) } : null;
+    if (!change) return { why: `has no earlier commit than ${merge.slice(0, 8)} to compare with` };
+    return { files: await numstat(dir, change.base, merge) };
+  }
+  if (pr.status !== "active") {
+    return { why: "keeps no commits of an abandoned PR: its branch is gone" };
   }
   const source = pr.lastMergeSourceCommit?.commitId;
   const target = pr.lastMergeTargetCommit?.commitId;
-  if (pr.status !== "active" || !source || !target) return null;
-  if ((await present(dir, [source, target])).size < 2) return null;
+  if (!source || !target)
+    return { why: "has no source and target commit for it: Azure DevOps names none" };
+  if ((await present(dir, [source, target])).size < 2) {
+    return { why: "doesn't hold both the commit it was opened from and the one it targets" };
+  }
   const from = (await git(["merge-base", target, source], { cwd: dir })).trim();
   return { files: await numstat(dir, from, source) };
 }

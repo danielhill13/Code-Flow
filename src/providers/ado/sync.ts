@@ -28,6 +28,8 @@ export type AdoWalk = {
   unchanged?: number;
   /** PRs Azure DevOps wouldn't give, with what it said: skipped so the rest still sync. */
   skipped?: { number: number; error: string }[];
+  /** PRs read through Azure DevOps though the repo has a local copy, and why (decision D54). */
+  copyMisses?: { number: number; why: string }[];
 };
 
 export type AdoRepoOutcome = {
@@ -128,16 +130,21 @@ export async function syncAdoRepo(options: {
           return null;
         }
         try {
-          batch.push(
-            await fetchPr(
-              client,
-              repo,
-              pr,
-              reuse.get(pr.pullRequestId),
-              options.copy,
-              options.workItems,
-            ),
+          const payload = await fetchPr(
+            client,
+            repo,
+            pr,
+            reuse.get(pr.pullRequestId),
+            options.copy,
+            options.workItems,
           );
+          batch.push(payload);
+          if (payload.copyNote) {
+            walk.copyMisses = [
+              ...(walk.copyMisses ?? []),
+              { number: pr.pullRequestId, why: payload.copyNote },
+            ];
+          }
         } catch (err) {
           // A refused token, or no network, stops the repo: nothing else would read either.
           // One PR Azure DevOps won't give is skipped and reported, so it can't hold back every

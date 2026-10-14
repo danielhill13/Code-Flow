@@ -124,6 +124,73 @@ describe("an Azure DevOps repo with a local copy [rule 16]", () => {
     const [fact] = store.facts();
     expect(fact).toMatchObject({ sizeLines: 10, churnAddedLines: 10, rewrittenLines: 4 });
   });
+
+  /** Syncs the repo with the copy, with this PR on the server instead of the usual one. */
+  async function readWith(replace: Partial<AdoPayload["pr"]>) {
+    const put = { ...payload, pr: { ...payload.pr, ...replace } };
+    server.put("billing", put);
+    const store = Store.open(":memory:");
+    const {
+      repos: [adoRepo],
+    } = await discoverAdo(client, {
+      kind: "ado",
+      organization: ADO_ORG,
+      project: "Platform",
+      include: ["billing"],
+      exclude: [],
+      forks: false,
+    });
+    if (!adoRepo) throw new Error("billing not found");
+    const outcome = await syncAdoRepo({
+      client,
+      store,
+      runId: store.startRun("sync"),
+      repo: adoRepo,
+      since: "2026-01-01",
+      startedAt: "2026-06-01T00:00:00Z",
+      copy,
+    });
+    server.put("billing", payload);
+    const [stored] = [...store.latestPrs()];
+    return { outcome, saved: stored?.payload as AdoPayload };
+  }
+
+  it("says nothing of the copy when it served the PR [rule 16]", async () => {
+    const { outcome, saved } = await readWith({});
+    expect(saved.filesFrom).toBe("local copy");
+    expect(saved.copyNote).toBeUndefined();
+    expect(outcome.walks.flatMap((w) => w.copyMisses ?? [])).toEqual([]);
+  });
+
+  it("says why a PR was read through Azure DevOps when the copy lacks its merge commit [rule 16]", async () => {
+    const missing = "a".repeat(40);
+    const { outcome, saved } = await readWith({ lastMergeCommit: { commitId: missing } });
+    expect(saved.filesFrom).toBe("api");
+    expect(saved.files?.length).toBeGreaterThan(0);
+    expect(saved.copyNote).toMatch(/doesn't hold its merge commit aaaaaaaa/);
+    expect(outcome.walks.flatMap((w) => w.copyMisses ?? [])).toEqual([
+      { number: payload.pr.pullRequestId, why: saved.copyNote },
+    ]);
+  });
+
+  it("says both reasons when neither the copy nor Azure DevOps could size a PR [rule 16]", async () => {
+    server.refuseDiffs = true;
+    try {
+      const { saved } = await readWith({ lastMergeCommit: { commitId: "b".repeat(40) } });
+      expect(saved.files).toBeNull();
+      expect(saved.filesError).toMatch(/403/);
+      expect(saved.filesError).toMatch(/and the local copy doesn't hold its merge commit bbbbbbbb/);
+    } finally {
+      server.refuseDiffs = false;
+    }
+  });
+
+  it("says an abandoned PR has no commits in a copy, and a completed one with no merge commit [rule 16]", async () => {
+    const abandoned = await readWith({ status: "abandoned" });
+    expect(abandoned.saved.copyNote).toMatch(/abandoned PR/);
+    const bare = await readWith({ lastMergeCommit: undefined });
+    expect(bare.saved.copyNote).toMatch(/Azure DevOps names none/);
+  });
 });
 
 describe("an Azure DevOps PR with hundreds of files, in a repo with a branch name too long to store [rule 16]", () => {

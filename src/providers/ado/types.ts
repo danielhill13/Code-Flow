@@ -94,6 +94,11 @@ export type AdoPayload = {
   filesError?: string;
   /** Linked work items' ids, when the org links fixes by work item (D49); absent: not asked. */
   workItems?: string[];
+  /**
+   * Why the repo's local copy didn't give this PR's files, when the repo has one: the end of
+   * "the local copy …" (decision D54). Absent when the copy served them, or there is none.
+   */
+  copyNote?: string;
   /** Where the line counts came from: the repo's local copy (D46), or Azure DevOps's API. */
   filesFrom?: "local copy" | "api";
   /** Lists cut short: "commits", "files". */

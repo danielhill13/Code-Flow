@@ -444,3 +444,13 @@ request per 100 PRs, not their details. `closed_since` (schema 3) records the da
 null for a repo synced before; that repo's next sync runs the walk once, with no clearing of
 anything and no Fetch repos again. Moving the day earlier runs both backfills for the added range.
 
+**D54 · 2026-10-14 · Say why a local copy didn't size a PR.** For a repo with a local copy
+(D46) a PR is sized from the copy, and from Azure DevOps's API when the copy can't: its merge
+commit isn't in it, it can't be read, the PR is abandoned (its branch is gone), or Azure DevOps names
+no merge commit. That fallback was silent: any git error was swallowed, a PR the copy skipped left
+no mark, and a PR neither route could size kept only the API's reason. So a missing size could not be
+explained. Now the reason is kept on the PR (`copyNote`, the end of "the local copy …"), joined with
+the API's when both fail, shown by `codeflow pr` ("from Azure DevOps, not the local copy, which …"),
+and listed by sync per repo ("N PRs read through Azure DevOps, not the local copy"). Nothing about
+which route sizes a PR changed.
+

@@ -192,6 +192,12 @@ add more orgs (or run `npm run codeflow -- migrate --org <name>`).
   DevOps's line counts correctly have no size. Setup › Sync › Fetch repos again (or
   `npm run codeflow -- sync --refetch "your-org/Project/*"`) reads them again. The same brings
   "changed after review" to GitHub PRs synced before codeflow asked for commit lines.
+- **An Azure DevOps PR has no size, or no files changed, though the repo has a local copy**:
+  `npm run codeflow -- pr <url>` says why on its Size line: whether Azure DevOps refused the
+  diff, and whether the local copy lacked the PR's merge commit (its branch isn't in the copy, or
+  the copy was fetched before it) or couldn't be read. The sync lists such PRs too ("read through
+  Azure DevOps, not the local copy"). After fixing the cause, `npm run codeflow -- sync --refetch
+  "your-org/Project/repo"` reads the repo's PRs again.
 - **Repos you no longer measure still show**: narrowing a source doesn't delete what was
   synced. Setup › Repos lists them under "Stored, but no longer measured" and removes their
   data, or run `npm run codeflow -- prune --yes`.

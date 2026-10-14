@@ -402,6 +402,9 @@ function printOutcome(outcome: Outcome, print: Print): void {
   const skipped = (outcome.walks as { skipped?: { number: number; error: string }[] }[]).flatMap(
     (walk) => walk.skipped ?? [],
   );
+  const copyMisses = (
+    outcome.walks as { copyMisses?: { number: number; why: string }[] }[]
+  ).flatMap((walk) => walk.copyMisses ?? []);
   const walks = (outcome.walks as { walk: string; pages: number }[])
     .map((walk) => `${WALKS[walk.walk as WalkName] ?? walk.walk}: ${plural(walk.pages, "page")}`)
     .join(", ");
@@ -417,6 +420,20 @@ function printOutcome(outcome: Outcome, print: Print): void {
       `${name}: ${plural(prs, "PR")} fetched, ${num(added)} new or changed${checked} ${dim(`(${walks})`)}`,
     ),
   );
+  if (copyMisses.length > 0) {
+    // The repo has a local copy, yet these PRs were sized through Azure DevOps instead: say why.
+    const [first] = copyMisses;
+    print(
+      marked(
+        "warn",
+        `${name}: ${plural(copyMisses.length, "PR")} read through Azure DevOps, not the local copy ` +
+          `(${copyMisses
+            .slice(0, 5)
+            .map((m) => `#${m.number}`)
+            .join(", ")}${copyMisses.length > 5 ? "…" : ""}): the copy ${first?.why ?? ""}`,
+      ),
+    );
+  }
   if (skipped.length > 0) {
     const [first] = skipped;
     print(
