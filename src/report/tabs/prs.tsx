@@ -37,6 +37,7 @@ const COLUMN: Record<PrColumn | "waiting", Omit<Column, "key">> = {
   timeToApproval: { label: "To approval", width: "84px" },
   size: { label: "Size", width: "64px" },
   files: { label: "Files", width: "58px" },
+  codeFiles: { label: "Code files", width: "78px" },
   reviews: { label: "Reviews", width: "64px" },
   state: { label: "State", width: "150px" },
   quiet: { label: "Quiet for", width: "84px" },
@@ -59,6 +60,7 @@ const COLUMN_NAME: Record<PrColumn, string> = {
   timeToApproval: "Time to approval",
   size: "Size (product lines)",
   files: "Files changed",
+  codeFiles: "Code files (product and test)",
   reviews: "Reviews",
   state: "State",
   quiet: "Quiet for",
@@ -297,6 +299,8 @@ function Cell(props: { column: PrColumn | "waiting"; pr: PrFact; sorted: boolean
       return plain(pr.sizeLines === null ? "—" : num(pr.sizeLines));
     case "files":
       return plain(pr.filesChanged === null ? "—" : num(pr.filesChanged));
+    case "codeFiles":
+      return plain(pr.codeFiles === null ? "—" : num(pr.codeFiles));
     case "reviews":
       return plain(num(pr.reviews));
     case "state":

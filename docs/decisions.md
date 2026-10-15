@@ -454,3 +454,14 @@ the API's when both fail, shown by `codeflow pr` ("from Azure DevOps, not the lo
 and listed by sync per repo ("N PRs read through Azure DevOps, not the local copy"). Nothing about
 which route sizes a PR changed.
 
+**D55 · 2026-10-15 · Code files apart from the files that aren't code.** Files changed counted
+every file, so a PR that touches ten thousand files in a `thoughts/` tree of notes looked like a
+huge change to code, and the tree, matching no default pattern, was product code too: size and
+product files were inflated with it. Two changes. Code files (product and test, where tests are
+code a developer wrote but size still counts product lines alone, rule 3) is a fact beside files
+changed, with the file count of every bucket (`filesByBucket`), shown as its own column on the PR
+list and broken down in the side panel and in `pr`. And a `thoughts/` folder is notes by default
+(docs); any other tree of notes or data is a path rule for its repos, which needs no sync. Not
+done: telling code from other files by extension, which would change every org's numbers.
+DERIVE_VERSION 14.
+

@@ -49,6 +49,7 @@ export type PrColumn =
   | "timeToApproval"
   | "size"
   | "files"
+  | "codeFiles"
   | "reviews"
   | "state"
   | "quiet";
@@ -86,11 +87,22 @@ export const COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "mergeWait",
     "size",
     "files",
+    "codeFiles",
     "reviews",
   ],
-  open: ["number", "title", "author", "age", "state", "size", "files", "reviews"],
-  stale: ["number", "title", "author", "age", "quiet", "state", "files", "reviews"],
-  abandoned: ["number", "title", "author", "closed", "age", "size", "files", "reviews"],
+  open: ["number", "title", "author", "age", "state", "size", "files", "codeFiles", "reviews"],
+  stale: ["number", "title", "author", "age", "quiet", "state", "files", "codeFiles", "reviews"],
+  abandoned: [
+    "number",
+    "title",
+    "author",
+    "closed",
+    "age",
+    "size",
+    "files",
+    "codeFiles",
+    "reviews",
+  ],
 };
 
 /**
@@ -112,11 +124,44 @@ export const AVAILABLE_COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "timeToApproval",
     "size",
     "files",
+    "codeFiles",
     "reviews",
   ],
-  open: ["number", "title", "author", "age", "quiet", "state", "size", "files", "reviews"],
-  stale: ["number", "title", "author", "age", "quiet", "state", "size", "files", "reviews"],
-  abandoned: ["number", "title", "author", "closed", "age", "size", "files", "reviews"],
+  open: [
+    "number",
+    "title",
+    "author",
+    "age",
+    "quiet",
+    "state",
+    "size",
+    "files",
+    "codeFiles",
+    "reviews",
+  ],
+  stale: [
+    "number",
+    "title",
+    "author",
+    "age",
+    "quiet",
+    "state",
+    "size",
+    "files",
+    "codeFiles",
+    "reviews",
+  ],
+  abandoned: [
+    "number",
+    "title",
+    "author",
+    "closed",
+    "age",
+    "size",
+    "files",
+    "codeFiles",
+    "reviews",
+  ],
 };
 
 /** The columns a list shows: the reader's choice among those the set offers, or its defaults. */
@@ -241,6 +286,8 @@ function sortValue(key: PrColumn, pr: PrFact, asOf: Date): number | string | nul
       return pr.sizeLines;
     case "files":
       return pr.filesChanged;
+    case "codeFiles":
+      return pr.codeFiles;
     case "reviews":
       return pr.reviews;
     case "state":

@@ -286,6 +286,8 @@ test("TC-619 the PR list shows the columns chosen, files changed among them", as
 
   // Files changed is a column of the list, with a number for each PR.
   await expect(header).toContainText("Files");
+  // ...and Code files beside it: product and test, apart from docs and notes.
+  await expect(header).toContainText("Code files");
   const files = await page.locator("a.row.dense").first().locator("span").allInnerTexts();
   expect(files.some((text) => /^\d+$/.test(text.trim()))).toBe(true);
 

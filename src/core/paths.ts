@@ -83,6 +83,8 @@ export const DEFAULT_PATH_RULES: readonly PathRule[] = [
       "**/docs/**",
       "**/doc/**",
       "**/documentation/**",
+      // Notes kept beside the code (a "thoughts" tree, as some teams keep for working notes).
+      "**/thoughts/**",
       "**/LICENSE",
       "**/LICENSE.*",
       "**/CHANGELOG",

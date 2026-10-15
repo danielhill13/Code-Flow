@@ -264,14 +264,21 @@ the API. See decision D46.
 
 What counts as product code, for PR size and lines merged. Every changed file falls into one
 bucket: `product`, `test`, `docs`, `generated`, `vendored` or `lockfile`. Only product lines
-count. Built-in rules recognize common lockfiles, vendored and generated folders, tests and docs;
-your rules run first, and the first match wins.
+count toward size. The PR list also shows **Code files**: the files in `product` and `test`,
+beside **Files**, every file the PR changed, so a PR that changes ten thousand notes and two source
+files shows 2 code files. The side panel says how the rest divide (docs 10,000, lockfile 1…).
+Built-in rules recognize common lockfiles, vendored and generated folders, tests and docs, and a
+`thoughts/` folder as notes; your rules run first, and the first match wins. A tree of notes,
+data or anything else that isn't code, under any name, is one rule: it counts as `docs`.
 
 ```yaml
 paths:
   - { match: "packages/*-tests/**", bucket: test }
   - { match: ["schema/**", "*.graphql"], bucket: generated, repos: [your-org/api] }
+  - { match: ["research/**", "notes/**"], bucket: docs, repos: [your-org/YourProject/app] }
 ```
+
+Changing a path rule needs no sync: the numbers are worked out again from what is stored.
 
 ## people
 

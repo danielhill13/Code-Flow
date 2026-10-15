@@ -24,6 +24,22 @@ describe("pathClassifier", () => {
     }
   });
 
+  it("counts a thoughts tree as notes, whatever its files are called, and a repo's own rule can too [rule 3]", () => {
+    for (const path of [
+      "thoughts/plans/2026-10-01-migration.md",
+      "thoughts/shared/research/notes.txt",
+      "thoughts/data/results.json",
+      "services/billing/thoughts/idea.yaml",
+    ]) {
+      expect(bucket(path), path).toBe("docs");
+    }
+    expect(bucket("src/thoughtsFormatter.ts")).toBe("product");
+    // Another tree of notes, named by the repo's own rule, for that repo only.
+    const own = pathClassifier([{ match: ["scratch/**"], bucket: "docs", repos: ["acme/api"] }]);
+    expect(own("acme/api", "scratch/a.py")).toBe("docs");
+    expect(own("acme/web", "scratch/a.py")).toBe("product");
+  });
+
   it("recognises vendored, generated, docs and test files", () => {
     expect(bucket("vendor/github.com/x/y.go")).toBe("vendored");
     expect(bucket("app/dist/bundle.js")).toBe("generated");

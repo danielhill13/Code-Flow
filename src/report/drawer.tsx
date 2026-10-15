@@ -27,6 +27,25 @@ const EXCLUSIONS = {
 } as const;
 
 /**
+ * "10,412: 38 code (30 product, 8 test), 10,374 not code (docs 10,300, generated 74)": the files a
+ * PR changed, and how many of them are code.
+ */
+function filesText(pr: PrFact): string {
+  if (pr.filesChanged === null || pr.filesByBucket === null || pr.codeFiles === null) {
+    return "Unknown";
+  }
+  const by = pr.filesByBucket;
+  const other = pr.filesChanged - pr.codeFiles;
+  if (other === 0 && by.test === 0) return num(pr.filesChanged);
+  const code = by.test > 0 ? ` (${num(by.product)} product, ${num(by.test)} test)` : "";
+  const parts = (["docs", "generated", "vendored", "lockfile"] as const)
+    .filter((bucket) => by[bucket] > 0)
+    .map((bucket) => `${bucket} ${num(by[bucket])}`);
+  const rest = other > 0 ? `, ${num(other)} not code (${parts.join(", ")})` : "";
+  return `${num(pr.filesChanged)}: ${num(pr.codeFiles)} code${code}${rest}`;
+}
+
+/**
  * Whether a merged PR's product files changed again within the churn window, and by which PR;
  * null when that can't apply (not merged, files unknown).
  */
@@ -134,12 +153,7 @@ export function Drawer(props: {
         ? `Unknown: ${hostOf(pr.url)} didn't give every file's lines`
         : `${num(pr.sizeLines)} lines of product code`,
     ],
-    [
-      "Files changed",
-      pr.filesChanged === null
-        ? "Unknown"
-        : `${num(pr.filesChanged)}${pr.productFiles === null || pr.productFiles === pr.filesChanged ? "" : `, ${num(pr.productFiles)} of them product code`}`,
-    ],
+    ["Files changed", filesText(pr)],
     ["Reviews", pr.reviews === 0 ? "None" : `${num(pr.reviews)} by ${names(pr.reviewers, [], 4)}`],
     [
       "Re-pushed",

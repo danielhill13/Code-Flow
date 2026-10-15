@@ -271,7 +271,9 @@ These hold everywhere. Each gets a test as it is built.
    branch that isn't measured, raises a flag (D28). Otherwise a renamed branch, or features
    merging into `develop`, silently zeroes a repo's numbers.
 3. **Size counts product code.** Files fall into buckets: product, test, docs, generated,
-   vendored, lockfile. Patterns are case-insensitive, with generic defaults and per-repo overrides.
+   vendored, lockfile. Patterns are case-insensitive, with generic defaults (a `thoughts/` tree is
+   notes, so docs) and per-repo overrides. Code files are those in product and test; the other
+   buckets are shown, never counted as code and never dropped.
 4. **Null is not zero.** Missing and still-maturing values stay null in every metric, chart and
    table. Limits are never applied silently: a PR the API truncates is flagged, not estimated.
 5. **Medians don't add up.** The cycle-time breakdown uses total hours per phase, because stacked

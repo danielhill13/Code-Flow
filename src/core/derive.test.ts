@@ -550,9 +550,47 @@ describe("files changed", () => {
     expect(prFact({ files: [] })).toMatchObject({ filesChanged: 0, productFiles: 0 });
   });
 
+  it("counts the files that are code apart from notes, docs and what tools made [rule 3]", () => {
+    const fact = prFact({
+      files: [
+        file("src/a.ts"),
+        file("src/b.ts"),
+        file("src/a.test.ts"),
+        file("README.md"),
+        file("thoughts/plans/x.txt"),
+        file("thoughts/research/y.json"),
+        file("package-lock.json"),
+      ],
+    });
+    expect(fact).toMatchObject({ filesChanged: 7, codeFiles: 3, productFiles: 2 });
+    expect(fact.filesByBucket).toEqual({
+      product: 2,
+      test: 1,
+      docs: 3,
+      generated: 0,
+      vendored: 0,
+      lockfile: 1,
+    });
+  });
+
+  it("sees the code in a PR of ten thousand files, nearly all of them notes [rule 3]", () => {
+    const notes = Array.from({ length: 10_000 }, (_, i) => file(`thoughts/shared/n${i}.md`));
+    const fact = prFact({ files: [...notes, file("src/a.ts"), file("src/b.test.ts")] });
+    expect(fact).toMatchObject({ filesChanged: 10_002, codeFiles: 2, productFiles: 1 });
+    expect(fact.filesByBucket?.docs).toBe(10_000);
+    // Size is product lines alone: ten thousand notes add nothing to it.
+    expect(fact.sizeLines).toBe(5);
+  });
+
   it("is unknown, not a count of the files seen, when the host cut the list short [rule 4]", () => {
     const fact = prFact({ files: [file("src/a.ts")], truncated: ["files"] });
-    expect(fact).toMatchObject({ filesChanged: null, productFiles: null, sizeLines: null });
+    expect(fact).toMatchObject({
+      filesChanged: null,
+      codeFiles: null,
+      filesByBucket: null,
+      productFiles: null,
+      sizeLines: null,
+    });
   });
 });
 

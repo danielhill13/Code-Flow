@@ -309,7 +309,16 @@ function phases(t: {
 function size(
   pr: PrModel,
   rules: DeriveRules,
-): Pick<PrFact, "sizeLines" | "addedLines" | "productFiles" | "filesChanged" | "linesByBucket"> {
+): Pick<
+  PrFact,
+  | "sizeLines"
+  | "addedLines"
+  | "productFiles"
+  | "filesChanged"
+  | "codeFiles"
+  | "filesByBucket"
+  | "linesByBucket"
+> {
   // A partial file list would understate size: flag it rather than estimate (rule 4).
   if (pr.truncated.includes("files")) {
     return {
@@ -317,10 +326,16 @@ function size(
       addedLines: null,
       productFiles: null,
       filesChanged: null,
+      codeFiles: null,
+      filesByBucket: null,
       linesByBucket: null,
     };
   }
   const linesByBucket = Object.fromEntries(BUCKETS.map((bucket) => [bucket, 0])) as Record<
+    Bucket,
+    number
+  >;
+  const filesByBucket = Object.fromEntries(BUCKETS.map((bucket) => [bucket, 0])) as Record<
     Bucket,
     number
   >;
@@ -329,6 +344,7 @@ function size(
   for (const file of pr.files) {
     const bucket = rules.classify(pr.repo, file.path);
     linesByBucket[bucket] += file.additions + file.deletions;
+    filesByBucket[bucket] += 1;
     if (bucket === "product") {
       addedLines += file.additions;
       productFiles += 1;
@@ -339,6 +355,9 @@ function size(
     addedLines,
     productFiles,
     filesChanged: pr.files.length,
+    // Code is product and test: what a developer wrote, not notes, docs or what tools made.
+    codeFiles: filesByBucket.product + filesByBucket.test,
+    filesByBucket,
     linesByBucket,
   };
 }

@@ -584,8 +584,10 @@ export function Paths(props: SectionProps) {
       <div class="card-head" style={{ padding: "0 2px" }}>
         <h2>Paths</h2>
         <span class="note">
-          PR size counts product code only. Common tests, docs, generated and vendored files and
-          lockfiles are recognized already; add your own here. The first match wins.
+          PR size counts product code only, and Code files counts product and test. Common tests,
+          docs, notes (a thoughts folder), generated and vendored files and lockfiles are recognized
+          already; add a tree of your own, such as notes or data that aren't code, as docs here. The
+          first match wins.
         </span>
       </div>
       <Form

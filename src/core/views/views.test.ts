@@ -373,6 +373,11 @@ describe("prList", () => {
     // A column the set doesn't offer is dropped: no merge date on an open PR.
     expect(columnsFor("open", ["merged", "files"])).toEqual(["title", "files"]);
     expect(AVAILABLE_COLUMNS.merged).toContain("files");
+    // Code files beside Files changed, on every list that shows size, and chosen by name too.
+    for (const set of ["merged", "open", "stale", "abandoned"] as const) {
+      expect(COLUMNS[set], set).toContain("codeFiles");
+    }
+    expect(columnsFor("merged", ["codeFiles"])).toEqual(["title", "codeFiles"]);
     for (const set of ["merged", "open", "stale", "abandoned"] as const) {
       expect(COLUMNS[set].every((c) => AVAILABLE_COLUMNS[set].includes(c))).toBe(true);
     }
