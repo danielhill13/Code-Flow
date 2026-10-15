@@ -206,7 +206,8 @@
                   "docs",
                   "generated",
                   "vendored",
-                  "lockfile"
+                  "lockfile",
+                  "assets"
                 ]
               },
               "repos": {
@@ -604,7 +605,8 @@
                         "docs",
                         "generated",
                         "vendored",
-                        "lockfile"
+                        "lockfile",
+                        "assets"
                       ]
                     }
                   },

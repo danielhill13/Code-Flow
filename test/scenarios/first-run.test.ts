@@ -185,6 +185,26 @@ describe("a first run, step by step", () => {
     expect(list.out).toContain("config:branches:acme-co/legacy");
   });
 
+  it("TC-126 files shows what the PRs change: buckets, and the kinds and folders counted as code", async () => {
+    const result = await ws.run("files");
+    expect(result.code, result.out).toBe(0);
+    expect(result.out).toMatch(/Files\s+[\d,]+ file changes in [\d,]+ PRs/);
+    // Every bucket the org's rules know, with docs and lockfiles apart from code.
+    for (const bucket of ["product", "test", "docs", "lockfile"]) {
+      expect(result.out).toMatch(new RegExp(`\\n  ${bucket}\\s+[\\d,]+\\s+[\\d.]+%`));
+    }
+    expect(result.out).toContain("Extensions counted as code");
+    expect(result.out).toMatch(/\.ts\s+[\d,]+/);
+    expect(result.out).toContain("Folders counted as code");
+    expect(result.out).toMatch(/\n {2}src\/\s+[\d,]+/);
+    // Nothing in this data changes hundreds of files per PR: nothing to flag.
+    expect(result.out).not.toContain("Not code?");
+    // One repo, by name or glob.
+    const web = await ws.run("files", "--repo", "acme-co/web", "--top", "3");
+    expect(web.out).toContain("of acme-co/web");
+    expect(web.out).not.toContain("src/api");
+  });
+
   it("TC-120 prune lists repos no source selects any more, and removes their data when told", async () => {
     const file = "orgs/acme/org.yml";
     const before = await ws.read(file);

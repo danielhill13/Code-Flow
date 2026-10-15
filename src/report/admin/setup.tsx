@@ -3,6 +3,7 @@
 // as a whole, exactly as `codeflow import` checks a bundle, and refused with the reason when it
 // wouldn't be valid or the file changed meanwhile.
 import { useEffect, useState } from "preact/hooks";
+import { BUCKETS } from "../../core/paths.ts";
 import { Accounts } from "./accounts.tsx";
 import type { Opened, Preview } from "./api.ts";
 import { Choice, Field, List, Problem, Text, Ticks } from "./fields.tsx";
@@ -637,7 +638,6 @@ const ASSOCIATIONS = [
   "FIRST_TIMER",
   "NONE",
 ];
-const BUCKETS = ["product", "test", "docs", "generated", "vendored", "lockfile"];
 const KINDS: readonly { value: Kind; label: string; hint: string }[] = [
   {
     value: "pr",

@@ -156,6 +156,7 @@ picks up the change. [configuration.md](configuration.md) describes every option
 | `build` | the report as a file that opens offline |
 | `run` | `sync`, then `build` |
 | `prune` | lists repos stored but no longer measured; `--yes` removes their data |
+| `files` | what the PRs change: the folders and kinds of file counted as code, to choose path rules from |
 | `sync --refetch <repos>` | clears those repos' stored PRs and fetches them all again |
 | `serve` | the web app (`npm start` builds the page and opens it) |
 

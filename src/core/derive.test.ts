@@ -570,6 +570,7 @@ describe("files changed", () => {
       generated: 0,
       vendored: 0,
       lockfile: 1,
+      assets: 0,
     });
   });
 

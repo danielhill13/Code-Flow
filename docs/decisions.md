@@ -465,3 +465,18 @@ list and broken down in the side panel and in `pr`. And a `thoughts/` folder is 
 done: telling code from other files by extension, which would change every org's numbers.
 DERIVE_VERSION 14.
 
+**D56 · 2026-10-15 · More files that aren't code by default, and a way to find the rest.** Docs
+were recognised by extension and a few folders, and everything else was product code. Added by
+default: an `assets` bucket (pictures, fonts, media, archives, office files, PDFs, compiled
+binaries: not text to read, so git counts them as 0 lines and they inflated product files), placed
+before tests so a picture in a fixtures folder isn't test code; what builds and tools leave behind
+(`obj/`, `__pycache__/`, `.next/`, `.terraform/`, `*.tfstate`) as generated; project notes
+(`README`, `NOTICE`, `AUTHORS`, `CONTRIBUTING`, `CODE_OF_CONDUCT`, by bare name or `.txt`, and
+diagrams) as docs; `*.lock.hcl` as lockfiles. Notes files are matched by bare name, not `README.*`,
+which would make a `Notice.tsx` component docs. Left alone on purpose, because they are real work
+in many repos: CI and pipeline config, `bin/` and `build/` folders, translation files, notebooks and
+data files. For those, and any tree named in a repo's own way, `codeflow files` and Setup › Paths ›
+What your PRs change list the folders and kinds of file counted as code by file changes, PRs and
+changes per PR (a tree with hundreds per PR is flagged), computed from the stored PRs with the
+org's own rules, and add a path rule from a row. DERIVE_VERSION 15.
+

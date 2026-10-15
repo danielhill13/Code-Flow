@@ -5,6 +5,7 @@ import { CodeflowError } from "../errors.ts";
 import { VERSION } from "../version.ts";
 import { type BuildOptions, build } from "./build.ts";
 import { type DoctorOptions, doctor } from "./doctor.ts";
+import { type FilesOptions, files } from "./files.ts";
 import { type InitOptions, init } from "./init.ts";
 import { type MigrateOptions, migrate } from "./migrate.ts";
 import { listPeople, type MergeOptions, mergeAccounts, type PeopleOptions } from "./people.ts";
@@ -92,6 +93,17 @@ program
   .option("--org <name>", "only this org; needed by some commands when there are several")
   .action(async (options: StatusOptions) => {
     process.exitCode = await showStatus(options);
+  });
+
+program
+  .command("files")
+  .description("what the PRs change: kinds of file and folders counted as code (no network)")
+  .option("-c, --config <path>", "workspace or config file", DEFAULT_CONFIG_FILE)
+  .option("--org <name>", "only this org; needed by some commands when there are several")
+  .option("-r, --repo <owner/name>", "only this repo; globs work")
+  .option("--top <n>", "rows to list in each table", "15")
+  .action(async (options: FilesOptions) => {
+    process.exitCode = await files(options);
   });
 
 program

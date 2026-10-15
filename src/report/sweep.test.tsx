@@ -361,6 +361,31 @@ class FakeAdmin implements AdminApi {
     return { repos: [{ id: "R_9", fullName: "acme/old-tool", provider: "github", prs: 4 }] };
   }
 
+  async files() {
+    const row = (name: string, changes: number, prs: number, bulk = false) => ({
+      name,
+      changes,
+      prs,
+      perPr: Math.round(changes / prs),
+      bulk,
+      whole: false,
+      examples: [`${name}/a.txt`],
+      extensions: [".txt"],
+    });
+    return {
+      prs: 12,
+      changes: 900,
+      codeChanges: 700,
+      byBucket: [
+        { bucket: "product" as const, changes: 500 },
+        { bucket: "test" as const, changes: 200 },
+        { bucket: "docs" as const, changes: 200 },
+      ],
+      folders: [row("src", 400, 12), row("research", 300, 3, true)],
+      extensions: [row(".ts", 450, 12), row(".txt", 250, 3, true)],
+    };
+  }
+
   async copies() {
     return {
       git: "git version 2.50.0",
@@ -578,7 +603,7 @@ describe("the report, served", () => {
       ],
       Branches: ["acme/legacy", "main, develop", "Promotion branches"],
       Bots: ["Also bots", "Bots whose reviews count", "Ignore comments matching"],
-      Paths: ["Path rules", "Add a rule"],
+      Paths: ["Path rules", "Add a rule", "What your PRs change", "Show what your PRs change"],
       Sync: ["Last synced", "3 PRs fetched", "Sync now"],
       People: [
         "Ana Ruiz",

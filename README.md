@@ -10,8 +10,8 @@ Every number traces back to the pull requests behind it.
 
 - **Speed:** cycle time, split into coding, pickup, review and merge wait; time to first review;
   time to approval
-- **Throughput:** PRs merged, PR size and lines merged, counting product code only (not lockfiles
-  or generated files)
+- **Throughput:** PRs merged, PR size and lines merged, counting product code only (not lockfiles,
+  generated files, notes or assets), with code files apart from the rest
 - **Review:** how many PRs get reviewed and approved, reviews per PR, comments, and how often work
   goes round again after review
 - **Stability:** revert rate

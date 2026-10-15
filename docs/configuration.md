@@ -267,9 +267,19 @@ bucket: `product`, `test`, `docs`, `generated`, `vendored` or `lockfile`. Only p
 count toward size. The PR list also shows **Code files**: the files in `product` and `test`,
 beside **Files**, every file the PR changed, so a PR that changes ten thousand notes and two source
 files shows 2 code files. The side panel says how the rest divide (docs 10,000, lockfile 1…).
-Built-in rules recognize common lockfiles, vendored and generated folders, tests and docs, and a
-`thoughts/` folder as notes; your rules run first, and the first match wins. A tree of notes,
-data or anything else that isn't code, under any name, is one rule: it counts as `docs`.
+Built-in rules recognize common lockfiles, vendored and generated folders (and what a build
+or tool leaves behind: `obj/`, `__pycache__/`, `.next/`, `.terraform/`, `*.tfstate`), tests, and
+docs (markdown and the like, `docs/` folders, project notes such as `README`, `NOTICE` and
+`CONTRIBUTING`, diagrams, and a `thoughts/` folder). `assets` are files that aren't text to read:
+pictures, fonts, media, archives, office files, PDFs and compiled binaries; they come before tests,
+so a screenshot in a fixtures folder isn't test code. CI and pipeline config, `bin/` and `build/`
+folders stay product code, as work that is often real. Your rules run first, and the first match
+wins. A tree of notes, data or anything else that isn't code, under any name, is one rule: it
+counts as `docs`.
+
+To choose rules from evidence, `codeflow files` (or Setup › Paths › What your PRs change) lists the
+folders and kinds of file counted as code, by how many file changes and PRs, and flags the ones
+that change hundreds of files per PR, which is rarely code; Setup adds the rule in a click.
 
 ```yaml
 paths:

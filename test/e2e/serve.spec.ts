@@ -299,3 +299,28 @@ test("TC-617 a long selection shortens in the header, and never runs over its ne
     }
   }
 });
+
+test("TC-620 what the PRs change is listed in Setup, and a rule is added from a row", async ({
+  page,
+}) => {
+  await setup(page, "acme", "Paths");
+  await expect(page.getByLabel("Files")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show what your PRs change" }).click();
+  const card = page.locator('section[aria-labelledby="what-prs-change"]');
+  await expect(card).toContainText("counted as code");
+  // The folders and the kinds of file counted as code, from the synced PRs.
+  await expect(card.getByText("Folders (a folder includes its subfolders)")).toBeVisible();
+  await expect(card.getByText("src/", { exact: true }).first()).toBeVisible();
+  await expect(card.getByText(".ts", { exact: true }).first()).toBeVisible();
+
+  // A rule from a row goes to the rules above, unsaved.
+  await card.getByLabel("Count src as").first().selectOption("docs");
+  await card.getByRole("button", { name: "Add a rule for src" }).first().click();
+  await expect(card).toContainText("Added above: save the rules");
+  await expect(page.getByLabel("Files")).toHaveValue("src/**");
+  await expect(page.getByLabel("Bucket")).toHaveValue("docs");
+
+  // Not saved: Cancel puts the rules back as the file has them.
+  await page.getByRole("button", { name: "Cancel" }).first().click();
+  await expect(page.getByLabel("Files")).toHaveCount(0);
+});

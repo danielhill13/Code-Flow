@@ -35,6 +35,7 @@ import { ruleProblems } from "../core/rules.ts";
 import { CodeflowError } from "../errors.ts";
 import { copyOf, copyStatuses, removeUnwantedCopies } from "../pipeline/copies.ts";
 import { deriveFacts, deriveWith, measuredBranches } from "../pipeline/derive.ts";
+import { fileUsage } from "../pipeline/files.ts";
 import { forgetRepos, pruneRepos, unmeasuredRepos } from "../pipeline/prune.ts";
 import { gitVersion, removeCopy } from "../providers/git/git.ts";
 import { Store } from "../store/store.ts";
@@ -169,6 +170,18 @@ async function handle(
       return json(res, { removed: name });
     case "GET repos":
       return json(res, reposOf(org));
+    case "GET files": {
+      // What the org's PRs change, by kind of file and folder (decision D56). Read as it runs,
+      // yielding now and then, so a large org doesn't hold the server up.
+      if (!existsSync(org.dbPath)) return json(res, null);
+      const store = Store.open(org.dbPath);
+      try {
+        const repo = url.searchParams.get("repo") ?? undefined;
+        return json(res, await fileUsage(store, org.config, { repo, limit: 20 }));
+      } finally {
+        store.close();
+      }
+    }
     case "GET unmeasured":
       return json(res, { repos: withStore(org, (store) => unmeasuredRepos(store, org.config)) });
     case "POST refetch": {

@@ -3,6 +3,7 @@
 // save as a whole; each section sends only the keys it shows, so the rest of the file is untouched.
 import { useEffect, useState } from "preact/hooks";
 import { num } from "../../core/format.ts";
+import { BUCKETS } from "../../core/paths.ts";
 import { AdoStatus, GitHubStatus, PreviewTable, useStatus } from "../welcome.tsx";
 import type {
   AdoCheck,
@@ -16,6 +17,7 @@ import type {
   Unmeasured,
 } from "./api.ts";
 import { Choice, Field, List, Problem, Text } from "./fields.tsx";
+import { WhatPrsChange } from "./files.tsx";
 import { Form, message, type SectionProps, usePart, Waiting } from "./kit.tsx";
 import { branchOptions, Picker, repoOptions, useAccounts } from "./picker.tsx";
 import { SourceList } from "./sources.tsx";
@@ -559,8 +561,6 @@ export function Bots(props: SectionProps) {
 
 // Paths ----------------------------------------------------------------------------------------
 
-const BUCKETS = ["product", "test", "docs", "generated", "vendored", "lockfile"];
-
 export function Paths(props: SectionProps) {
   const org = useOrg(props);
   const [repos, setRepos] = useState<string[]>([]);
@@ -670,6 +670,7 @@ export function Paths(props: SectionProps) {
         </div>
         <Saved show={org.saved} />
       </Form>
+      <WhatPrsChange api={props.api} repos={repos} onAdd={(rule) => setPaths([...paths, rule])} />
     </>
   );
 }

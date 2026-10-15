@@ -40,6 +40,63 @@ describe("pathClassifier", () => {
     expect(own("acme/web", "scratch/a.py")).toBe("product");
   });
 
+  it("counts pictures, fonts, media, archives, office files and binaries as assets, even inside tests [rule 3]", () => {
+    for (const path of [
+      "public/logo.png",
+      "src/icons/arrow.SVG",
+      "assets/fonts/inter.woff2",
+      "docs/design/spec.pdf",
+      "report.xlsx",
+      "lib/native.dll",
+      "bin/tool.exe",
+      "release/app.zip",
+      // A picture in a test folder is not test code: assets come before tests.
+      "test/fixtures/screenshot.png",
+      "cypress/snapshots/home.jpg",
+    ]) {
+      // Not code, whichever of docs or assets a folder like docs/ makes it.
+      expect(["assets", "docs"], path).toContain(bucket(path));
+    }
+    expect(bucket("test/fixtures/screenshot.png")).toBe("assets");
+    expect(bucket("src/icons/arrow.svg")).toBe("assets");
+    // Text that happens to share a name part stays code.
+    expect(bucket("src/pngEncoder.ts")).toBe("product");
+    expect(bucket("src/zip.ts")).toBe("product");
+    expect(bucket("test/zip.test.ts")).toBe("test");
+  });
+
+  it("counts what a build or tool leaves behind as generated, and the notes beside code as docs [rule 3]", () => {
+    for (const path of [
+      "svc/obj/Debug/net8.0/app.AssemblyInfo.cs",
+      "svc/__pycache__/mod.cpython-312.pyc",
+      "web/.next/server/app.js",
+      "infra/.terraform/providers/x",
+      "infra/terraform.tfstate",
+    ]) {
+      expect(bucket(path), path).toBe("generated");
+    }
+    expect(bucket("infra/.terraform.lock.hcl")).toBe("lockfile");
+    for (const path of [
+      "README",
+      "services/api/README.txt",
+      "NOTICE",
+      "AUTHORS.md",
+      "CONTRIBUTING",
+      "design/flow.drawio",
+      "design/seq.puml",
+    ]) {
+      expect(bucket(path), path).toBe("docs");
+    }
+    // Ordinary code named like these is still code, and CI and build config stay product.
+    expect(bucket("src/readme.ts")).toBe("product");
+    expect(bucket("src/components/Notice.tsx")).toBe("product");
+    expect(bucket("src/authors.py")).toBe("product");
+    expect(bucket("src/objectStore.ts")).toBe("product");
+    expect(bucket("azure-pipelines.yml")).toBe("product");
+    expect(bucket("bin/deploy.sh")).toBe("product");
+    expect(bucket("build/scripts/release.py")).toBe("product");
+  });
+
   it("recognises vendored, generated, docs and test files", () => {
     expect(bucket("vendor/github.com/x/y.go")).toBe("vendored");
     expect(bucket("app/dist/bundle.js")).toBe("generated");

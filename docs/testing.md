@@ -116,6 +116,7 @@ here.
 | TC-111 | Stale PRs are counted apart from open ones, a bot's nudge doesn't revive one, and the window is the org's |
 | TC-112 | `run` syncs and then builds, for a scheduler such as cron |
 | TC-120 | `prune` lists repos stored but no longer selected by any source, and `--yes` removes their data |
+| TC-126 | `files` shows what the PRs change: the buckets, and the kinds of file and the folders counted as code |
 
 ### GitHub and Azure DevOps together (`test/scenarios/azure-devops.test.ts`)
 
@@ -191,6 +192,7 @@ here.
 | TC-608 | Org settings change the stale window and turn people views off |
 | TC-609 | The header says how fresh the data is and when it syncs next |
 | TC-616 | A local copy is chosen per repo in Setup › Repos, which says what it gives and costs, and lands in org.yml |
+| TC-620 | What the PRs change is listed in Setup › Paths, with a rule added from a row into the unsaved rules |
 | TC-617 | A long selection shortens in the header and never overlaps its neighbours, from wide desktop to phone |
 
 ### First steps and Setup in the browser (`test/e2e/welcome.spec.ts`)

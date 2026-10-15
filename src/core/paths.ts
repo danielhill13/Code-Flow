@@ -2,9 +2,19 @@ import picomatch from "picomatch";
 
 /**
  * What a changed file is, for measuring size. Only `product` lines count toward PR size and
- * lines merged; the other buckets are kept so they can be shown, never silently dropped.
+ * lines merged; `product` and `test` files are the code files; the other buckets are kept so they
+ * can be shown, never silently dropped. `assets` are files that aren't text to read: pictures,
+ * fonts, media, archives, office files and compiled binaries.
  */
-export const BUCKETS = ["product", "test", "docs", "generated", "vendored", "lockfile"] as const;
+export const BUCKETS = [
+  "product",
+  "test",
+  "docs",
+  "generated",
+  "vendored",
+  "lockfile",
+  "assets",
+] as const;
 export type Bucket = (typeof BUCKETS)[number];
 
 export type PathRule = {
@@ -34,6 +44,7 @@ export const DEFAULT_PATH_RULES: readonly PathRule[] = [
       "**/packages.lock.json",
       "**/gradle.lockfile",
       "**/*.lockfile",
+      "**/*.lock.hcl",
     ],
   },
   {
@@ -63,6 +74,14 @@ export const DEFAULT_PATH_RULES: readonly PathRule[] = [
       "**/*.map",
       "**/__snapshots__/**",
       "**/*.snap",
+      // What a build or a tool leaves behind, when it's committed by accident.
+      "**/obj/**",
+      "**/__pycache__/**",
+      "**/.next/**",
+      "**/.nuxt/**",
+      "**/.terraform/**",
+      "**/*.tfstate",
+      "**/*.tfstate.backup",
       "**/*.pb.go",
       "**/*_pb2.py",
       "**/*_pb2_grpc.py",
@@ -89,6 +108,26 @@ export const DEFAULT_PATH_RULES: readonly PathRule[] = [
       "**/LICENSE.*",
       "**/CHANGELOG",
       "**/CHANGELOG.*",
+      // Project notes, by their bare names or as text (markdown and the rest are covered above):
+      // not README.* or NOTICE.*, which would make a Notice.tsx component docs.
+      "**/{README,NOTICE,AUTHORS,CONTRIBUTING,CODE_OF_CONDUCT}{,.txt,.text}",
+      // Diagrams drawn for people to read.
+      "**/*.drawio",
+      "**/*.puml",
+      "**/*.plantuml",
+      "**/*.mmd",
+    ],
+  },
+  {
+    // Before test: a picture in a fixtures folder is not test code.
+    bucket: "assets",
+    match: [
+      "**/*.{png,jpg,jpeg,gif,svg,ico,icns,webp,bmp,tif,tiff,avif,psd}",
+      "**/*.{woff,woff2,ttf,otf,eot}",
+      "**/*.{mp3,mp4,mov,avi,webm,wav,ogg,m4a,mkv}",
+      "**/*.{zip,tar,gz,tgz,bz2,xz,7z,rar}",
+      "**/*.{pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp}",
+      "**/*.{dll,exe,jar,class,pyc,so,dylib,pdb}",
     ],
   },
   {

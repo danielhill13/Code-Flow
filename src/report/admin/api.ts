@@ -1,6 +1,8 @@
 // The calls the Setup tab makes to `codeflow serve` for one org. Each part of the config is read
 // with a version and written back whole, with that version, so an edit made meanwhile (in the
 // file, or another tab) is never overwritten unseen.
+
+import type { FileUsage } from "../../core/file-usage.ts";
 import { call } from "../../core/http-source.ts";
 
 export type ConfigPart = "people" | "groups" | "rules" | "settings";
@@ -144,6 +146,8 @@ export interface AdminApi {
   prune(): Promise<{ removed: Unmeasured[] }>;
   /** Clears the stored PRs of these repos and syncs, so they're fetched whole again. */
   refetch(repos: string[]): Promise<{ cleared: Unmeasured[] }>;
+  /** What the org's PRs change, by kind of file and folder; null before anything is synced. */
+  files(repo?: string): Promise<FileUsage | null>;
   /** The org's local copies (D46), and the installed git's version (null: none). */
   copies(): Promise<{ git: string | null; copies: CopyRow[] }>;
   /** Deletes the copies of repos no longer kept. */
@@ -205,6 +209,10 @@ export class ServerAdmin implements AdminApi {
 
   refetch(repos: string[]): Promise<{ cleared: Unmeasured[] }> {
     return call(this.#base, "/refetch", { method: "POST", body: { repos } });
+  }
+
+  files(repo?: string): Promise<FileUsage | null> {
+    return call(this.#base, `/files${repo ? `?repo=${encodeURIComponent(repo)}` : ""}`);
   }
 
   copies(): Promise<{ git: string | null; copies: CopyRow[] }> {

@@ -38,7 +38,7 @@ function filesText(pr: PrFact): string {
   const other = pr.filesChanged - pr.codeFiles;
   if (other === 0 && by.test === 0) return num(pr.filesChanged);
   const code = by.test > 0 ? ` (${num(by.product)} product, ${num(by.test)} test)` : "";
-  const parts = (["docs", "generated", "vendored", "lockfile"] as const)
+  const parts = (["docs", "assets", "generated", "vendored", "lockfile"] as const)
     .filter((bucket) => by[bucket] > 0)
     .map((bucket) => `${bucket} ${num(by[bucket])}`);
   const rest = other > 0 ? `, ${num(other)} not code (${parts.join(", ")})` : "";
