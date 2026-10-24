@@ -55,6 +55,7 @@ since: 2025-10-01
       size_target_lines: 400,
       local_copies: [],
       duplicates_by_work_item: false,
+      ai_markers: { files: [], text: [], branches: [], authors: [], ignore: [] },
       people: {},
       teams: {},
       groups: {},

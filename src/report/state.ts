@@ -1,6 +1,7 @@
 // The report's state lives in the URL's hash, so any view (a tab, a selection, a filtered list, an
 // open PR) can be shared as a link or printed. Theme is the one exception: it is the viewer's.
 
+import { AI_MARKERS, type AiMarker } from "../core/ai.ts";
 import type { OpenState } from "../core/facts.ts";
 import {
   type Breakdown,
@@ -21,7 +22,16 @@ import {
 } from "../core/views/prs.ts";
 import { isWindowKey, type WindowKey } from "../core/windows.ts";
 
-export type Tab = "overview" | "speed" | "review" | "flow" | "compare" | "prs" | "setup";
+export type Tab = "overview" | "speed" | "review" | "flow" | "compare" | "ai" | "prs" | "setup";
+
+/**
+ * Essential: the few tabs and numbers someone new to flow metrics needs; advanced: everything.
+ * The reader's choice, remembered in their browser; a link can carry it.
+ */
+export type Mode = "essential" | "advanced";
+
+/** The tabs essential mode keeps. */
+export const ESSENTIAL_TABS: readonly Tab[] = ["overview", "ai", "prs", "setup"];
 
 export const TABS: readonly { key: Tab; label: string; question: string }[] = [
   { key: "overview", label: "Overview", question: "Are we getting faster or slower?" },
@@ -29,6 +39,11 @@ export const TABS: readonly { key: Tab; label: string; question: string }[] = [
   { key: "review", label: "Review", question: "Is review holding us up?" },
   { key: "flow", label: "Flow", question: "What's stuck right now?" },
   { key: "compare", label: "Compare", question: "Did the change work?" },
+  {
+    key: "ai",
+    label: "AI insights",
+    question: "How much of our work is AI-assisted, and how does it compare?",
+  },
   { key: "prs", label: "Pull requests", question: "Which pull requests are behind this number?" },
   // Only where the report can save: under `codeflow serve` (decision D33).
   { key: "setup", label: "Setup", question: "How is this org set up?" },
@@ -70,6 +85,9 @@ export type ReportState = {
   contributors: Contributors;
   compare: CompareState;
   list: ListState;
+  /** The periods AI insights' impact table compares; empty: the window and the one before. */
+  aiPeriods: WindowKey[];
+  mode: Mode;
   /** The PR open in the side panel, by id. */
   pr: string | null;
 };
@@ -92,6 +110,8 @@ export const DEFAULT_STATE: ReportState = {
     columns: null,
     sort: DEFAULT_SORT.merged,
   },
+  aiPeriods: [],
+  mode: "advanced",
   pr: null,
 };
 
@@ -133,6 +153,8 @@ export function readState(hash: string): ReportState {
       columns: readColumns(get("cols")),
       sort: readSort(get("sort")) ?? DEFAULT_SORT[set],
     },
+    aiPeriods: [...new Set(params.getAll("ip").filter(isWindowKey))],
+    mode: get("mode") === "essential" ? "essential" : "advanced",
     pr: get("pr"),
   };
 }
@@ -160,6 +182,8 @@ export function writeState(state: ReportState): string {
     if (state.list.columns) params.set("cols", state.list.columns.join(","));
     params.set("sort", `${state.list.sort.dir === "desc" ? "-" : ""}${state.list.sort.key}`);
   }
+  if (state.tab === "ai") for (const period of state.aiPeriods) params.append("ip", period);
+  if (state.mode === "essential") params.set("mode", "essential");
   if (state.pr) params.set("pr", state.pr);
   return `#${params.toString()}`;
 }
@@ -187,6 +211,8 @@ function writeFilter(filter: PrFilter): string {
       return ["state", filter.state].join(SEP);
     case "waiting":
       return ["waiting", filter.reviewer].join(SEP);
+    case "ai":
+      return ["ai", filter.marker].join(SEP);
   }
 }
 
@@ -210,6 +236,10 @@ function readFilter(text: string): PrFilter[] {
         : [];
     case "waiting":
       return a ? [{ kind, reviewer: a }] : [];
+    case "ai":
+      return a === "any" || a === "none" || (AI_MARKERS as readonly string[]).includes(a)
+        ? [{ kind, marker: a as AiMarker }]
+        : [];
     default:
       return [];
   }

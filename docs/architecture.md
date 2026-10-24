@@ -326,6 +326,14 @@ These hold everywhere. Each gets a test as it is built.
     open. On Azure DevOps, which lists PRs by when they were opened, a second walk reads those
     closed since `since`; a repo that synced before it existed reads the ones it missed on its next
     sync, and a PR already stored as closed is never read again.
+20. **AI-assisted means a marker was seen.** A PR is AI-assisted when it shows at least one trace an
+    AI coding tool leaves by default: it changes files in a `thoughts/` or `.claude/` folder, a
+    `CLAUDE.md`, or another tool's instructions (`AGENTS.md`, `.cursor/`, Copilot's instructions);
+    its description or a commit signs it ("Generated with Claude Code", a Co-Authored-By trailer
+    naming a tool, an agent's session link); a coding agent's account opened it; or its branch is
+    named as an agent names one (`claude/…`, `copilot/…`). The org's own `ai_markers` add more and
+    can ignore built-in ones. A PR with none is "no markers", never "not AI". Contributors using
+    AI are people, not bots, with an AI-assisted PR merged in the span.
 
 ## Per-PR timeline
 

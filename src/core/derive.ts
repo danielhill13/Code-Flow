@@ -1,3 +1,4 @@
+import type { AiSign } from "./ai.ts";
 import { ticketsOf } from "./duplicates.ts";
 import type { Exclusion, OpenState, PrFact, ReviewEntry, WaitingOn } from "./facts.ts";
 import type { Attribution } from "./groups.ts";
@@ -26,6 +27,8 @@ export type DeriveRules = {
   ticketPattern?: RegExp | null;
   /** Whether a PR's linked work items are tickets too (D49). */
   workItemTickets?: boolean;
+  /** The AI markers a PR shows (D57); none are looked for without it. */
+  aiSigns?: (pr: PrModel) => AiSign[];
 };
 
 /**
@@ -200,6 +203,7 @@ export function derivePr(pr: PrModel, rules: DeriveRules): PrFact {
     rewrittenLines: null,
     truncated: pr.truncated,
     identities: identities(pr),
+    ai: rules.aiSigns?.(pr) ?? [],
   };
 }
 

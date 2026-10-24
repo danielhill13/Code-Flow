@@ -31,8 +31,10 @@ export function Overview(props: {
   breakdown: BreakdownChoice;
   /** What the selection is called, for saying it has nothing to break down. */
   name: string;
+  /** Essential mode: the tiles, where the time went, and a short table; no notes. */
+  essential?: boolean;
 }) {
-  const { model, state } = props;
+  const { model, state, essential = false } = props;
   const unit = model.window.grain === "month" ? "monthly" : "weekly";
   return (
     <>
@@ -69,12 +71,18 @@ export function Overview(props: {
       </Card>
 
       {model.rows.length > 0 ? (
-        <ScopeTable model={model} state={state} unit={unit} breakdown={props.breakdown} />
+        <ScopeTable
+          model={model}
+          state={state}
+          unit={unit}
+          breakdown={props.breakdown}
+          essential={essential}
+        />
       ) : (
         <SingleBreakdown choice={props.breakdown} name={props.name} />
       )}
 
-      <Notes model={model} state={state} />
+      {!essential && <Notes model={model} state={state} />}
     </>
   );
 }
@@ -120,13 +128,17 @@ function ScopeTable({
   state,
   unit,
   breakdown,
+  essential,
 }: {
   model: OverviewModel;
   state: ReportState;
   unit: string;
   breakdown: BreakdownChoice;
+  essential: boolean;
 }) {
-  const cols = "minmax(200px,1.6fr) repeat(6,minmax(84px,1fr)) 120px";
+  const cols = essential
+    ? "minmax(200px,1.6fr) repeat(3,minmax(84px,1fr)) 120px"
+    : "minmax(200px,1.6fr) repeat(6,minmax(84px,1fr)) 120px";
   const by = model.rows[0]?.by ?? "team";
   return (
     <section class="card flush">
@@ -145,9 +157,13 @@ function ScopeTable({
             <span>Name</span>
             <span>Merged</span>
             <span>Cycle</span>
-            <span>Pickup</span>
-            <span>Review</span>
-            <span>Re-pushed</span>
+            {!essential && (
+              <>
+                <span>Pickup</span>
+                <span>Review</span>
+                <span>Re-pushed</span>
+              </>
+            )}
             <span>Open now</span>
             <span>Cycle trend</span>
           </div>
@@ -170,9 +186,13 @@ function ScopeTable({
               </div>
               <Cell pair={row.merged} />
               <Cell pair={row.cycle} />
-              <Cell pair={row.pickup} />
-              <Cell pair={row.review} />
-              <span>{formatValue(row.repushed)}</span>
+              {!essential && (
+                <>
+                  <Cell pair={row.pickup} />
+                  <Cell pair={row.review} />
+                  <span>{formatValue(row.repushed)}</span>
+                </>
+              )}
               <span>{num(row.open)}</span>
               <Spark points={seriesPoints(row.cycleSeries)} class="tiny" />
             </a>

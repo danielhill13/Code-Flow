@@ -230,6 +230,31 @@ PR isn't read again. Nothing walks the organization's work items. PRs synced bef
 on gain their links when fetched again (Setup › Sync › Fetch repos again). Turned off, stored links
 are ignored. See decision D49.
 
+## ai_markers
+
+A PR is AI-assisted when it shows a trace an AI coding tool leaves by default (rule 20): it changes
+a `thoughts/` or `.claude/` folder, a `CLAUDE.md`, or another tool's instructions (`AGENTS.md`,
+`GEMINI.md`, `.cursor/`, `.github/copilot-instructions.md`, `.windsurfrules` and the like); its
+description or a commit signs it ("Generated with Claude Code", a Co-Authored-By trailer naming
+Claude, Copilot, Cursor, Aider and others, a Codex, Cursor or Devin session link); a coding agent's
+account opened it (Copilot's, Devin, Jules, Codex); or its branch is named as an agent names one
+(`claude/…`, `copilot/…`, `codex/…`, `cursor/…`, `devin/…`). AI insights, the PR list's AI markers
+column and the side panel show which a PR has, and where each was seen.
+
+Add your own, or ignore a built-in one you don't trust:
+
+```yaml
+ai_markers:
+  files: ["notes/ai/**"]          # paths whose change marks a PR
+  text: ['\[ai-assisted\]']        # regular expressions for the title, description and commits
+  branches: ["agent/*"]           # head branch names
+  authors: ["acme-agent"]         # your own agents' logins
+  ignore: [thoughts]              # e.g. a team that keeps human notes in thoughts/
+```
+
+A PR with no markers may still have had help, so the share is a floor. Changing these re-derives
+the numbers on the next start, with no sync.
+
 ## local_copies
 
 ```yaml

@@ -2,6 +2,7 @@
 // in the page, answered by the server running the same view builders (decisions D5, D18).
 import type { PrFact } from "./facts.ts";
 import type { DataSource, Meta } from "./source.ts";
+import type { AiModel, AiQuery } from "./views/ai.ts";
 import type { CompareModel, CompareQuery } from "./views/compare.ts";
 import type { ViewQuery } from "./views/context.ts";
 import type { FlowModel } from "./views/flow.ts";
@@ -76,6 +77,10 @@ export class HttpSource implements DataSource {
 
   compare(q: CompareQuery): Promise<CompareModel> {
     return this.#view("compare", q);
+  }
+
+  ai(q: AiQuery): Promise<AiModel> {
+    return this.#view("ai", q);
   }
 
   prs(q: PrQuery): Promise<PrListModel> {

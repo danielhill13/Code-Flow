@@ -46,6 +46,7 @@ const SETTINGS = [
   "local_copies",
   "ticket_pattern",
   "duplicates_by_work_item",
+  "ai_markers",
 ];
 
 const KEYS: Record<Part, readonly string[]> = {

@@ -480,3 +480,26 @@ What your PRs change list the folders and kinds of file counted as code by file 
 changes per PR (a tree with hundreds per PR is flagged), computed from the stored PRs with the
 org's own rules, and add a path rule from a row. DERIVE_VERSION 15.
 
+**D57 · 2026-10-24 · AI-assisted PRs, by the traces tools leave.** A PR is AI-assisted when it
+shows at least one marker (rule 20), each the default behaviour of a tool, so they find traces
+rather than guess at style: thoughts/ and .claude/ folders, CLAUDE.md and other agents'
+instruction files, a signature or Co-Authored-By trailer in the description or a commit, an agent's
+account as author, an agent's branch prefix. Files are the files a PR changes, not what the repo
+holds: a repo with a CLAUDE.md doesn't make every PR AI-assisted. Each fact keeps its markers, one
+per kind, with the tool named and where it was seen, so a reader can check it. Bots' PRs count
+towards the share (bot PRs count by default, D45), but not as contributors. AI review bots
+(coderabbit and the like) aren't markers: they review, they don't write. The share is a registry
+metric, so Compare and summary carry it; the AI insights tab adds who uses it, which markers,
+adoption by repo month by month, and an impact table of AI-assisted PRs against the rest per
+period, worded as a description, never a cause. Orgs add markers or ignore built-in ones with
+`ai_markers`. DERIVE_VERSION 16.
+
+**D58 · 2026-10-24 · Essential and advanced modes.** Essential mode is for executives and readers
+new to flow metrics: three tabs (Overview, AI insights, Pull requests, and Setup where served), the
+median of everyone's PRs with the statistic and contributor controls hidden, Overview without its
+notes and with a slimmer table, AI insights without the marker, tool and adoption detail and with
+four impact rows for the current window. It hides; it never computes differently. The choice is
+the viewer's, remembered in their browser like the theme, and carried in the link (`mode=essential`)
+so a link sent to someone opens as it was seen. A link to a tab essential mode leaves out opens
+the Overview.
+

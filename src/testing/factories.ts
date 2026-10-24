@@ -1,5 +1,6 @@
 // Test data builders. Excluded from the published build.
 import type { OwnerSource } from "../config/schema.ts";
+import { aiReader } from "../core/ai.ts";
 import { type DeriveRules, derivePr } from "../core/derive.ts";
 import type { PrFact } from "../core/facts.ts";
 import type { Actor, PrModel } from "../core/model.ts";
@@ -92,6 +93,7 @@ export function deriveRules(overrides: Partial<DeriveRules> = {}): DeriveRules {
       groups: [],
     }),
     personOf: (login) => login,
+    aiSigns: aiReader(),
     ...overrides,
   };
 }

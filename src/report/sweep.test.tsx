@@ -95,7 +95,13 @@ function facts(withGroups: Groups): PrFact[] {
         },
       ],
       reviews,
-      files: [{ path: "src/a.ts", additions: (i * 37) % 1200, deletions: i % 9 }],
+      files: [
+        { path: "src/a.ts", additions: (i * 37) % 1200, deletions: i % 9 },
+        // Some PRs show AI markers: a thoughts/ folder, a signature, an agent's branch.
+        ...(i % 4 === 0 ? [{ path: "thoughts/plans/a.md", additions: 20, deletions: 0 }] : []),
+      ],
+      body: i % 7 === 0 ? "🤖 Generated with [Claude Code](https://claude.com/claude-code)" : "",
+      headBranch: i % 9 === 0 ? `claude/task-${i}` : `feat/${i}`,
     };
     if (i % 11 === 0) {
       out.push(
@@ -233,6 +239,57 @@ describe.each([
       expect(text, `#${pr.number}`).not.toMatch(BAD);
       expect(text).toContain("how codeflow read the pull request");
     }
+  });
+
+  it("shows AI insights with their markers, and a PR's markers in the list and side panel", async () => {
+    const text = await show({ tab: "ai", window: "ytd" });
+    for (const words of [
+      "AI-assisted share of PRs",
+      "Contributors using AI",
+      "Which markers were seen",
+      "thoughts/ folder",
+      "Adoption by repo, month by month",
+      "Impact: AI-assisted PRs and the rest",
+    ]) {
+      expect(text).toContain(words);
+    }
+    expect(await show({ tab: "ai", aiPeriods: ["2026-08", "2026-09"] })).toContain("August 2026");
+    const marked = data.facts.find((pr) => pr.ai.length > 1);
+    if (!marked) throw new Error("no PR with markers");
+    const list = {
+      ...DEFAULT_STATE.list,
+      filters: [{ kind: "ai" as const, marker: "thoughts" as const }],
+    };
+    expect(await show({ tab: "prs", list })).toContain("AI marker · thoughts/ folder");
+    const panel = await show({ tab: "prs", pr: marked.id });
+    expect(panel).toContain("AI markers");
+    expect(panel).toContain("thoughts/plans/a.md");
+  });
+
+  it("keeps only the essentials in essential mode: three tabs, the median, everyone", async () => {
+    const tabs = () => [...document.querySelectorAll("nav.tabs a")].map((a) => a.textContent ?? "");
+    await show({ tab: "overview", mode: "essential", percentile: 0.75, contributors: "external" });
+    expect(tabs()).toEqual(["Overview", "AI insights", "Pull requests"]);
+    const text = document.body.textContent ?? "";
+    expect(text).not.toContain("Notes on the data");
+    expect(document.querySelector("fieldset legend")?.textContent).not.toBe("Statistic");
+    expect(text).not.toContain("P75");
+    // A link to a tab essential mode leaves out opens the overview.
+    history.replaceState(null, "", "#tab=speed&mode=essential");
+    dispatchEvent(new HashChangeEvent("hashchange"));
+    for (
+      let i = 0;
+      i < 50 && document.querySelector("main")?.dataset.view !== "#mode=essential";
+      i++
+    ) {
+      await tick();
+    }
+    expect(document.querySelector("h1")?.textContent).toBe("Are we getting faster or slower?");
+    const ai = await show({ tab: "ai", mode: "essential" });
+    expect(ai).toContain("AI-assisted PRs and the rest");
+    expect(ai).not.toContain("Which markers were seen");
+    await show({ tab: "overview" });
+    expect(tabs()).toContain("Speed");
   });
 
   it("always says when its data runs through, on every tab [rule 12]", async () => {

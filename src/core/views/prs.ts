@@ -1,7 +1,9 @@
 // The PRs behind a number. Every number in the report opens this list already filtered, and the
 // filters test PRs with the same functions the metrics use (prValue, inPeriod, the bands), so a
 // list holds exactly the PRs its number rests on. Filtering and sorting are not aggregation.
+
 import { prValue } from "../aggregate.ts";
+import { AI_MARKER_LABELS, type AiMarker } from "../ai.ts";
 import type { OpenState, PrFact } from "../facts.ts";
 import { metricOf } from "../metrics.ts";
 import { inPeriod } from "../periods.ts";
@@ -32,7 +34,9 @@ export type PrFilter =
   | { kind: "age"; band: string }
   | { kind: "state"; state: OpenState }
   /** Open PRs nobody has reviewed yet that ask this person for a review. */
-  | { kind: "waiting"; reviewer: string };
+  | { kind: "waiting"; reviewer: string }
+  /** PRs showing an AI marker: any, one kind, or none at all (D57). */
+  | { kind: "ai"; marker: AiMarker | "any" | "none" };
 
 export type PrColumn =
   | "number"
@@ -52,7 +56,8 @@ export type PrColumn =
   | "codeFiles"
   | "reviews"
   | "state"
-  | "quiet";
+  | "quiet"
+  | "ai";
 
 export type PrSort = { key: PrColumn; dir: "asc" | "desc" };
 
@@ -89,8 +94,20 @@ export const COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "files",
     "codeFiles",
     "reviews",
+    "ai",
   ],
-  open: ["number", "title", "author", "age", "state", "size", "files", "codeFiles", "reviews"],
+  open: [
+    "number",
+    "title",
+    "author",
+    "age",
+    "state",
+    "size",
+    "files",
+    "codeFiles",
+    "reviews",
+    "ai",
+  ],
   stale: ["number", "title", "author", "age", "quiet", "state", "files", "codeFiles", "reviews"],
   abandoned: [
     "number",
@@ -126,6 +143,7 @@ export const AVAILABLE_COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "files",
     "codeFiles",
     "reviews",
+    "ai",
   ],
   open: [
     "number",
@@ -138,6 +156,7 @@ export const AVAILABLE_COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "files",
     "codeFiles",
     "reviews",
+    "ai",
   ],
   stale: [
     "number",
@@ -150,6 +169,7 @@ export const AVAILABLE_COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "files",
     "codeFiles",
     "reviews",
+    "ai",
   ],
   abandoned: [
     "number",
@@ -161,6 +181,7 @@ export const AVAILABLE_COLUMNS: Record<PrSet, readonly PrColumn[]> = {
     "files",
     "codeFiles",
     "reviews",
+    "ai",
   ],
 };
 
@@ -244,6 +265,12 @@ function filterTest(ctx: ViewContext, set: PrSet, filter: PrFilter): (pr: PrFact
     }
     case "state":
       return (pr) => pr.openState === filter.state;
+    case "ai":
+      return filter.marker === "any"
+        ? (pr) => pr.ai.length > 0
+        : filter.marker === "none"
+          ? (pr) => pr.ai.length === 0
+          : (pr) => pr.ai.some((sign) => sign.marker === filter.marker);
     case "waiting":
       return (pr) =>
         pr.openState === "waiting" &&
@@ -294,6 +321,8 @@ function sortValue(key: PrColumn, pr: PrFact, asOf: Date): number | string | nul
       return pr.openState === null ? null : OPEN_STATES.indexOf(pr.openState);
     case "quiet":
       return quietDays(pr, asOf);
+    case "ai":
+      return pr.ai.length;
   }
 }
 
@@ -318,6 +347,12 @@ export function filterLabel(filter: PrFilter, set: PrSet): string {
       return OPEN_STATE_LABELS[filter.state];
     case "waiting":
       return `Waiting on ${filter.reviewer}`;
+    case "ai":
+      return filter.marker === "any"
+        ? "AI-assisted"
+        : filter.marker === "none"
+          ? "No AI markers"
+          : `AI marker · ${AI_MARKER_LABELS[filter.marker]}`;
   }
 }
 

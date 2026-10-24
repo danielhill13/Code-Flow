@@ -20,7 +20,17 @@ import { Setup } from "./admin/setup.tsx";
 import { Drawer } from "./drawer.tsx";
 import { tabHref } from "./links.ts";
 import { SelectionBar } from "./selector.tsx";
-import { listPeriods, type ReportState, readState, TABS, writeState } from "./state.ts";
+import {
+  ESSENTIAL_TABS,
+  listPeriods,
+  type Mode,
+  type ReportState,
+  readState,
+  TABS,
+  type Tab,
+  writeState,
+} from "./state.ts";
+import { AiInsights } from "./tabs/ai.tsx";
 import { Compare, CompareControls, comparePick } from "./tabs/compare.tsx";
 import { Flow } from "./tabs/flow.tsx";
 import { Overview } from "./tabs/overview.tsx";
@@ -91,15 +101,19 @@ function Report({
   status,
 }: Shell & { source: DataSource; meta: Meta; revision: number }) {
   const [state, setState] = useHashState(meta.choices, admin !== undefined);
+  const essential = state.mode === "essential";
+  // What the tabs read: in essential mode, the median of everyone's PRs, whatever the link said.
+  const shown: ReportState = essential ? { ...state, percentile: 0.5, contributors: "all" } : state;
   const [theme, setTheme] = useTheme();
   const [limit, setLimit] = useState(PAGE);
   const asOf = new Date(meta.asOf);
   const query: ViewQuery = {
     selection: state.selection,
     by: breakdownOf(meta.choices, state),
-    contributors: state.contributors,
+    // Essential mode reads the median of everyone's PRs: its controls aren't offered.
+    contributors: essential ? "all" : state.contributors,
     window: state.window,
-    percentile: state.percentile,
+    percentile: essential ? 0.5 : state.percentile,
   };
   const pick = comparePick(state.compare, meta.coveredFrom, asOf);
   // The columns only change what is shown, not which PRs: they don't reload the list, close the
@@ -114,6 +128,7 @@ function Report({
     query,
     state.tab === "compare" ? [pick.a, pick.b] : null,
     state.tab === "prs" ? [listData, limit] : null,
+    state.tab === "ai" ? state.aiPeriods : null,
   ]);
   const loaded = useAsync(async () => ({ key, model: await loadModel() }), key);
   // A model loaded for another tab or query is never shown under this one.
@@ -128,6 +143,8 @@ function Report({
         return source.review(query);
       case "flow":
         return source.flow(query);
+      case "ai":
+        return source.ai({ ...query, periods: state.aiPeriods });
       case "compare":
         return pick.a && pick.b
           ? source.compare({ ...query, a: pick.a, b: pick.b })
@@ -158,9 +175,9 @@ function Report({
   const window = windowOf(state.window, asOf);
   const unit = grainOf(window) === "month" ? "monthly" : "weekly";
   const who =
-    state.contributors === "all"
+    shown.contributors === "all"
       ? ""
-      : state.contributors === "internal"
+      : shown.contributors === "internal"
         ? " · internal contributors"
         : " · outside contributors";
   const name = selectionName(meta.choices, state.selection);
@@ -173,7 +190,9 @@ function Report({
           ? `open as of ${when(meta.asOf)}`
           : state.tab === "prs"
             ? "the evidence behind every number"
-            : `${window.current.label}, compared with ${window.previous.label}`;
+            : state.tab === "ai"
+              ? `${window.current.label}, by the traces AI tools leave`
+              : `${window.current.label}, compared with ${window.previous.label}`;
   const note =
     state.tab === "setup"
       ? ""
@@ -216,7 +235,7 @@ function Report({
           </div>
         </div>
         <nav class="wrap tabs" aria-label="Tabs">
-          {tabsFor(admin).map((t) => (
+          {tabsFor(admin, state.mode).map((t) => (
             <a
               key={t.key}
               href={tabHref(state, t.key)}
@@ -226,6 +245,19 @@ function Report({
               {t.label}
             </a>
           ))}
+          <span class="tabs-end">
+            <Segmented
+              label="Detail"
+              hideLabel
+              small
+              options={MODES}
+              value={state.mode}
+              onChange={(mode) => {
+                rememberMode(mode);
+                update({ mode, tab: tabIn(mode, state.tab) });
+              }}
+            />
+          </span>
         </nav>
       </header>
 
@@ -255,19 +287,23 @@ function Report({
                   : "Open and stale PRs are as of now."}
               </span>
             ))}
-          <Segmented
-            label="Statistic"
-            options={STATISTICS}
-            value={state.percentile}
-            onChange={(p) => update({ percentile: p })}
-          />
-          <Segmented
-            label="Contributors"
-            options={WHO}
-            value={state.contributors}
-            onChange={(c) => update({ contributors: c })}
-          />
-          {note && <span class="controls-note">{note}</span>}
+          {!essential && (
+            <>
+              <Segmented
+                label="Statistic"
+                options={STATISTICS}
+                value={state.percentile}
+                onChange={(p) => update({ percentile: p })}
+              />
+              <Segmented
+                label="Contributors"
+                options={WHO}
+                value={state.contributors}
+                onChange={(c) => update({ contributors: c })}
+              />
+            </>
+          )}
+          {note && <span class="controls-note">{essential ? `Medians · ${note}` : note}</span>}
         </div>
       </div>
 
@@ -281,7 +317,7 @@ function Report({
           codeflow · {name}
           {who} ·{" "}
           {state.tab === "compare" || state.tab === "prs" ? "" : `${window.current.label} · `}
-          data through {when(meta.asOf)} · {statLabel(state.percentile)}
+          data through {when(meta.asOf)} · {statLabel(shown.percentile)}
         </p>
         <div class="heading">
           <h1>{question}</h1>
@@ -310,7 +346,7 @@ function Report({
           <Body
             tab={state.tab}
             model={model}
-            state={state}
+            state={shown}
             meta={meta}
             asOf={asOf}
             name={name}
@@ -335,6 +371,7 @@ function Report({
               })
             }
             onMore={() => setLimit((n) => n + PAGE)}
+            onAiPeriods={(aiPeriods) => update({ aiPeriods })}
           />
         ) : state.tab === "compare" ? (
           <p class="muted">
@@ -367,6 +404,7 @@ function Body(props: {
   onList: (list: ReportState["list"]) => void;
   onSet: (set: PrSet) => void;
   onMore: () => void;
+  onAiPeriods: (periods: ReportState["aiPeriods"]) => void;
   breakdown: BreakdownChoice;
   name: string;
 }) {
@@ -380,6 +418,18 @@ function Body(props: {
           state={state}
           breakdown={props.breakdown}
           name={props.name}
+          essential={state.mode === "essential"}
+        />
+      );
+    case "ai":
+      return (
+        <AiInsights
+          model={model as Parameters<typeof AiInsights>[0]["model"]}
+          state={state}
+          from={props.meta.coveredFrom}
+          asOf={asOf}
+          essential={state.mode === "essential"}
+          onPeriods={props.onAiPeriods}
         />
       );
     case "speed":
@@ -576,9 +626,40 @@ function OrgPicker(props: { current: string; orgs: readonly string[] }) {
 
 const ADD_ORG = "\u0000add";
 
-/** The tabs this report has: Setup only where it can save. */
-const tabsFor = (admin: AdminApi | undefined) =>
-  admin ? TABS : TABS.filter((t) => t.key !== "setup");
+/** The tabs this report has: Setup only where it can save; essential mode only its few. */
+const tabsFor = (admin: AdminApi | undefined, mode: Mode) =>
+  TABS.filter(
+    (t) => (admin || t.key !== "setup") && (mode === "advanced" || ESSENTIAL_TABS.includes(t.key)),
+  );
+
+/** A tab the mode shows: Overview in place of one essential mode leaves out. */
+const tabIn = (mode: Mode, tab: Tab): Tab =>
+  mode === "essential" && !ESSENTIAL_TABS.includes(tab) ? "overview" : tab;
+
+const MODES: readonly { value: Mode; label: string }[] = [
+  { value: "essential", label: "Essential" },
+  { value: "advanced", label: "Advanced" },
+];
+
+const MODE_KEY = "codeflow-mode";
+
+/** The mode this browser last chose, for links that don't say. */
+function rememberedMode(): Mode | null {
+  try {
+    const saved = localStorage.getItem(MODE_KEY);
+    return saved === "essential" || saved === "advanced" ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberMode(mode: Mode): void {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // Not remembered, then: the link still carries it.
+  }
+}
 
 /** The breakdown asked for, if the selection offers it, or else the selection's default. */
 function breakdownOf(choices: Choices, state: ReportState): Breakdown | null {
@@ -595,10 +676,21 @@ function useHashState(
 ): [ReportState, (update: (s: ReportState) => ReportState) => void] {
   const read = () => {
     const state = readState(location.hash);
-    const tab = state.tab === "setup" && !canSetup ? "overview" : state.tab;
-    return { ...state, tab, selection: validSelection(choices, state.selection) };
+    // A link that doesn't name a mode opens in the one this browser last chose.
+    const mode = /(^|[#&])mode=/.test(location.hash)
+      ? state.mode
+      : (rememberedMode() ?? state.mode);
+    const tab = tabIn(mode, state.tab === "setup" && !canSetup ? "overview" : state.tab);
+    return { ...state, mode, tab, selection: validSelection(choices, state.selection) };
   };
-  const [state, setState] = useState<ReportState>(read);
+  const [state, setState] = useState<ReportState>(() => {
+    const first = read();
+    // The link said nothing of the mode, or named a tab the mode leaves out: say what is shown.
+    if (writeState(first) !== writeState(readState(location.hash))) {
+      history.replaceState(null, "", writeState(first));
+    }
+    return first;
+  });
   useEffect(() => {
     const onHash = () => {
       setState(read());

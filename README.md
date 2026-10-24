@@ -59,9 +59,12 @@ who prefer it.
 
 Every command takes `--org` to work on one org of several.
 
-The report has six tabs, each answering one question: Overview (faster or slower?), Speed
+The report has seven tabs, each answering one question: Overview (faster or slower?), Speed
 (where does the time go?), Review (is review holding us up?), Flow (what's stuck right now?),
-Compare (did the change work?) and Pull requests (which PRs are behind this number?). Every
+Compare (did the change work?), AI insights (how much of the work is AI-assisted, and how does it
+compare?) and Pull requests (which PRs are behind this number?). Essential mode, a switch by the
+tabs, keeps only Overview, AI insights and Pull requests, with their headline numbers, for readers
+new to flow metrics. Every
 number opens the PRs behind it. The view is in the URL, so a link can point at any tab,
 selection or filtered list.
 

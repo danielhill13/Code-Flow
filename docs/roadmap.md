@@ -53,6 +53,10 @@ size bands; the open-PR count at any moment; the revert rate on a 30-day lag. Fa
 review with its time, each reviewer's first response and the open state (`DERIVE_VERSION` 2).
 No view shows numbers for time before the synced data.
 
+AI insights (D57) show the share of PRs with an AI tool's markers, who uses them, which markers
+and tools, adoption by repo by month, and AI-assisted PRs against the rest; essential mode (D58)
+keeps three tabs and their headline numbers for newcomers.
+
 Teams are people with dated membership and products are repos and teams (D25), stamped on each
 fact at derive time (D27). The report looks at any selection of teams, products, repos and
 people, and breaks it down by team, product or repo (D26). `status`, `summary` and `doctor`

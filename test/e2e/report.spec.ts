@@ -3,7 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { BAD, numberIn, ready, tile } from "./helpers.ts";
 
 const REPORT = process.env.E2E_REPORT ?? "";
-const TABS = ["Overview", "Speed", "Review", "Flow", "Compare", "Pull requests"];
+const TABS = ["Overview", "Speed", "Review", "Flow", "Compare", "AI insights", "Pull requests"];
 
 /** Opens a tab and waits until it is the one shown, with its data. */
 async function openTab(page: Page, name: string): Promise<string> {
@@ -23,7 +23,7 @@ async function press(page: Page, name: string): Promise<string> {
 
 /** Chooses a window from the window menu: "30 days", "Month" (to date), "Q3 2026", … */
 async function pickWindow(page: Page, item: string): Promise<string> {
-  await page.locator(".window-button").click();
+  await page.locator(".controls .window-button").click();
   const menu = page.getByRole("dialog", { name: "Choose a window" });
   await menu.getByRole("button", { name: item, exact: true }).click();
   await expect(menu).toHaveCount(0);
@@ -47,7 +47,7 @@ test.afterEach(async ({ page }) => {
   expect((page as Page & { errors?: string[] }).errors ?? []).toEqual([]);
 });
 
-test("TC-501 opens offline from the file, with its org, its data-through date and six tabs [rule 12]", async ({
+test("TC-501 opens offline from the file, with its org, its data-through date and seven tabs [rule 12]", async ({
   page,
 }) => {
   await page.goto(REPORT);
@@ -380,4 +380,63 @@ test("TC-509 changes read as a neutral increase or decrease, in one unit", async
   for (const arrow of await arrows.all()) {
     expect(["increase", "decrease"]).toContain(await arrow.getAttribute("aria-label"));
   }
+});
+
+test("TC-512 AI insights show the share, who uses AI, which markers, and each PR's markers [rule 20]", async ({
+  page,
+}) => {
+  await page.goto(REPORT);
+  await ready(page);
+  await pickWindow(page, "90 days");
+  const text = await openTab(page, "AI insights");
+  expect(text).not.toMatch(BAD);
+  expect(await numberIn(page, "AI-assisted share of PRs")).toBeGreaterThan(0);
+  await expect(tile(page, "Contributors using AI")).toBeVisible();
+  for (const card of [
+    "AI-assisted PRs over time",
+    "Impact: AI-assisted PRs and the rest",
+    "Which markers were seen",
+    "Tools named",
+    "Adoption by repo, month by month",
+  ]) {
+    await expect(page.getByRole("heading", { name: card })).toBeVisible();
+  }
+
+  // A marker's row opens the PRs that show it, each with its markers.
+  await page.getByRole("link", { name: /^Signature/ }).click();
+  const list = await ready(page);
+  expect(list).toContain("AI marker · Signature");
+  await expect(page.locator(".ai-mark", { hasText: "signature" }).first()).toBeVisible();
+
+  // And a PR shows where each marker was seen.
+  await page.locator("a.row.dense").first().click();
+  const drawer = page.getByRole("complementary");
+  await expect(drawer).toContainText("AI markers");
+  await expect(drawer).toContainText("Generated with [Claude Code]");
+});
+
+test("TC-513 essential mode keeps three tabs and the headline numbers, and stays chosen", async ({
+  page,
+}) => {
+  await page.goto(REPORT);
+  await ready(page);
+  await press(page, "Essential");
+  const tabs = page.getByRole("navigation", { name: "Tabs" }).getByRole("link");
+  await expect(tabs).toHaveText(["Overview", "AI insights", "Pull requests"]);
+  await expect(page.getByRole("group", { name: "Statistic" })).toHaveCount(0);
+  await expect(page.getByText("Notes on the data")).toHaveCount(0);
+  expect(page.url()).toContain("mode=essential");
+
+  // Remembered: the report opens in it again, from a link that doesn't say.
+  await page.goto(REPORT);
+  await ready(page);
+  await expect(tabs).toHaveText(["Overview", "AI insights", "Pull requests"]);
+
+  const ai = await openTab(page, "AI insights");
+  expect(ai).toContain("AI-assisted PRs and the rest");
+  expect(ai).not.toContain("Which markers were seen");
+
+  await press(page, "Advanced");
+  await expect(tabs).toHaveCount(TABS.length);
+  await expect(page.getByRole("group", { name: "Statistic" })).toBeVisible();
 });

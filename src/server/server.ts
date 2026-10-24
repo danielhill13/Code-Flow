@@ -73,6 +73,7 @@ export const EDITABLE = {
     "local_copies",
     "ticket_pattern",
     "duplicates_by_work_item",
+    "ai_markers",
   ],
 } as const satisfies Record<string, readonly string[]>;
 
@@ -248,6 +249,7 @@ async function handle(
         review: () => s.review(query),
         flow: () => s.flow(query),
         compare: () => s.compare(query),
+        ai: () => s.ai(query),
         prs: () => s.prs(query),
       } as const;
       const view = views[route[1] as keyof typeof views];

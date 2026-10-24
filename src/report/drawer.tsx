@@ -3,6 +3,7 @@
 import { Fragment } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 import { PHASES } from "../core/aggregate.ts";
+import { AI_MARKER_HELP, AI_MARKER_LABELS } from "../core/ai.ts";
 import type { PrFact } from "../core/facts.ts";
 import { duration, hostOf, names, num, PHASE_LABELS, waitingOnText } from "../core/format.ts";
 import { REVERT_WINDOW_DAYS } from "../core/metrics.ts";
@@ -322,6 +323,32 @@ export function Drawer(props: {
               </>
             )}
           </div>
+        </section>
+
+        <section>
+          <div class="section-label">AI markers</div>
+          {pr.ai.length === 0 ? (
+            <span class="muted" style={{ fontSize: "12.5px" }}>
+              None found
+              {pr.truncated.includes("files") || pr.truncated.includes("commits")
+                ? `: ${hostOf(pr.url)} cut its file or commit list short, so some may be missing`
+                : ". It may still have had help: a tool that leaves no trace isn't seen."}
+            </span>
+          ) : (
+            <div class="facts">
+              {pr.ai.map((sign) => (
+                <Fragment key={sign.marker}>
+                  <span class="soft" title={AI_MARKER_HELP[sign.marker]}>
+                    {AI_MARKER_LABELS[sign.marker]}
+                  </span>
+                  <span class="clip" title={sign.where}>
+                    {sign.tool && sign.tool !== "Other" ? `${sign.tool} · ` : ""}
+                    {sign.where}
+                  </span>
+                </Fragment>
+              ))}
+            </div>
+          )}
         </section>
 
         <section style={{ borderBottom: "none" }}>

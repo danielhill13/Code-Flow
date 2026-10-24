@@ -25,10 +25,11 @@ const SORT_BY: Record<string, PrColumn> = {
   repushed: "merged",
   reverted: "merged",
   abandoned: "closed",
+  aiAssisted: "ai",
 };
 
 /** Shares whose interesting PRs are the ones it says yes to: the reverted, the re-pushed. */
-const YES_FIRST = new Set(["commented", "repushed", "reverted"]);
+const YES_FIRST = new Set(["commented", "repushed", "reverted", "aiAssisted"]);
 
 /**
  * The PRs behind a metric's value over a span: its population, narrowed to the PRs it has a

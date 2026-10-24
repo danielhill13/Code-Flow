@@ -164,7 +164,7 @@ here.
 
 | ID | Behaviour |
 | -- | --------- |
-| TC-501 | Opens offline from the file, with its org, its data-through date and six tabs |
+| TC-501 | Opens offline from the file, with its org, its data-through date and seven tabs |
 | TC-502 | Every tab, window and statistic shows numbers, never broken values |
 | TC-503 | A headline number opens the PRs behind it, and a PR opens how it was read |
 | TC-504 | The whole view lives in the URL: reload or share it and it comes back |
@@ -177,6 +177,8 @@ here.
 | TC-511 | A window can be a period to date (MTD, QTD, YTD), or one month, quarter or year, and stays in the link |
 | TC-618 | The PR list covers the periods chosen, two quarters at once, each PR counted once; Open lists are as of now |
 | TC-619 | The PR list shows the columns chosen, files changed among them, and keeps them in the link |
+| TC-512 | AI insights show the AI-assisted share, contributors using AI, which markers were seen, adoption by repo and month, and AI-assisted PRs against the rest; a marker opens its PRs, each showing where it was seen |
+| TC-513 | Essential mode keeps three tabs and the headline numbers, hides the statistic and contributor controls, and stays chosen in this browser and in the link |
 
 ### Setup in the served app (`test/e2e/serve.spec.ts`)
 

@@ -267,6 +267,60 @@
         "duplicates_by_work_item": {
           "default": false,
           "type": "boolean"
+        },
+        "ai_markers": {
+          "default": {},
+          "type": "object",
+          "properties": {
+            "files": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "text": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "branches": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "authors": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "ignore": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "thoughts",
+                  "claudeDir",
+                  "claudeMd",
+                  "agentFiles",
+                  "signature",
+                  "agentAuthor",
+                  "agentBranch"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import picomatch from "picomatch";
 import { asRule, type Config, loginsOf } from "../config/schema.ts";
+import { aiReader } from "../core/ai.ts";
 import { type ChurnClues, churnClues, linkChurn } from "../core/churn.ts";
 import { DEFAULT_PROMOTION_BRANCHES, type DeriveRules, derivePr } from "../core/derive.ts";
 import { linkDuplicates } from "../core/duplicates.ts";
@@ -46,6 +47,7 @@ export function deriveFacts(store: Store, config: Config): DeriveReport {
       raw: store.rawFingerprint(repo.id),
       lineChurn: store.lineChurnFingerprint(repo.id),
       tickets: [config.ticket_pattern ?? null, config.duplicates_by_work_item],
+      ai: config.ai_markers,
       churnDays: config.churn_window_days,
       measured,
       rules,
@@ -254,6 +256,7 @@ export function rulesFor(
   return {
     ticketPattern: config.ticket_pattern ? new RegExp(config.ticket_pattern, "i") : null,
     workItemTickets: config.duplicates_by_work_item,
+    aiSigns: aiReader(config.ai_markers),
     isMeasuredBranch: (_repo, branch) => isMeasured(branch),
     isPromotionBranch: (branch) => isPromotion(branch),
     classify,

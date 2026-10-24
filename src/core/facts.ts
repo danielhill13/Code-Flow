@@ -1,3 +1,4 @@
+import type { AiSign } from "./ai.ts";
 import type { PrState, Truncatable } from "./model.ts";
 import type { Bucket } from "./paths.ts";
 
@@ -5,7 +6,7 @@ import type { Bucket } from "./paths.ts";
  * Bump whenever derive's logic changes what a fact holds: every repo's facts are then derived
  * again on the next run, without fetching anything.
  */
-export const DERIVE_VERSION = 15;
+export const DERIVE_VERSION = 16;
 
 /**
  * Why a PR is not counted in flow metrics:
@@ -201,4 +202,10 @@ export type PrFact = {
    * What the identity list and merge suggestions are built from (decision D42).
    */
   identities: { login: string; name: string | null }[];
+
+  /**
+   * The AI markers the PR shows (core/ai.ts, decision D57), one per kind, in the report's order.
+   * Empty: none was found, which isn't proof no tool was used. AI-assisted means at least one.
+   */
+  ai: AiSign[];
 };

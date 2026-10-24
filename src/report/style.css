@@ -21,6 +21,7 @@
   --c-pickup: oklch(0.6 0.15 255);
   --c-review: oklch(0.68 0.13 305);
   --c-merge: oklch(0.8 0.12 80);
+  --c-ai: oklch(0.58 0.14 155);
   --shadow: 0 1px 2px rgba(16, 22, 30, 0.06);
   --backdrop: rgba(5, 8, 12, 0.28);
   color-scheme: light;
@@ -47,6 +48,7 @@
     --c-pickup: oklch(0.66 0.14 255);
     --c-review: oklch(0.7 0.12 305);
     --c-merge: oklch(0.8 0.11 80);
+    --c-ai: oklch(0.72 0.13 155);
     --shadow: none;
     --backdrop: rgba(0, 0, 0, 0.5);
     color-scheme: dark;
@@ -73,6 +75,7 @@
   --c-pickup: oklch(0.66 0.14 255);
   --c-review: oklch(0.7 0.12 305);
   --c-merge: oklch(0.8 0.11 80);
+  --c-ai: oklch(0.72 0.13 155);
   --shadow: none;
   --backdrop: rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -367,6 +370,8 @@ h2 {
   display: flex;
   gap: 26px;
   overflow-x: auto;
+  /* Holds the mode switch's hidden legend inside the scroll, not past the page's edge. */
+  position: relative;
 }
 
 .tabs a {
@@ -380,6 +385,12 @@ h2 {
 
 .tabs a:hover {
   color: var(--text);
+}
+
+.tabs-end {
+  margin-left: auto;
+  align-self: center;
+  padding-left: 12px;
 }
 
 .tabs a.current {
@@ -2317,4 +2328,124 @@ summary {
   border-top: 1px solid var(--line);
   margin-top: 6px;
   padding-top: 8px;
+}
+
+/* AI insights (decision D57) */
+.ai-trend {
+  display: flex;
+  gap: 6px;
+  height: 130px;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line2);
+}
+
+.ai-trend a {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--bar);
+  border-radius: 2px 2px 0 0;
+  overflow: hidden;
+}
+
+.ai-trend a.partial {
+  opacity: 0.55;
+}
+
+.ai-trend a.missing {
+  background: transparent;
+  border: 1px dashed var(--line2);
+}
+
+.ai-trend a:hover {
+  opacity: 0.8;
+}
+
+.ai-part {
+  display: block;
+  background: var(--c-ai);
+}
+
+.ai-trend-axis {
+  display: flex;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text3);
+}
+
+.ai-tick {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ai-swatch,
+.hbar.ai-bar {
+  background: var(--c-ai);
+}
+
+.ai-depth {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.ai-depth a {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+
+.ai-depth a:hover {
+  background: var(--hover);
+}
+
+.ai-cell {
+  text-align: center;
+  border-radius: 3px;
+  padding: 3px 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in oklch, var(--c-ai) calc(var(--ai-share, 0) * 85%), transparent);
+}
+
+a.ai-cell:hover {
+  outline: 1px solid var(--line2);
+}
+
+.ai-cell.missing {
+  background: repeating-linear-gradient(135deg, transparent 0 4px, var(--surface2) 4px 6px);
+  min-height: 18px;
+}
+
+.ai-n {
+  font-size: 11px;
+}
+
+.ai-period {
+  text-align: left;
+  color: var(--text);
+}
+
+.ai-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.ai-mark {
+  font-size: 11px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--c-ai) 22%, transparent);
+  white-space: nowrap;
 }

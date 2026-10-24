@@ -3,6 +3,7 @@ import type { Groups } from "./groups.ts";
 import { DEFAULT_CHURN_DAYS, DEFAULT_SIZE_TARGET } from "./metrics.ts";
 import { type Choices, choices } from "./selection.ts";
 import { DEFAULT_STALE_DAYS } from "./stale.ts";
+import { type AiModel, type AiQuery, ai } from "./views/ai.ts";
 import { type CompareModel, type CompareQuery, compare } from "./views/compare.ts";
 import type { ViewContext, ViewQuery } from "./views/context.ts";
 import { type FlowModel, flow } from "./views/flow.ts";
@@ -63,6 +64,7 @@ export interface DataSource {
   review(q: ViewQuery): Promise<ReviewModel>;
   flow(q: ViewQuery): Promise<FlowModel>;
   compare(q: CompareQuery): Promise<CompareModel>;
+  ai(q: AiQuery): Promise<AiModel>;
   prs(q: PrQuery): Promise<PrListModel>;
   pr(id: string): Promise<PrFact | null>;
 }
@@ -112,6 +114,10 @@ export class EmbeddedSource implements DataSource {
 
   async compare(q: CompareQuery): Promise<CompareModel> {
     return compare(this.#ctx, q);
+  }
+
+  async ai(q: AiQuery): Promise<AiModel> {
+    return ai(this.#ctx, q);
   }
 
   async prs(q: PrQuery): Promise<PrListModel> {

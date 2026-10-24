@@ -1,3 +1,4 @@
+import { AI_MARKER_LABELS, AI_MARKER_SHORT } from "../../core/ai.ts";
 import type { PrFact } from "../../core/facts.ts";
 import { duration, num, waitingOnText } from "../../core/format.ts";
 import { isCatchAll, isInternal } from "../../core/selection.ts";
@@ -42,6 +43,7 @@ const COLUMN: Record<PrColumn | "waiting", Omit<Column, "key">> = {
   state: { label: "State", width: "150px" },
   quiet: { label: "Quiet for", width: "84px" },
   waiting: { label: "Waiting on", width: "minmax(190px,.7fr)" },
+  ai: { label: "AI markers", width: "minmax(130px,.5fr)" },
 };
 
 /** What each column is called in the columns menu. */
@@ -64,6 +66,7 @@ const COLUMN_NAME: Record<PrColumn, string> = {
   reviews: "Reviews",
   state: "State",
   quiet: "Quiet for",
+  ai: "AI markers",
 };
 
 function columnsOf(list: ListState): Column[] {
@@ -315,5 +318,20 @@ function Cell(props: { column: PrColumn | "waiting"; pr: PrFact; sorted: boolean
       );
     case "waiting":
       return <span class="soft">{waitingOnText(pr, asOf)}</span>;
+    case "ai":
+      return pr.ai.length === 0 ? (
+        <span class="muted">None</span>
+      ) : (
+        <span
+          class="ai-marks"
+          title={pr.ai.map((sign) => `${AI_MARKER_LABELS[sign.marker]}: ${sign.where}`).join("\n")}
+        >
+          {pr.ai.map((sign) => (
+            <span key={sign.marker} class="ai-mark">
+              {AI_MARKER_SHORT[sign.marker]}
+            </span>
+          ))}
+        </span>
+      );
   }
 }

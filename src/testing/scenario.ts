@@ -172,6 +172,11 @@ function everyday(
       fork: outside,
       draft: recent && i % 3 === 0,
       labels: chore ? ["chore"] : [],
+      // Some PRs show AI markers: a signature in the description, an agent's branch.
+      ...(i % 5 === 1 && {
+        body: "Tidies it up.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+      }),
+      ...(i % 7 === 2 && { head: `claude/${repo}-${1 + i}` }),
       files: [
         { path: `src/${repo}/part${i}.ts`, additions: 10 + ((i * 37) % 400), deletions: i % 23 },
         // Some code is changed again soon after it merges: churn has something to find.

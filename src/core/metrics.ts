@@ -9,7 +9,7 @@ import type { PrFact } from "./facts.ts";
  */
 export type Population = "merged" | "ended";
 
-export type MetricGroup = "Speed" | "Throughput" | "Review" | "Stability" | "Flow";
+export type MetricGroup = "Speed" | "Throughput" | "Review" | "Stability" | "Flow" | "AI";
 
 /** What a metric can see besides the PR itself. */
 export type MetricContext = {
@@ -330,6 +330,16 @@ export const METRICS: readonly Metric[] = [
     population: "ended",
     test: (pr) => pr.state === "closed",
     definition: "Of PRs that ended during the period: closed without merging.",
+  },
+  {
+    key: "aiAssisted",
+    label: "AI-assisted",
+    group: "AI",
+    kind: "share",
+    population: "merged",
+    test: (pr) => pr.ai.length > 0,
+    definition:
+      'Of merged PRs: showing at least one AI marker, such as a thoughts/ or .claude/ folder, a CLAUDE.md, an agent\'s branch or a "Generated with" signature. A PR without one may still have had help.',
   },
 ];
 

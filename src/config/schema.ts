@@ -137,6 +137,34 @@ const BotsSchema = z.strictObject({
   ignore_bodies: z.array(Regex).default([]),
 });
 
+/**
+ * The org's own AI markers (decision D57), besides the built-in ones, and built-in ones it doesn't
+ * trust: a team whose thoughts/ folder holds human notes ignores `thoughts`.
+ */
+const AiMarkersSchema = z.strictObject({
+  /** Paths whose change marks a PR as AI-assisted. */
+  files: z.array(Pattern).default([]),
+  /** Regular expressions (ignoring case) for the title, description and commit messages. */
+  text: z.array(Regex).default([]),
+  /** Head branch names. */
+  branches: z.array(Pattern).default([]),
+  /** Logins of the org's own agents. */
+  authors: z.array(Pattern).default([]),
+  ignore: z
+    .array(
+      z.enum([
+        "thoughts",
+        "claudeDir",
+        "claudeMd",
+        "agentFiles",
+        "signature",
+        "agentAuthor",
+        "agentBranch",
+      ]),
+    )
+    .default([]),
+});
+
 const PathRuleSchema = z.strictObject({
   match: z.union([Pattern, z.array(Pattern).min(1)]).transform((m) => (Array.isArray(m) ? m : [m])),
   bucket: z.enum(BUCKETS),
@@ -433,6 +461,8 @@ const settingsShape = {
    * links: one more request per PR, once; unchanged PRs aren't read again.
    */
   duplicates_by_work_item: z.boolean().default(false),
+  /** The org's own AI markers, and built-in ones to ignore (decision D57). */
+  ai_markers: AiMarkersSchema.prefault({}),
 };
 
 /** What to measure, before an org exists: what the web app's first steps ask for. */
